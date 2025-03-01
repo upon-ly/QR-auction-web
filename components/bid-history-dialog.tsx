@@ -15,6 +15,7 @@ interface BidHistoryDialogProps {
   isOpen: boolean;
   onClose: () => void;
   auctionId: number;
+  latestId: number;
 }
 
 type AuctionType = {
@@ -30,6 +31,7 @@ export function BidHistoryDialog({
   isOpen,
   onClose,
   auctionId,
+  latestId,
 }: BidHistoryDialogProps) {
   const [auctionBids, setAuctionBids] = useState<AuctionType[]>([]);
   const { fetchHistoricalAuctions } = useFetchBids();
@@ -38,7 +40,10 @@ export function BidHistoryDialog({
     const fetchData = async () => {
       const data = await fetchHistoricalAuctions();
       if (data !== undefined) {
-        setAuctionBids(data);
+        const filtered = data.filter(
+          (val) => Number(val.tokenId) === auctionId
+        );
+        setAuctionBids(filtered);
       }
     };
 
@@ -57,17 +62,17 @@ export function BidHistoryDialog({
         </DialogHeader>
         {auctionBids.length > 0 && (
           <div className="space-y-4 mt-4">
-            {auctionBids
-              .filter((val) => Number(val.tokenId) === auctionId)
-              .map((bid, index) => (
-                <BidCellView key={index} bid={bid} />
-              ))}
+            {auctionBids.map((bid, index) => (
+              <BidCellView key={index} bid={bid} />
+            ))}
           </div>
         )}
         {auctionBids.length == 0 && (
           <div className="space-y-4 mt-4">
             <span className="font-normal">
-              Be the first to bid and set the pace—place your bid now
+              {auctionId === latestId
+                ? "Be the first to bid and set the pace—place your bid now"
+                : "No Bids were placed"}
             </span>
           </div>
         )}

@@ -88,8 +88,8 @@ export default function Home() {
             date={formatDate(currentAuction?.startTime || 0n)}
             isLatest={currentAuctionId === LATEST_AUCTION_ID.current}
           />
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="flex items-center justify-center p-14 border-gray-600 border border-solid  bg-white rounded-lg">
+          <div className="grid md:grid-cols-2 gap-4 md:gap-8">
+            <div className="flex items-center justify-center p-10 md:p-14 border-gray-600 border border-solid  bg-white rounded-lg">
               <QRPage />
             </div>
             <AuctionDetails id={currentAuctionId} />

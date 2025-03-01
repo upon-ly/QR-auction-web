@@ -123,7 +123,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                     <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-1">
                         <div className="text-gray-600">Current bid</div>
-                        <div className="text-2xl font-bold">
+                        <div className="text-xl md:text-2xl font-bold">
                           {formatEther(
                             auctionDetail?.highestBid
                               ? auctionDetail.highestBid
@@ -137,7 +137,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                       {!isComplete && (
                         <div className="space-y-1">
                           <div className="text-gray-600">Time left</div>
-                          <div className="text-2xl font-bold whitespace-nowrap">
+                          <div className="text-xl md:text-2xl font-bold whitespace-nowrap">
                             {time}
                           </div>
                         </div>
@@ -236,6 +236,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
             isOpen={showBidHistory}
             onClose={() => setShowBidHistory(false)}
             auctionId={id}
+            latestId={Number(auctionDetail?.tokenId || id)}
           />
         </>
       )}

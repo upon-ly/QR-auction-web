@@ -41,7 +41,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       <div className="flex justify-between items-start">
         <div>
           <div className="text-gray-600">Winning bid</div>
-          <div className="text-2xl font-bold">
+          <div className="text-xl md:text-2xl font-bold">
             {formatEther(winnerdata?.amount || 0n)} ETH
           </div>
         </div>
