@@ -63,9 +63,7 @@ export function BidCellView({ bid }: { bid: AuctionType }) {
       <div className="flex items-center space-x-3 min-w-0">
         <Avatar className="h-8 w-8">
           <AvatarImage src="/placeholder.svg" alt="User avatar" />
-          <AvatarFallback>
-            {bid.bidder.slice(1, 3).toUpperCase()}
-          </AvatarFallback>
+          <AvatarFallback>{bid.bidder.slice(0, 2)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
           <p className="font-medium truncate">{ensName}</p>

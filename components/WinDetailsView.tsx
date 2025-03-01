@@ -50,9 +50,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7">
               <AvatarImage src="/placeholder.svg" alt="User avatar" />
-              <AvatarFallback>
-                {winnerdata.winner.slice(1, 3).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback>{winnerdata.winner.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <span>{ensName}</span>
           </div>
