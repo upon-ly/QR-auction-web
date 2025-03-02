@@ -246,6 +246,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
         onClose={() => setShowBidHistory(false)}
         auctionId={id}
         latestId={Number(auctionDetail?.tokenId || id)}
+        isComplete={isComplete}
       />
     </div>
   );

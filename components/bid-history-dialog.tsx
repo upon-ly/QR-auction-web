@@ -16,6 +16,7 @@ interface BidHistoryDialogProps {
   onClose: () => void;
   auctionId: number;
   latestId: number;
+  isComplete: boolean;
 }
 
 type AuctionType = {
@@ -32,6 +33,7 @@ export function BidHistoryDialog({
   onClose,
   auctionId,
   latestId,
+  isComplete,
 }: BidHistoryDialogProps) {
   const [auctionBids, setAuctionBids] = useState<AuctionType[]>([]);
   const { fetchHistoricalAuctions } = useFetchBids();
@@ -70,7 +72,7 @@ export function BidHistoryDialog({
         {auctionBids.length == 0 && (
           <div className="space-y-4 mt-4">
             <span className="font-normal">
-              {auctionId === latestId
+              {auctionId === latestId && !isComplete
                 ? "Be the first to bid and set the pace—place your bid now"
                 : "No Bids were placed"}
             </span>

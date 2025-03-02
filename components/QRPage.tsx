@@ -20,7 +20,7 @@ export function QRPage() {
   }, []);
 
   if (qrDataUrl !== "") {
-    return <img src={qrDataUrl} alt="QR Code" className="flex-1" />;
+    return <img src={qrDataUrl} alt="QR Code" className="md:flex-1" />;
   } else {
     return <p>Loading QR code...</p>;
   }
