@@ -5,13 +5,13 @@ import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
 import { useEffect, useState } from "react";
 import { Link2 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RandomColorAvatar } from "./RandomAvatar";
 
 type AuctionType = {
   tokenId: bigint;
@@ -61,10 +61,7 @@ export function BidCellView({ bid }: { bid: AuctionType }) {
   return (
     <div className="flex items-center justify-between py-2 group">
       <div className="flex items-center space-x-3 min-w-0">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src="/placeholder.svg" alt="User avatar" />
-          <AvatarFallback>{bid.bidder.slice(0, 2)}</AvatarFallback>
-        </Avatar>
+        <RandomColorAvatar />
         <div className="min-w-0">
           <p className="font-medium truncate">{ensName}</p>
           <TooltipProvider>

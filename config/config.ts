@@ -11,7 +11,7 @@ const chains =
     : ([baseSepolia] as const);
 
 export const config = getDefaultConfig({
-  appName: "UBI",
+  appName: "QR auction",
   projectId: projectId,
   chains: chains,
   transports: {

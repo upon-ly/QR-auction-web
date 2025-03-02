@@ -5,7 +5,7 @@ import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { RandomColorAvatar } from "./RandomAvatar";
 
 type AuctionType = {
   tokenId: bigint;
@@ -48,10 +48,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
         <div>
           <div className="text-gray-600">Won by</div>
           <div className="flex items-center gap-2">
-            <Avatar className="h-7 w-7">
-              <AvatarImage src="/placeholder.svg" alt="User avatar" />
-              <AvatarFallback>{winnerdata.winner.slice(0, 2)}</AvatarFallback>
-            </Avatar>
+            <RandomColorAvatar />
             <span>{ensName}</span>
           </div>
         </div>

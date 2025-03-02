@@ -92,11 +92,14 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
     const refetchDetails = async () => {
       await refetch();
       await refetchSettings();
-      setIsLoading(false);
+
+      if (auctionDetail !== undefined) {
+        setIsLoading(false);
+      }
     };
     setIsLoading(true);
     refetchDetails();
-  }, [auctionDetail?.tokenId, refetch, id]);
+  }, [auctionDetail?.tokenId, id]);
 
   useEffect(() => {
     const ftSetled = async () => {
@@ -111,144 +114,139 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
 
   return (
     <div className="space-y-6">
-      {!isLoading && (
-        <>
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold">QR #{id}</h1>
+      <div className="space-y-4">
+        <h1 className="text-4xl font-bold">QR #{id}</h1>
+        {isLoading && (
+          <div className="flex flex-col space-y-3">
+            <Skeleton className="h-[125px] w-full rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[250px]" />
+              <Skeleton className="h-4 w-[200px]" />
+            </div>
+          </div>
+        )}
 
-            {auctionDetail && Number(auctionDetail.tokenId) === id && (
-              <>
-                {!auctionDetail.settled ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-8">
+        {auctionDetail &&
+          Number(auctionDetail.tokenId) === id &&
+          !isLoading && (
+            <>
+              {!auctionDetail.settled ? (
+                <>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-1">
+                      <div className="text-gray-600">Current bid</div>
+                      <div className="text-xl md:text-2xl font-bold">
+                        {formatEther(
+                          auctionDetail?.highestBid
+                            ? auctionDetail.highestBid
+                            : settingDetail?.reservePrice
+                            ? settingDetail.reservePrice
+                            : 0n
+                        )}{" "}
+                        ETH
+                      </div>
+                    </div>
+                    {!isComplete && (
                       <div className="space-y-1">
-                        <div className="text-gray-600">Current bid</div>
-                        <div className="text-xl md:text-2xl font-bold">
-                          {formatEther(
-                            auctionDetail?.highestBid
-                              ? auctionDetail.highestBid
-                              : settingDetail?.reservePrice
-                              ? settingDetail.reservePrice
-                              : 0n
-                          )}{" "}
-                          ETH
+                        <div className="text-gray-600">Time left</div>
+                        <div className="text-xl md:text-2xl font-bold whitespace-nowrap">
+                          {time}
                         </div>
                       </div>
-                      {!isComplete && (
-                        <div className="space-y-1">
-                          <div className="text-gray-600">Time left</div>
-                          <div className="text-xl md:text-2xl font-bold whitespace-nowrap">
-                            {time}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="space-y-4">
-                      {!isComplete && (
-                        <BidForm
-                          auctionDetail={auctionDetail}
-                          settingDetail={settingDetail}
-                          onSuccess={updateDetails}
-                        />
-                      )}
-                      {isComplete && (
-                        <Button
-                          className="px-8 bg-gray-900 hover:bg-gray-800"
-                          onClick={handleSettle}
-                        >
-                          Settle and create auction
-                        </Button>
-                      )}
+                  <div className="space-y-4">
+                    {!isComplete && (
+                      <BidForm
+                        auctionDetail={auctionDetail}
+                        settingDetail={settingDetail}
+                        onSuccess={updateDetails}
+                      />
+                    )}
+                    {isComplete && (
+                      <Button
+                        className="px-8 bg-gray-900 hover:bg-gray-800"
+                        onClick={handleSettle}
+                      >
+                        Settle and create auction
+                      </Button>
+                    )}
 
-                      {auctionDetail && auctionDetail.highestBidder && (
-                        <button
-                          onClick={() => setShowBidHistory(true)}
-                          className="block text-gray-600 underline"
-                        >
-                          Highest bidder: {auctionDetail.highestBidder}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-gray-600">Winning bid</div>
-                        <div className="text-2xl font-bold">
-                          {auctionDetail?.highestBid || "0"} ETH
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-600">Won by</div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-gray-200 rounded-full" />
-                          <span>
-                            {auctionDetail?.highestBidder || "Unknown"}
-                          </span>
-                        </div>
+                    {auctionDetail && auctionDetail.highestBidder && (
+                      <button
+                        onClick={() => setShowBidHistory(true)}
+                        className="block text-gray-600 underline"
+                      >
+                        Highest bidder: {auctionDetail.highestBidder}
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-gray-600">Winning bid</div>
+                      <div className="text-2xl font-bold">
+                        {auctionDetail?.highestBid || "0"} ETH
                       </div>
                     </div>
+                    <div>
+                      <div className="text-gray-600">Won by</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-gray-200 rounded-full" />
+                        <span>{auctionDetail?.highestBidder || "Unknown"}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                    <Button
-                      className="w-full bg-gray-900 hover:bg-gray-800"
-                      onClick={() =>
-                        window.open(
-                          auctionDetail?.qrMetadata.urlString,
-                          "_blank"
-                        )
-                      }
-                    >
-                      Visit Winning Site
-                    </Button>
+                  <Button
+                    className="w-full bg-gray-900 hover:bg-gray-800"
+                    onClick={() =>
+                      window.open(auctionDetail?.qrMetadata.urlString, "_blank")
+                    }
+                  >
+                    Visit Winning Site
+                  </Button>
 
-                    <button
-                      onClick={() => setShowBidHistory(true)}
-                      className="block text-gray-600 underline"
-                    >
-                      Bid history (9)
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+                  <button
+                    onClick={() => setShowBidHistory(true)}
+                    className="block text-gray-600 underline"
+                  >
+                    Bid history (9)
+                  </button>
+                </>
+              )}
+            </>
+          )}
 
-            {auctionDetail && Number(auctionDetail.tokenId) !== id && (
-              <>
-                <WinDetailsView
-                  tokenId={currentSettledAuction?.tokenId || 0n}
-                  winner={currentSettledAuction?.winner || "0x"}
-                  amount={currentSettledAuction?.amount || 0n}
-                  url={currentSettledAuction?.url || ""}
-                />
-                <button
-                  onClick={() => setShowBidHistory(true)}
-                  className="block text-gray-600 underline"
-                >
-                  Previous bids
-                </button>
-              </>
-            )}
-          </div>
+        {auctionDetail &&
+          Number(auctionDetail.tokenId) !== id &&
+          !isLoading && (
+            <>
+              <WinDetailsView
+                tokenId={currentSettledAuction?.tokenId || 0n}
+                winner={currentSettledAuction?.winner || "0x"}
+                amount={currentSettledAuction?.amount || 0n}
+                url={currentSettledAuction?.url || ""}
+              />
+              <button
+                onClick={() => setShowBidHistory(true)}
+                className="block text-gray-600 underline"
+              >
+                Previous bids
+              </button>
+            </>
+          )}
+      </div>
 
-          <BidHistoryDialog
-            isOpen={showBidHistory}
-            onClose={() => setShowBidHistory(false)}
-            auctionId={id}
-            latestId={Number(auctionDetail?.tokenId || id)}
-          />
-        </>
-      )}
-      {isLoading && (
-        <div className="flex flex-col space-y-3">
-          <Skeleton className="h-[125px] w-full rounded-xl" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-[250px]" />
-            <Skeleton className="h-4 w-[200px]" />
-          </div>
-        </div>
-      )}
+      <BidHistoryDialog
+        isOpen={showBidHistory}
+        onClose={() => setShowBidHistory(false)}
+        auctionId={id}
+        latestId={Number(auctionDetail?.tokenId || id)}
+      />
     </div>
   );
 }

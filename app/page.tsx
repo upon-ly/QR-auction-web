@@ -17,6 +17,8 @@ export default function Home() {
 
   const { auctions } = useFetchAuctions();
 
+  const DEFAULT_DATE = Math.floor(Date.now() / 1000);
+
   const LATEST_AUCTION_ID = useRef(0);
   const EARLIEST_AUCTION_ID = 1;
 
@@ -64,7 +66,7 @@ export default function Home() {
       if (LATEST_AUCTION_ID.current !== lastAuctionId) {
         LATEST_AUCTION_ID.current = lastAuctionId;
         setCurrentAuctionId(lastAuctionId);
-        setIsLoading(false);
+        setIsLoading(lastAuctionId !== 0 ? false : true);
       }
     } else {
       setIsLoading(false);
@@ -78,35 +80,35 @@ export default function Home() {
         <ConnectButton />
       </nav>
 
-      {!isLoading && (
-        <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto">
+        {!isLoading && (
           <AuctionNavigation
             currentId={currentAuctionId}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onLatest={handleLatest}
-            date={formatDate(currentAuction?.startTime || 0n)}
+            date={formatDate(currentAuction?.startTime || BigInt(DEFAULT_DATE))}
             isLatest={currentAuctionId === LATEST_AUCTION_ID.current}
           />
-          <div className="grid md:grid-cols-2 gap-4 md:gap-8">
+        )}
+        {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
+        <div className="grid md:grid-cols-2 gap-4 md:gap-8">
+          {!isLoading && currentAuctionId !== 0 && (
             <div className="flex items-center justify-center p-10 md:p-14 border-gray-600 border border-solid  bg-white rounded-lg">
               <QRPage />
             </div>
-            <AuctionDetails id={currentAuctionId} />
-          </div>
-        </div>
-      )}
-      {isLoading && (
-        <div className="max-w-3xl mx-auto">
-          <Skeleton className="h-[40px] w-full mb-4" />
-          <div className="grid md:grid-cols-2 gap-8">
+          )}
+          {isLoading && (
             <div className="flex items-start justify-start border-gray-600 rounded-lg">
               <Skeleton className="h-[250px] w-full md:w-3xl rounded-xl" />
             </div>
-            <Skeleton className="flex-1" />
-          </div>
+          )}
+          {!isLoading && currentAuctionId !== 0 && (
+            <AuctionDetails id={currentAuctionId} />
+          )}
+          {isLoading && <Skeleton className="flex-1" />}
         </div>
-      )}
+      </div>
     </main>
   );
 }
