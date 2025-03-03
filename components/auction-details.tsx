@@ -166,7 +166,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                     )}
                     {isComplete && (
                       <Button
-                        className="px-8 bg-gray-900 hover:bg-gray-800"
+                        className="px-8 h-12 bg-gray-900 hover:bg-gray-800"
                         onClick={handleSettle}
                       >
                         Settle and create auction

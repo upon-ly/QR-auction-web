@@ -31,7 +31,6 @@ export function WinDetailsView(winnerdata: AuctionType) {
           `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
       );
     };
-    console.log(winnerdata.url);
 
     fetch();
   }, [winnerdata]);
@@ -55,7 +54,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       </div>
 
       <Button
-        className="w-full bg-gray-900 hover:bg-gray-800"
+        className="w-full h-12 bg-gray-900 hover:bg-gray-800"
         onClick={() => window.open(winnerdata.url)}
       >
         Visit winning site

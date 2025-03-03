@@ -94,7 +94,7 @@ export default function Home() {
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
         <div className="grid md:grid-cols-2 gap-4 md:gap-8">
           {!isLoading && currentAuctionId !== 0 && (
-            <div className="flex items-center justify-center p-10 h-[200px] md:h-full md:p-14 border-gray-600 border border-solid  bg-white rounded-lg">
+            <div className="flex items-center justify-center p-10 h-[200px] md:h-full md:p-14 bg-white rounded-lg">
               <QRPage />
             </div>
           )}

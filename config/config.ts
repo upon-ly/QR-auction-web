@@ -14,6 +14,8 @@ export const config = getDefaultConfig({
   appName: "QR auction",
   projectId: projectId,
   chains: chains,
+  appIcon:
+    "https://dd.dexscreener.com/ds-data/tokens/base/0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf.png?size=lg&key=c66166",
   transports: {
     [baseSepolia.id]: http(
       `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
@@ -29,6 +31,8 @@ export const fetchConfig = getDefaultConfig({
   appName: "UBI",
   projectId: projectId,
   chains: chains,
+  appIcon:
+    "https://dd.dexscreener.com/ds-data/tokens/base/0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf.png?size=lg&key=c66166",
   transports: {
     [baseSepolia.id]: http(
       `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
