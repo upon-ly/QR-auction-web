@@ -77,7 +77,22 @@ export default function Home() {
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">QR Auction</h1>
-        <ConnectButton />
+        <div className="flex items-center gap-3">
+          <a
+            href={`${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-700 hover:text-gray-900 font-medium transition-colors"
+          >
+            <span className="underline underline-offset-2">Buy $QR</span>
+          </a>
+          <ConnectButton
+            accountStatus={{
+              smallScreen: "avatar",
+              largeScreen: "full",
+            }}
+          />
+        </div>
       </nav>
 
       <div className="max-w-3xl mx-auto">

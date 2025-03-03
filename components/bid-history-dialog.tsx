@@ -45,6 +45,11 @@ export function BidHistoryDialog({
         const filtered = data.filter(
           (val) => Number(val.tokenId) === auctionId
         );
+        filtered.sort((a, b) => {
+          if (a.amount < b.amount) return 1;
+          if (a.amount > b.amount) return -1;
+          return 0;
+        });
         setAuctionBids(filtered);
       }
     };
@@ -74,7 +79,7 @@ export function BidHistoryDialog({
             <span className="font-normal">
               {auctionId === latestId && !isComplete
                 ? "Be the first to bid and set the pace—place your bid now"
-                : "No Bids were placed"}
+                : "No bids were placed"}
             </span>
           </div>
         )}

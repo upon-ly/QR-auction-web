@@ -105,7 +105,7 @@ export function BidForm({
         <div className="relative flex-1">
           <Input
             type="number"
-            min={minimumBid + 0.0001}
+            min={(minimumBid + 0.0001).toFixed(4)}
             step="any"
             placeholder={`${(minimumBid + 0.0001).toFixed(4)} or more`}
             className="pr-16 border p-2 w-full"
