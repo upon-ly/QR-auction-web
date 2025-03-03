@@ -31,13 +31,7 @@ export function BidForm({
 
   // Calculate the minimum bid value from the contract data
   const minimumBid = Number(
-    formatEther(
-      auctionDetail?.highestBid
-        ? auctionDetail.highestBid
-        : settingDetail?.reservePrice
-        ? settingDetail.reservePrice
-        : 0n
-    )
+    formatEther(auctionDetail?.highestBid ? auctionDetail.highestBid : 0n)
   );
 
   // Define the schema using the computed minimum
@@ -47,7 +41,7 @@ export function BidForm({
         invalid_type_error: "Bid must be a number",
       })
       .min(
-        minimumBid,
+        Number((minimumBid + 0.0001).toFixed(4)),
         `Bid must be at least ${(minimumBid + 0.0001).toFixed(4)}`
       ),
     url: z.string().url("Invalid URL"),

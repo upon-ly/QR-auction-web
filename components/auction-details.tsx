@@ -139,8 +139,6 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                         {formatEther(
                           auctionDetail?.highestBid
                             ? auctionDetail.highestBid
-                            : settingDetail?.reservePrice
-                            ? settingDetail.reservePrice
                             : 0n
                         )}{" "}
                         ETH
