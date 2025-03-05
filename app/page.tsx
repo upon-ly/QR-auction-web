@@ -14,6 +14,7 @@ import { useFetchAuctions } from "../hooks/useFetchAuctions";
 import { XLogo } from "@/components/XLogo";
 import { DexscreenerLogo } from "@/components/DexScannerLogo";
 import { UniswapLogo } from "@/components/UniswapLogo";
+import { toast } from "sonner";
 
 export default function Home() {
   const [currentAuctionId, setCurrentAuctionId] = useState(0);
@@ -55,6 +56,8 @@ export default function Home() {
     navigator.clipboard.writeText(contractAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+
+    toast.info("CA copied!");
   };
 
   const formatDate = (timestamp: bigint) => {
@@ -170,13 +173,11 @@ export default function Home() {
             <UniswapLogo />
           </a>
         </div>
-        <a
-          href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[11px] font-mono whitespace-nowrap"
+        <div
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[11px] font-mono whitespace-nowrap cursor-pointer"
+          onClick={copyToClipboard}
         >
-          <span className="mr-1">CA: {contractAddress}</span>
+          <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>
           <button
             onClick={copyToClipboard}
             className="p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -185,10 +186,10 @@ export default function Home() {
             {copied ? (
               <Check className="h-3 w-3 text-green-500" />
             ) : (
-              <Copy className="h-3 w-3" />
+              <Copy className="h-3 w-3 cursor-pointer" />
             )}
           </button>
-        </a>
+        </div>
       </footer>
     </main>
   );

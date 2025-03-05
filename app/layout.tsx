@@ -19,7 +19,28 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "QR Auction",
-  description: "",
+  description:
+    "A daily auction bid to control which website the QR points to next",
+  icons: "https://qrcoin.fun/qrLogo.png",
+  openGraph: {
+    url: "https://www.qrcoin.fun",
+    images: [
+      {
+        url: "https://qrcoin.fun/opgIMage.png",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "QR Auction",
+    description:
+      "A daily auction bid to control which website the QR points to next",
+    images: {
+      url: "https://qrcoin.fun/opgIMage.png",
+      alt: "QRCoinDotFun Logo",
+    },
+    creator: "@QRcoindotfun",
+  },
 };
 
 export default function RootLayout({
