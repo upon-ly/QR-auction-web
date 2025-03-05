@@ -8,13 +8,17 @@ import { AuctionNavigation } from "@/components/auction-navigation";
 import { QRPage } from "@/components/QRPage";
 import { AuctionDetails } from "@/components/auction-details";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Copy, Check } from "lucide-react";
 
 import { useFetchAuctions } from "../hooks/useFetchAuctions";
 import { XLogo } from "@/components/XLogo";
+import { DexscreenerLogo } from "@/components/DexScannerLogo";
+import { UniswapLogo } from "@/components/UniswapLogo";
 
 export default function Home() {
   const [currentAuctionId, setCurrentAuctionId] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const { auctions } = useFetchAuctions();
 
@@ -42,6 +46,16 @@ export default function Home() {
   const currentAuction = auctions.find((val) => {
     return Number(val.tokenId) === currentAuctionId;
   });
+
+  const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
+
+  const copyToClipboard = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(contractAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const formatDate = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) * 1000); // convert to milliseconds
@@ -126,15 +140,54 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="mt-12 py-4 text-center">
+      <footer className="mt-4 md:mt-50 py-4 text-center flex flex-col items-center">
+        <div className="flex items-center justify-center gap-6 mb-3">
+          <a
+            href="https://x.com/QRcoindotfun"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center hover:opacity-80 transition-opacity"
+            aria-label="X (formerly Twitter)"
+          >
+            <XLogo />
+          </a>
+          <a
+            href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center hover:opacity-80 transition-opacity"
+            aria-label="Dexscreener"
+          >
+            <DexscreenerLogo />
+          </a>
+          <a
+            href="https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center hover:opacity-80 transition-opacity"
+            aria-label="Uniswap"
+          >
+            <UniswapLogo />
+          </a>
+        </div>
         <a
-          href="https://x.com/QRcoindotfun"
+          href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-          aria-label="X (formerly Twitter)"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[11px] font-mono whitespace-nowrap"
         >
-          <XLogo />
+          <span className="mr-1">CA: {contractAddress}</span>
+          <button
+            onClick={copyToClipboard}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Copy contract address"
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-green-500" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </button>
         </a>
       </footer>
     </main>

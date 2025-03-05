@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "QR Auction",
-  description: "by @serverConnectd",
+  description: "",
 };
 
 export default function RootLayout({
