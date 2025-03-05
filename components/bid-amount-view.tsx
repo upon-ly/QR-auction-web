@@ -41,8 +41,8 @@ export function BidForm({
         invalid_type_error: "Bid must be a number",
       })
       .min(
-        Number((minimumBid + 0.0001).toFixed(4)),
-        `Bid must be at least ${(minimumBid + 0.0001).toFixed(4)}`
+        Number((minimumBid + 0.001).toFixed(3)),
+        `Bid must be at least ${(minimumBid + 0.001).toFixed(3)}`
       ),
     url: z.string().url("Invalid URL"),
   });
@@ -99,9 +99,9 @@ export function BidForm({
         <div className="relative flex-1">
           <Input
             type="number"
-            min={(minimumBid + 0.0001).toFixed(4)}
+            min={(minimumBid + 0.001).toFixed(3)}
             step="any"
-            placeholder={`${(minimumBid + 0.0001).toFixed(4)} or more`}
+            placeholder={`${(minimumBid + 0.001).toFixed(3)} or more`}
             className="pr-16 border p-2 w-full"
             {...register("bid")}
           />

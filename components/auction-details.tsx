@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useCountdown } from "@/hooks/useCountdown";
 import { BidHistoryDialog } from "./bid-history-dialog";
 import { formatEther } from "viem";
+import { HowItWorksDialog } from "./HowItWorksDialog";
 
 import { useFetchSettledAuc } from "@/hooks/useFetchSettledAuc";
 import { useFetchAuctionDetails } from "@/hooks/useFetchAuctionDetails";
@@ -35,6 +36,7 @@ type AuctionType = {
 
 export function AuctionDetails({ id }: AuctionDetailsProps) {
   const [showBidHistory, setShowBidHistory] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [settledAuctions, setSettledAcustions] = useState<AuctionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -172,12 +174,20 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                     )}
 
                     {auctionDetail && auctionDetail.highestBidder && (
-                      <button
-                        onClick={() => setShowBidHistory(true)}
-                        className="block text-gray-600 underline"
-                      >
-                        Highest bidder: {auctionDetail.highestBidder}
-                      </button>
+                      <div className="flex flex-row text-sm items-start justify-between">
+                        <button
+                          onClick={() => setShowBidHistory(true)}
+                          className="text-gray-600 underline text-left w-full"
+                        >
+                          Highest bidder: {auctionDetail.highestBidder}
+                        </button>
+                        <button
+                          onClick={() => setShowHowItWorks(true)}
+                          className="text-gray-600 underline text-right w-[120px]"
+                        >
+                          How it works
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>
@@ -208,12 +218,20 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                     Visit Winning Site
                   </Button>
 
-                  <button
-                    onClick={() => setShowBidHistory(true)}
-                    className="block text-gray-600 underline"
-                  >
-                    Bid history (9)
-                  </button>
+                  <div className="flex flex-row items-center text-sm justify-between">
+                    <button
+                      onClick={() => setShowBidHistory(true)}
+                      className="text-gray-600 underline text-left w-full"
+                    >
+                      Prev bids
+                    </button>
+                    <button
+                      onClick={() => setShowHowItWorks(true)}
+                      className="text-gray-600 underline text-right w-[120px]"
+                    >
+                      How it works
+                    </button>
+                  </div>
                 </>
               )}
             </>
@@ -229,12 +247,20 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                 amount={currentSettledAuction?.amount || 0n}
                 url={currentSettledAuction?.url || ""}
               />
-              <button
-                onClick={() => setShowBidHistory(true)}
-                className="block text-gray-600 underline"
-              >
-                Previous bids
-              </button>
+              <div className="flex flex-row items-center text-sm justify-between">
+                <button
+                  onClick={() => setShowBidHistory(true)}
+                  className="text-gray-600 underline text-left w-full"
+                >
+                  Previous bids
+                </button>
+                <button
+                  onClick={() => setShowHowItWorks(true)}
+                  className="text-gray-600 underline text-right w-[120px]"
+                >
+                  How it works
+                </button>
+              </div>
             </>
           )}
       </div>
@@ -245,6 +271,11 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
         auctionId={id}
         latestId={Number(auctionDetail?.tokenId || id)}
         isComplete={isComplete}
+      />
+
+      <HowItWorksDialog
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import { AuctionDetails } from "@/components/auction-details";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useFetchAuctions } from "../hooks/useFetchAuctions";
+import { XLogo } from "@/components/XLogo";
 
 export default function Home() {
   const [currentAuctionId, setCurrentAuctionId] = useState(0);
@@ -109,7 +110,7 @@ export default function Home() {
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
         <div className="grid md:grid-cols-2 gap-4 md:gap-8">
           {!isLoading && currentAuctionId !== 0 && (
-            <div className="flex items-center justify-center p-10 h-[200px] md:h-full md:p-14 bg-white rounded-lg">
+            <div className="flex flex-col items-center justify-center p-8 h-[200px] md:h-full md:p-14 bg-white rounded-lg">
               <QRPage />
             </div>
           )}
@@ -124,6 +125,18 @@ export default function Home() {
           {isLoading && <Skeleton className="flex-1" />}
         </div>
       </div>
+
+      <footer className="mt-12 py-4 text-center">
+        <a
+          href="https://x.com/QRcoindotfun"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          aria-label="X (formerly Twitter)"
+        >
+          <XLogo />
+        </a>
+      </footer>
     </main>
   );
 }
