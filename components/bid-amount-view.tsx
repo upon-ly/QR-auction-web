@@ -30,9 +30,15 @@ export function BidForm({
   });
 
   // Calculate the minimum bid value from the contract data
-  const minimumBid = Number(
-    formatEther(auctionDetail?.highestBid ? auctionDetail.highestBid : 0n)
-  );
+  const lastHighestBid = auctionDetail?.highestBid
+    ? auctionDetail.highestBid
+    : 0n;
+  const minBidIncrement = BigInt("10"); // 10%
+  const hundred = BigInt("100");
+
+  // Compute the increment and the minBid
+  const increment = (lastHighestBid * minBidIncrement) / hundred;
+  const minimumBid = Number(formatEther(lastHighestBid + increment));
 
   // Define the schema using the computed minimum
   const formSchema = z.object({
@@ -40,10 +46,7 @@ export function BidForm({
       .number({
         invalid_type_error: "Bid must be a number",
       })
-      .min(
-        Number((minimumBid + 0.001).toFixed(3)),
-        `Bid must be at least ${(minimumBid + 0.001).toFixed(3)}`
-      ),
+      .min(Number(minimumBid), `Bid must be at least ${minimumBid}`),
     url: z.string().url("Invalid URL"),
   });
 
@@ -99,9 +102,9 @@ export function BidForm({
         <div className="relative flex-1">
           <Input
             type="number"
-            min={(minimumBid + 0.001).toFixed(3)}
+            min={minimumBid === 0 ? "0.001" : minimumBid}
             step="any"
-            placeholder={`${(minimumBid + 0.001).toFixed(3)} or more`}
+            placeholder={`${minimumBid === 0 ? "0.001" : minimumBid} or more`}
             className="pr-16 border p-2 w-full"
             {...register("bid")}
           />
