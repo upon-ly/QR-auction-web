@@ -133,17 +133,34 @@ export default function Home() {
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
         <div className="grid md:grid-cols-2 gap-4 md:gap-8">
           {!isLoading && (
-            <div className="flex flex-col items-center justify-center p-8 h-[200px] md:h-[368px] md:p-14 bg-white rounded-lg gap-4">
-              <QRPage />
-              <div className="text-center">
-                <SafeExternalLink
-                  href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
-                  className="inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 px-2 md:px-4 py-1 md:py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
-                  onBeforeNavigate={openDialog}
-                >
-                  Visit Website{" "}
-                  <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
-                </SafeExternalLink>
+            // <div className="flex flex-col items-center justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
+            //   <QRPage />
+            //   <div className="text-center mt-2">
+            //     <SafeExternalLink
+            //       href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+            //       className="inline-flex items-center justify-center bg-white text-gray-700 px-2  py-1  rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+            //       onBeforeNavigate={openDialog}
+            //     >
+            //       Visit Website{" "}
+            //       <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
+            //     </SafeExternalLink>
+            //   </div>
+            // </div>
+            <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
+              <div className="inline-flex flex-col items-center">
+                <QRPage />
+                <div className="mt-2">
+                  <SafeExternalLink
+                    href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+                    className="relative inline-flex items-center bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors w-full"
+                    onBeforeNavigate={openDialog}
+                  >
+                    <span className="block w-full text-center">
+                      Visit Website{" "}
+                    </span>
+                    <ExternalLink className="absolute left-full h-3 w-3  ml-1" />
+                  </SafeExternalLink>
+                </div>
               </div>
             </div>
           )}

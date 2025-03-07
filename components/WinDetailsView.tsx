@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
-import { truncateUrl } from "@/utils/helperFunctions";
+import { getDisplayUrl, truncateUrl } from "@/utils/helperFunctions";
 
 type AuctionType = {
   tokenId: bigint;
@@ -73,7 +73,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
               className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
               onBeforeNavigate={winnerdata.openDialog}
             >
-              {truncateUrl(winnerdata.url)}
+              {getDisplayUrl(truncateUrl(winnerdata.url))}
               <ExternalLink className="ml-1 h-3 w-3" />
             </SafeExternalLink>
           </div>

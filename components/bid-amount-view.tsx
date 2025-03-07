@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
-import { truncateUrl } from "@/utils/helperFunctions";
+import { getDisplayUrl, truncateUrl } from "@/utils/helperFunctions";
 
 export function BidForm({
   auctionDetail,
@@ -46,15 +46,6 @@ export function BidForm({
   const minimumBid = Number(formatEther(lastHighestBid + increment));
 
   const targetUrl = auctionDetail?.qrMetadata?.urlString || "";
-
-  const getDisplayUrl = (url: string) => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname.replace(/^www\./i, "");
-    } catch (e) {
-      return url;
-    }
-  };
 
   const displayUrl = targetUrl
     ? targetUrl === "0x"

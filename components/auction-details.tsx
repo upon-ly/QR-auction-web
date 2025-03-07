@@ -259,7 +259,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                   onClick={() => setShowBidHistory(true)}
                   className="text-gray-600 underline text-left w-full"
                 >
-                  Previous bids
+                  Bid History
                 </button>
                 <button
                   onClick={() => setShowHowItWorks(true)}
