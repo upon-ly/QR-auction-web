@@ -190,7 +190,7 @@ export default function Home() {
           </a>
         </div>
         <div
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[12px] font-mono whitespace-nowrap cursor-pointer"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
           <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>
