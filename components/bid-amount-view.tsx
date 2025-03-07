@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
-import { getDisplayUrl, truncateUrl } from "@/utils/helperFunctions";
+import { formatURL } from "@/utils/helperFunctions";
 
 export function BidForm({
   auctionDetail,
@@ -47,11 +47,7 @@ export function BidForm({
 
   const targetUrl = auctionDetail?.qrMetadata?.urlString || "";
 
-  const displayUrl = targetUrl
-    ? targetUrl === "0x"
-      ? ""
-      : getDisplayUrl(targetUrl)
-    : "";
+  const displayUrl = targetUrl ? (targetUrl === "0x" ? "" : targetUrl) : "";
 
   // Define the schema using the computed minimum
   const formSchema = z.object({
@@ -165,7 +161,7 @@ export function BidForm({
                 className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
                 onBeforeNavigate={openDialog}
               >
-                {truncateUrl(displayUrl)}
+                {formatURL(displayUrl)}
                 <ExternalLink className="ml-1 h-3 w-3" />
               </SafeExternalLink>
             </div>

@@ -4,6 +4,7 @@ import QRAuction from "../abi/QRAuction.json";
 import { useClient } from "wagmi";
 import { config } from "../config/config";
 import type { Client, Chain, Transport } from "viem";
+import { v4 as uuidv4 } from "uuid";
 
 type AuctionType = {
   tokenId: bigint;
@@ -12,6 +13,7 @@ type AuctionType = {
   extended: boolean;
   endTime: bigint;
   url: string;
+  _id: string;
 };
 
 function clientToProvider(client: Client<Transport, Chain>) {
@@ -56,6 +58,7 @@ export function useFetchBids() {
         let extended: boolean = false;
         let endTime: bigint = 0n;
         let url: string = "";
+        const _id: string = uuidv4();
 
         if ("args" in event && event.args && event.args[0]) {
           tokenId = event.args[0];
@@ -88,6 +91,7 @@ export function useFetchBids() {
           extended,
           endTime,
           url,
+          _id,
         };
       });
       return formatted;

@@ -26,16 +26,16 @@ export const useCountdown = (
   }, [targetTime]);
 
   if (timeLeft === undefined) {
-    const time = "00:00:00:00";
+    const time = "00:00:00";
     return { time, isComplete: false };
   } else {
     if (timeLeft <= 0) {
-      const time = "00:00:00:00";
+      const time = "00:00:00";
       return { time, isComplete: true };
     }
 
     // Calculate days, hours, minutes, and seconds.
-    const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+    // const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
     const hours = Math.floor(
       (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
     );
@@ -45,13 +45,12 @@ export const useCountdown = (
     // Helper function to pad numbers to two digits.
     const padNumber = (num: number): string => num.toString().padStart(2, "0");
 
-    let time = `${padNumber(days)}:${padNumber(hours)}:${padNumber(
-      minutes
-    )}:${padNumber(seconds)}`;
+    let time = `${padNumber(hours)}:${padNumber(minutes)}:${padNumber(
+      seconds
+    )}`;
 
     if (targetTimestamp === 0) {
-      console.log("sarvavaav");
-      time = "00:00:00:00";
+      time = "00:00:00";
     }
 
     return { time, isComplete: false };

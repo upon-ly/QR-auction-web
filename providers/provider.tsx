@@ -5,16 +5,19 @@ import "@rainbow-me/rainbowkit/styles.css";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { FarcasterFrameProvider } from "./FrameProvider";
 
-import { config } from "../config/config";
+import { customconfig } from "../config/config";
 
 const queryClient = new QueryClient();
 
 export function Provider(props: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={customconfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>{props.children}</RainbowKitProvider>
+        <RainbowKitProvider>
+          <FarcasterFrameProvider>{props.children}</FarcasterFrameProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAccount } from "wagmi";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
+import useEthPrice from "@/hooks/useEthPrice";
 
 interface AuctionDetailsProps {
   id: number;
@@ -52,12 +53,22 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
     auctionDetail?.endTime ? Number(auctionDetail.endTime) : 0
   );
 
+  const {
+    ethPrice: price,
+    isLoading: isPriceLoading,
+    isError: isPriceError,
+  } = useEthPrice();
+
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
     useSafetyDialog();
 
   const currentSettledAuction = settledAuctions.find((val) => {
     return Number(val.tokenId) === id;
   });
+
+  const ethBalance = Number(formatEther(auctionDetail?.highestBid ?? 0n));
+  const ethPrice = price?.ethereum?.usd ?? 0;
+  const usdBalance = ethBalance * ethPrice;
 
   const handleSettle = useCallback(async () => {
     if (!isComplete) {
@@ -139,22 +150,29 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
             <>
               {!auctionDetail.settled ? (
                 <>
-                  <div className="grid grid-cols-2 gap-8">
+                  <div className="flex flex-row justify-between gap-8">
                     <div className="space-y-1">
                       <div className="text-gray-600">Current bid</div>
-                      <div className="text-xl md:text-2xl font-bold">
-                        {formatEther(
-                          auctionDetail?.highestBid
-                            ? auctionDetail.highestBid
-                            : 0n
-                        )}{" "}
-                        ETH
+                      <div className="flex flex-row justify-center items-center gap-1">
+                        <div className="text-xl md:text-2xl font-bold">
+                          {formatEther(
+                            auctionDetail?.highestBid
+                              ? auctionDetail.highestBid
+                              : 0n
+                          )}{" "}
+                          ETH
+                        </div>
+                        <div className="text-xl md:text-md font-medium text-gray-600">
+                          {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
+                        </div>
                       </div>
                     </div>
                     {!isComplete && (
                       <div className="space-y-1">
-                        <div className="text-gray-600">Time left</div>
-                        <div className="text-xl md:text-2xl font-bold whitespace-nowrap">
+                        <div className="text-gray-600 text-right">
+                          Time left
+                        </div>
+                        <div className="text-xl md:text-2xl font-bold whitespace-nowrap text-right">
                           {time}
                         </div>
                       </div>

@@ -27,6 +27,7 @@ type AuctionType = {
   extended: boolean;
   endTime: bigint;
   url: string;
+  _id: string;
 };
 
 export function BidHistoryDialog({
@@ -71,8 +72,8 @@ export function BidHistoryDialog({
         </DialogHeader>
         {auctionBids.length > 0 && (
           <div className="space-y-4 mt-4">
-            {auctionBids.map((bid, index) => (
-              <BidCellView key={index} bid={bid} openDialog={openDialog} />
+            {auctionBids.map((bid) => (
+              <BidCellView key={bid._id} bid={bid} openDialog={openDialog} />
             ))}
           </div>
         )}
