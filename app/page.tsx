@@ -8,13 +8,16 @@ import { AuctionNavigation } from "@/components/auction-navigation";
 import { QRPage } from "@/components/QRPage";
 import { AuctionDetails } from "@/components/auction-details";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ExternalLink } from "lucide-react";
 
 import { useFetchAuctions } from "../hooks/useFetchAuctions";
 import { XLogo } from "@/components/XLogo";
 import { DexscreenerLogo } from "@/components/DexScannerLogo";
 import { UniswapLogo } from "@/components/UniswapLogo";
 import { toast } from "sonner";
+import { useSafetyDialog } from "@/hooks/useSafetyDialog";
+import { SafetyDialog } from "../components/SafetyDialog";
+import { SafeExternalLink } from "../components/SafeExternalLink";
 
 export default function Home() {
   const [currentAuctionId, setCurrentAuctionId] = useState(0);
@@ -49,6 +52,9 @@ export default function Home() {
   });
 
   const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
+
+  const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
+    useSafetyDialog();
 
   const copyToClipboard = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -126,9 +132,19 @@ export default function Home() {
         )}
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
         <div className="grid md:grid-cols-2 gap-4 md:gap-8">
-          {!isLoading && currentAuctionId !== 0 && (
-            <div className="flex flex-col items-center justify-center p-8 h-[200px] md:h-[368px] md:p-14 bg-white rounded-lg">
+          {!isLoading && (
+            <div className="flex flex-col items-center justify-center p-8 h-[200px] md:h-[368px] md:p-14 bg-white rounded-lg gap-4">
               <QRPage />
+              <div className="text-center">
+                <SafeExternalLink
+                  href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+                  className="inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 px-2 md:px-4 py-1 md:py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                  onBeforeNavigate={openDialog}
+                >
+                  Visit Website{" "}
+                  <ExternalLink className="ml-1 h-3 w-3 md:h-4 md:w-4" />
+                </SafeExternalLink>
+              </div>
             </div>
           )}
           {isLoading && (
@@ -174,7 +190,7 @@ export default function Home() {
           </a>
         </div>
         <div
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[11px] font-mono whitespace-nowrap cursor-pointer"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[12px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
           <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>
@@ -191,6 +207,13 @@ export default function Home() {
           </button>
         </div>
       </footer>
+
+      <SafetyDialog
+        isOpen={isOpen}
+        onClose={closeDialog}
+        targetUrl={pendingUrl || ""}
+        onContinue={handleContinue}
+      />
     </main>
   );
 }

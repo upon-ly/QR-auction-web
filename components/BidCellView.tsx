@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { RandomColorAvatar } from "./RandomAvatar";
+import { SafeExternalLink } from "./SafeExternalLink";
 
 type AuctionType = {
   tokenId: bigint;
@@ -22,7 +23,13 @@ type AuctionType = {
   url: string;
 };
 
-export function BidCellView({ bid }: { bid: AuctionType }) {
+export function BidCellView({
+  bid,
+  openDialog,
+}: {
+  bid: AuctionType;
+  openDialog: (url: string) => boolean;
+}) {
   const [ensName, setENSname] = useState<string>(
     `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`
   );
@@ -67,15 +74,14 @@ export function BidCellView({ bid }: { bid: AuctionType }) {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <a
+                <SafeExternalLink
                   href={bid.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="text-xs text-muted-foreground hover:underline  truncate flex items-center gap-1"
+                  onBeforeNavigate={openDialog}
                 >
                   <Link2 className="h-3 w-3" />
                   {formatURL(bid.url)}
-                </a>
+                </SafeExternalLink>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[300px]">
                 <p className="break-all">{bid.url}</p>

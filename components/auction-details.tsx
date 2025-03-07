@@ -22,6 +22,8 @@ import { BidForm } from "@/components/bid-amount-view";
 import { WinDetailsView } from "@/components/WinDetailsView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccount } from "wagmi";
+import { useSafetyDialog } from "@/hooks/useSafetyDialog";
+import { SafetyDialog } from "./SafetyDialog";
 
 interface AuctionDetailsProps {
   id: number;
@@ -47,8 +49,11 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
   const { isConnected } = useAccount();
   const { time, isComplete } = useCountdown(
-    Number(auctionDetail?.endTime || 0)
+    auctionDetail?.endTime ? Number(auctionDetail.endTime) : 0
   );
+
+  const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
+    useSafetyDialog();
 
   const currentSettledAuction = settledAuctions.find((val) => {
     return Number(val.tokenId) === id;
@@ -162,6 +167,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                         auctionDetail={auctionDetail}
                         settingDetail={settingDetail}
                         onSuccess={updateDetails}
+                        openDialog={openDialog}
                       />
                     )}
                     {isComplete && (
@@ -246,6 +252,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                 winner={currentSettledAuction?.winner || "0x"}
                 amount={currentSettledAuction?.amount || 0n}
                 url={currentSettledAuction?.url || ""}
+                openDialog={openDialog}
               />
               <div className="flex flex-row items-center text-sm justify-between">
                 <button
@@ -271,11 +278,19 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
         auctionId={id}
         latestId={Number(auctionDetail?.tokenId || id)}
         isComplete={isComplete}
+        openDialog={openDialog}
       />
 
       <HowItWorksDialog
         isOpen={showHowItWorks}
         onClose={() => setShowHowItWorks(false)}
+      />
+
+      <SafetyDialog
+        isOpen={isOpen}
+        onClose={closeDialog}
+        targetUrl={pendingUrl || ""}
+        onContinue={handleContinue}
       />
     </div>
   );

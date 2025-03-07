@@ -14,15 +14,20 @@ import { config } from "@/config/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
+import { SafeExternalLink } from "./SafeExternalLink";
+import { ExternalLink } from "lucide-react";
+import { truncateUrl } from "@/utils/helperFunctions";
 
 export function BidForm({
   auctionDetail,
   settingDetail,
   onSuccess,
+  openDialog,
 }: {
   auctionDetail: any;
   settingDetail: any;
   onSuccess: () => void;
+  openDialog: (url: string) => boolean;
 }) {
   const { isConnected } = useAccount();
   const { bidAmount } = useWriteActions({
@@ -39,6 +44,23 @@ export function BidForm({
   // Compute the increment and the minBid
   const increment = (lastHighestBid * minBidIncrement) / hundred;
   const minimumBid = Number(formatEther(lastHighestBid + increment));
+
+  const targetUrl = auctionDetail?.qrMetadata?.urlString || "";
+
+  const getDisplayUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace(/^www\./i, "");
+    } catch (e) {
+      return url;
+    }
+  };
+
+  const displayUrl = targetUrl
+    ? targetUrl === "0x"
+      ? ""
+      : getDisplayUrl(targetUrl)
+    : "";
 
   // Define the schema using the computed minimum
   const formSchema = z.object({
@@ -142,6 +164,22 @@ export function BidForm({
         >
           Place Bid
         </Button>
+
+        {displayUrl !== "" && (
+          <div className="mt-4 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md">
+            <div className="text-sm">
+              <span className="text-gray-600">Current bid website: </span>
+              <SafeExternalLink
+                href={targetUrl || ""}
+                className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
+                onBeforeNavigate={openDialog}
+              >
+                {truncateUrl(displayUrl)}
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </SafeExternalLink>
+            </div>
+          </div>
+        )}
       </div>
     </form>
   );

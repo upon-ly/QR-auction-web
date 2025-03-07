@@ -17,6 +17,7 @@ interface BidHistoryDialogProps {
   auctionId: number;
   latestId: number;
   isComplete: boolean;
+  openDialog: (url: string) => boolean;
 }
 
 type AuctionType = {
@@ -34,6 +35,7 @@ export function BidHistoryDialog({
   auctionId,
   latestId,
   isComplete,
+  openDialog,
 }: BidHistoryDialogProps) {
   const [auctionBids, setAuctionBids] = useState<AuctionType[]>([]);
   const { fetchHistoricalAuctions } = useFetchBids();
@@ -59,7 +61,7 @@ export function BidHistoryDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[400px] overflow-scroll">
+      <DialogContent className="max-h-[400px] overflow-y-scroll">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <DialogTitle className="text-2xl font-bold">
@@ -70,7 +72,7 @@ export function BidHistoryDialog({
         {auctionBids.length > 0 && (
           <div className="space-y-4 mt-4">
             {auctionBids.map((bid, index) => (
-              <BidCellView key={index} bid={bid} />
+              <BidCellView key={index} bid={bid} openDialog={openDialog} />
             ))}
           </div>
         )}

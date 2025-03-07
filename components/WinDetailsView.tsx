@@ -4,14 +4,18 @@ import { Address } from "viem";
 import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { RandomColorAvatar } from "./RandomAvatar";
+import { SafeExternalLink } from "./SafeExternalLink";
+import { ExternalLink } from "lucide-react";
+import { truncateUrl } from "@/utils/helperFunctions";
 
 type AuctionType = {
   tokenId: bigint;
   winner: string;
   amount: bigint;
   url: string;
+  openDialog: (url: string) => boolean;
 };
 
 export function WinDetailsView(winnerdata: AuctionType) {
@@ -53,12 +57,28 @@ export function WinDetailsView(winnerdata: AuctionType) {
         </div>
       </div>
 
-      <Button
+      {/* <Button
         className="w-full h-12 bg-gray-900 hover:bg-gray-800"
         onClick={() => window.open(winnerdata.url)}
       >
         Visit winning site
-      </Button>
+      </Button> */}
+
+      {winnerdata.url !== "" && winnerdata.url !== "0x" && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-md">
+          <div className="text-sm">
+            <span className="text-gray-600">Winning bid website: </span>
+            <SafeExternalLink
+              href={winnerdata.url}
+              className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
+              onBeforeNavigate={winnerdata.openDialog}
+            >
+              {truncateUrl(winnerdata.url)}
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </SafeExternalLink>
+          </div>
+        </div>
+      )}
     </>
   );
 }
