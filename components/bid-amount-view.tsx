@@ -114,8 +114,13 @@ export function BidForm({
             min={minimumBid === 0 ? "0.001" : minimumBid}
             step="any"
             placeholder={`${minimumBid === 0 ? "0.001" : minimumBid} or more`}
-            className="pr-16 border p-2 w-full"
+            className="pr-16 border p-2 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             {...register("bid")}
+            onFocus={(e: any) => {
+              if (!e.target.value) {
+                e.target.value = minimumBid === 0 ? 0 : minimumBid;
+              }
+            }}
           />
           <div className="absolute inset-y-0 right-7 flex items-center pointer-events-none text-gray-500 h-[36px]">
             ETH

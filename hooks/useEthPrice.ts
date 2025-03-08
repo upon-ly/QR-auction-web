@@ -6,7 +6,11 @@ export default function useEthPrice() {
   const { data, error } = useSWR(
     "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
     fetcher,
-    { refreshInterval: 60000 } // Refresh every minute
+    {
+      refreshInterval: 60000, // Refresh every minute
+      dedupingInterval: 60000, // Prevent duplicate requests within 1 minute
+      revalidateOnFocus: false, // Disable revalidation when the window gains focus
+    }
   );
 
   return {

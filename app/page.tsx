@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
@@ -24,6 +25,7 @@ import sdk, {
   FrameNotificationDetails,
   type Context,
 } from "@farcaster/frame-sdk";
+import { formatURL } from "@/utils/helperFunctions";
 
 export default function Home() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -37,6 +39,11 @@ export default function Home() {
     useState<FrameNotificationDetails | null>(null);
 
   const [lastEvent, setLastEvent] = useState("");
+
+  const [ogImage, setOgImage] = useState<string | null>(null);
+  const [ogUrl, setOgUrl] = useState<string>(
+    `${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`
+  );
 
   // const [addFrameResult, setAddFrameResult] = useState("");
   // const [sendNotificationResult, setSendNotificationResult] = useState("");
@@ -102,7 +109,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    console.log("here");
     if (auctions && auctions.length > 0) {
       const lastAuction = auctions[auctions.length - 1];
       const lastAuctionId = Number(lastAuction.tokenId);
@@ -121,34 +127,12 @@ export default function Home() {
   useEffect(() => {
     const load = async () => {
       const context = await sdk.context;
-      setContext(context);
-      setAdded(context.client.added);
 
-      if (!context.client.added) {
-        try {
-          setNotificationDetails(null);
+      if (context !== undefined) {
+        setContext(context);
+        setAdded(context.client.added);
 
-          const result = await sdk.actions.addFrame();
-
-          if (result.notificationDetails) {
-            setNotificationDetails(result.notificationDetails);
-          }
-          console.log(
-            result.notificationDetails
-              ? `Added, got notificaton token ${result.notificationDetails.token} and url ${result.notificationDetails.url}`
-              : "Added, got no notification details"
-          );
-        } catch (error) {
-          if (error instanceof AddFrame.RejectedByUser) {
-            console.log(`Not added: ${error.message}`);
-          }
-
-          if (error instanceof AddFrame.InvalidDomainManifest) {
-            console.log(`Not added: ${error.message}`);
-          }
-
-          console.log(`Error: ${error}`);
-        }
+        sdk.actions.addFrame();
       }
 
       sdk.on("frameAdded", ({ notificationDetails }) => {
@@ -186,10 +170,10 @@ export default function Home() {
       });
 
       console.log("Calling ready");
-      sdk.actions.ready({});
+      sdk.actions.ready();
+      // sdk.actions.addFrame();
     };
     if (sdk && !isSDKLoaded) {
-      console.log("Calling load");
       setIsSDKLoaded(true);
       load();
       return () => {
@@ -197,6 +181,35 @@ export default function Home() {
       };
     }
   }, [isSDKLoaded]);
+
+  useEffect(() => {
+    async function fetchOgImage() {
+      try {
+        const res = await fetch(`/api/og?url=https://qrcoin.fun/redirect`);
+        const data = await res.json();
+        console.log(data);
+        if (data.error) {
+          setOgImage(
+            `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
+          );
+          setOgUrl(`${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`);
+        } else {
+          if (data.image !== "") {
+            setOgImage(data.image);
+            setOgUrl(data.url);
+          } else {
+            setOgImage(
+              `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
+            );
+            setOgUrl(`${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`);
+          }
+        }
+      } catch (err) {
+      } finally {
+      }
+    }
+    fetchOgImage();
+  }, [auctions.length]);
 
   // Wait for component to mount to avoid hydration issues
   useEffect(() => {
@@ -237,35 +250,69 @@ export default function Home() {
           />
         )}
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-8">
-          {!isLoading && (
-            <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
-              <div className="inline-flex flex-col items-center mt-6">
-                <QRPage />
-                <div className="mt-1">
-                  <SafeExternalLink
-                    href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
-                    className="relative inline-flex items-center bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors w-full"
-                    onBeforeNavigate={openDialog}
-                  >
-                    <span className="block w-full text-center">
-                      Visit Website{" "}
-                    </span>
-                    <ExternalLink className="absolute left-full h-3 w-3  ml-1" />
-                  </SafeExternalLink>
+        <div className="flex flex-col justify-center items-center gap-6">
+          <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
+            {!isLoading && (
+              <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
+                <div className="inline-flex flex-col items-center mt-6">
+                  <QRPage />
+                  <div className="mt-1">
+                    <SafeExternalLink
+                      href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+                      className="relative inline-flex items-center bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors w-full"
+                      onBeforeNavigate={() => false}
+                    >
+                      <span className="block w-full text-center">
+                        Visit Website{" "}
+                      </span>
+                      <ExternalLink className="absolute left-full h-3 w-3  ml-1" />
+                    </SafeExternalLink>
+                  </div>
                 </div>
+              </div>
+            )}
+            {isLoading && (
+              <div className="flex items-start justify-start border-gray-600 rounded-lg">
+                <Skeleton className="h-[250px] w-full md:w-3xl rounded-xl" />
+              </div>
+            )}
+            {!isLoading && currentAuctionId !== 0 && (
+              <AuctionDetails id={currentAuctionId} />
+            )}
+            {isLoading && <Skeleton className="flex-1" />}
+          </div>
+          {currentAuctionId === LATEST_AUCTION_ID.current && ogImage && (
+            <div className="flex flex-col justify-center items-center gap-1">
+              <label className="font-semibold underline">
+                🏆Yesterday&apos;s Winner🏆
+              </label>
+              <div className="flex flex-col rounded-md justify-center items-center h-[200px] w-auto md:w-[376px] mt-1  overflow-hidden bg-white">
+                {ogImage && (
+                  <img
+                    src={ogImage}
+                    alt="Open Graph"
+                    className="h-full w-full"
+                  />
+                )}
+              </div>
+              <div className="inline-flex gap-1 italic">
+                <span className="font-normal">
+                  The QR coin currently points to
+                </span>
+                <span className="font-medium underline">
+                  <a
+                    href="https://qrcoin.fun/redirect"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center hover:opacity-80 transition-opacity"
+                    aria-label="X (formerly Twitter)"
+                  >
+                    {formatURL(ogUrl)}
+                  </a>
+                </span>
               </div>
             </div>
           )}
-          {isLoading && (
-            <div className="flex items-start justify-start border-gray-600 rounded-lg">
-              <Skeleton className="h-[250px] w-full md:w-3xl rounded-xl" />
-            </div>
-          )}
-          {!isLoading && currentAuctionId !== 0 && (
-            <AuctionDetails id={currentAuctionId} />
-          )}
-          {isLoading && <Skeleton className="flex-1" />}
         </div>
       </div>
 

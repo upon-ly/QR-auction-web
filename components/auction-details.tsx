@@ -25,6 +25,7 @@ import { useAccount } from "wagmi";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
 import useEthPrice from "@/hooks/useEthPrice";
+import { Info } from "lucide-react";
 
 interface AuctionDetailsProps {
   id: number;
@@ -48,7 +49,7 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
   const { refetchSettings, settingDetail } = useFetchAuctionSettings();
 
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { time, isComplete } = useCountdown(
     auctionDetail?.endTime ? Number(auctionDetail.endTime) : 0
   );
@@ -80,6 +81,16 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
       return;
     }
 
+    if (
+      ![
+        "0x5B759eF9085C80CCa14F6B54eE24373f8C765474",
+        "0x5371d2E73edf765752121426b842063fbd84f713",
+      ].includes(address as string)
+    ) {
+      toast.error("Only Admins can settle auction");
+      return;
+    }
+
     try {
       const hash = await settleTxn();
 
@@ -104,6 +115,10 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
   const updateDetails = async () => {
     await refetch();
     await refetchSettings();
+  };
+
+  const openBid = () => {
+    setShowBidHistory(true);
   };
 
   useEffect(() => {
@@ -132,8 +147,15 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <h1 className="text-4xl font-bold">QR #{id}</h1>
+      <div className="space-y-5">
+        <div className="flex flex-row justify-between items-center w-full">
+          <h1 className="text-4xl font-bold">QR #{id}</h1>
+          <Info
+            size={36}
+            onClick={() => setShowHowItWorks(true)}
+            className="cursor-pointer"
+          />
+        </div>
         {isLoading && (
           <div className="flex flex-col space-y-3">
             <Skeleton className="h-[125px] w-full rounded-xl" />
@@ -199,17 +221,14 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
 
                     {auctionDetail && auctionDetail.highestBidder && (
                       <div className="flex flex-row text-sm items-start justify-between">
-                        <button
-                          onClick={() => setShowBidHistory(true)}
-                          className="text-gray-600 underline text-left w-full"
-                        >
+                        <button className="text-gray-600 text-left w-full">
                           Highest bidder: {auctionDetail.highestBidder}
                         </button>
                         <button
-                          onClick={() => setShowHowItWorks(true)}
+                          onClick={() => setShowBidHistory(true)}
                           className="text-gray-600 underline text-right w-[120px]"
                         >
-                          How it works
+                          All bids
                         </button>
                       </div>
                     )}
@@ -271,21 +290,8 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
                 amount={currentSettledAuction?.amount || 0n}
                 url={currentSettledAuction?.url || ""}
                 openDialog={openDialog}
+                openBids={openBid}
               />
-              <div className="flex flex-row items-center text-sm justify-between">
-                <button
-                  onClick={() => setShowBidHistory(true)}
-                  className="text-gray-600 underline text-left w-full"
-                >
-                  Bid History
-                </button>
-                <button
-                  onClick={() => setShowHowItWorks(true)}
-                  className="text-gray-600 underline text-right w-[120px]"
-                >
-                  How it works
-                </button>
-              </div>
             </>
           )}
       </div>

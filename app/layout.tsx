@@ -33,7 +33,7 @@ const frameMetadata = {
 };
 
 export const metadata: Metadata = {
-  title: "QR Auction",
+  title: "QR coin",
   description:
     "A daily auction bid to control which website the QR points to next",
   icons: "https://qrcoin.fun/qrLogo.png",

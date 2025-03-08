@@ -37,8 +37,8 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens if you win?
               </h3>
               <p className="text-gray-600">
-                The website submitted with the winning bid will be displayed for
-                24 hours post-auction.
+                The website submitted with the winning bid will be where the QR
+                is pointed for 24 hours post-auction.
               </p>
             </div>
           </div>
