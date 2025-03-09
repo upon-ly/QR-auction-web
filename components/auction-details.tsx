@@ -25,10 +25,13 @@ import { useAccount } from "wagmi";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
 import useEthPrice from "@/hooks/useEthPrice";
-import { Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 
 interface AuctionDetailsProps {
   id: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  isLatest: boolean;
 }
 
 type AuctionType = {
@@ -38,7 +41,12 @@ type AuctionType = {
   url: string;
 };
 
-export function AuctionDetails({ id }: AuctionDetailsProps) {
+export function AuctionDetails({
+  id,
+  onPrevious,
+  onNext,
+  isLatest,
+}: AuctionDetailsProps) {
   const [showBidHistory, setShowBidHistory] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [settledAuctions, setSettledAcustions] = useState<AuctionType[]>([]);
@@ -149,9 +157,32 @@ export function AuctionDetails({ id }: AuctionDetailsProps) {
     <div className="space-y-6">
       <div className="space-y-5">
         <div className="flex flex-row justify-between items-center w-full">
-          <h1 className="text-4xl font-bold">QR #{id}</h1>
+          <div className="inline-flex justify-start items-center gap-2">
+            <h1 className="text-3xl font-bold">Auction #{id}</h1>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`rounded-full border-none ${
+                isLatest
+                  ? "bg-blue-100 hover:bg-blue-200"
+                  : "bg-white hover:bg-gray-100"
+              }`}
+              onClick={onPrevious}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full hover:bg-gray-100 border-none disabled:opacity-50 disabled:hover:bg-transparent"
+              onClick={onNext}
+              disabled={isLatest}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <Info
-            size={36}
+            size={30}
             onClick={() => setShowHowItWorks(true)}
             className="cursor-pointer"
           />

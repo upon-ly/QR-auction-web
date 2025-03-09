@@ -51,6 +51,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       );
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winnerdata.tokenId]);
 
   useEffect(() => {
@@ -111,7 +112,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       </div>
 
       {winnerdata.url !== "" && winnerdata.url !== "0x" && (
-        <div className="flex flex-col mt-4 p-3 bg-green-50 border border-green-100 rounded-md h-full md:h-[236px]">
+        <div className="flex flex-col mt-6 p-3 bg-green-50 border border-green-100 rounded-md h-full md:h-[236px]">
           <div className="inline-flex flex-row justify-between items-center w-full">
             <div className="text-sm">
               <span className="text-gray-600">Winning bid: </span>
@@ -125,9 +126,16 @@ export function WinDetailsView(winnerdata: AuctionType) {
               </SafeExternalLink>
             </div>
           </div>
-          <div className="flex flex-col rounded-md justify-center items-center h-full mt-1 w-full overflow-hidden bg-white">
+          <div className="flex flex-col rounded-md justify-center items-center h-full mt-1 w-full overflow-hidden bg-white aspect-[2/1]">
             {ogImage && (
-              <img src={ogImage} alt="Open Graph" className="h-auto w-full" />
+              <img
+                src={ogImage}
+                alt="Open Graph"
+                className="h-auto w-full"
+                onClick={() => {
+                  window.location.href = winnerdata.url;
+                }}
+              />
             )}
           </div>
         </div>

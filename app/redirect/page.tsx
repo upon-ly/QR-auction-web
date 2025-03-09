@@ -26,6 +26,7 @@ export default async function RedirectPage() {
   let qrMetaUrl: string;
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const fallbackURL = process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string;
+
   try {
     targetData = await contract.settings();
     qrMetaUrl = targetData[6]?.urlString || fallbackURL;
@@ -34,11 +35,6 @@ export default async function RedirectPage() {
       qrMetaUrl = fallbackURL;
     } else {
       const contractTimestamp = Number(targetData[6]?.validUntil || 0);
-
-      console.log(currentTimestamp, contractTimestamp);
-      console.log(targetData);
-      console.log(targetData[6]?.urlString);
-      console.log(currentTimestamp <= contractTimestamp);
 
       if (currentTimestamp <= contractTimestamp) {
         qrMetaUrl = targetData[6]?.urlString || fallbackURL;

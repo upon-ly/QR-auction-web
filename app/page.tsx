@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AuctionNavigation } from "@/components/auction-navigation";
@@ -26,13 +26,15 @@ import sdk, {
   type Context,
 } from "@farcaster/frame-sdk";
 import { formatURL } from "@/utils/helperFunctions";
+import { frameSdk } from "@/lib/frame-sdk";
+import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 
 export default function Home() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [mounted, setMounted] = useState(false);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [context, setContext] = useState<Context.FrameContext>();
   const [isContextOpen, setIsContextOpen] = useState(false);
+  const [sendNotificationResult, setSendNotificationResult] = useState("");
 
   const [added, setAdded] = useState(false);
   const [notificationDetails, setNotificationDetails] =
@@ -58,6 +60,8 @@ export default function Home() {
 
   const LATEST_AUCTION_ID = useRef(0);
   const EARLIEST_AUCTION_ID = 1;
+
+  const { refetchSettings, settingDetail } = useFetchAuctionSettings();
 
   const handlePrevious = () => {
     if (currentAuctionId > EARLIEST_AUCTION_ID) {
@@ -108,6 +112,38 @@ export default function Home() {
     return formattedDate;
   };
 
+  const sendNotification = useCallback(async () => {
+    setSendNotificationResult("");
+    if (!notificationDetails || !context) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/send-notification", {
+        method: "POST",
+        mode: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fid: context.user.fid,
+          notificationDetails,
+        }),
+      });
+
+      if (response.status === 200) {
+        setSendNotificationResult("Success");
+        return;
+      } else if (response.status === 429) {
+        setSendNotificationResult("Rate limited");
+        return;
+      }
+
+      const data = await response.text();
+      setSendNotificationResult(`Error: ${data}`);
+    } catch (error) {
+      setSendNotificationResult(`Error: ${error}`);
+    }
+  }, [context, notificationDetails]);
+
   useEffect(() => {
     if (auctions && auctions.length > 0) {
       const lastAuction = auctions[auctions.length - 1];
@@ -132,7 +168,32 @@ export default function Home() {
         setContext(context);
         setAdded(context.client.added);
 
-        sdk.actions.addFrame();
+        if (!context.client.added) {
+          try {
+            setNotificationDetails(null);
+
+            const result = await sdk.actions.addFrame();
+
+            if (result.notificationDetails) {
+              setNotificationDetails(result.notificationDetails);
+            }
+            console.log(
+              result.notificationDetails
+                ? `Added, got notificaton token ${result.notificationDetails.token} and url ${result.notificationDetails.url}`
+                : "Added, got no notification details"
+            );
+          } catch (error) {
+            if (error instanceof AddFrame.RejectedByUser) {
+              console.log(`Not added: ${error.message}`);
+            }
+
+            if (error instanceof AddFrame.InvalidDomainManifest) {
+              console.log(`Not added: ${error.message}`);
+            }
+
+            console.log(`Error: ${error}`);
+          }
+        }
       }
 
       sdk.on("frameAdded", ({ notificationDetails }) => {
@@ -171,7 +232,6 @@ export default function Home() {
 
       console.log("Calling ready");
       sdk.actions.ready();
-      // sdk.actions.addFrame();
     };
     if (sdk && !isSDKLoaded) {
       setIsSDKLoaded(true);
@@ -183,16 +243,26 @@ export default function Home() {
   }, [isSDKLoaded]);
 
   useEffect(() => {
+    setNotificationDetails(context?.client.notificationDetails ?? null);
+  }, [context]);
+
+  useEffect(() => {
     async function fetchOgImage() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = await refetchSettings();
+      const url =
+        res?.data[6]?.urlString ??
+        `${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT}`;
+
       try {
-        const res = await fetch(`/api/og?url=https://qrcoin.fun/redirect`);
+        const res = await fetch(`/api/og?url=${url}`);
         const data = await res.json();
         console.log(data);
         if (data.error) {
           setOgImage(
             `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
           );
-          setOgUrl(`${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`);
+          setOgUrl(url);
         } else {
           if (data.image !== "") {
             setOgImage(data.image);
@@ -201,11 +271,12 @@ export default function Home() {
             setOgImage(
               `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
             );
-            setOgUrl(`${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`);
+            setOgUrl(url);
           }
         }
       } catch (err) {
-      } finally {
+        setOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+        setOgUrl(url);
       }
     }
     fetchOgImage();
@@ -219,16 +290,16 @@ export default function Home() {
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">QR coin</h1>
+        <h1 className="text-2xl font-bold">$QR</h1>
         <div className="flex items-center gap-3">
-          <a
+          {/* <a
             href={`${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-gray-700 hover:text-gray-900 font-medium transition-colors"
           >
             <span className="underline underline-offset-2">Buy $QR</span>
-          </a>
+          </a> */}
           <ConnectButton
             accountStatus={{
               smallScreen: "avatar",
@@ -239,7 +310,7 @@ export default function Home() {
       </nav>
 
       <div className="max-w-3xl mx-auto">
-        {!isLoading && (
+        {/* {!isLoading && (
           <AuctionNavigation
             currentId={currentAuctionId}
             onPrevious={handlePrevious}
@@ -248,9 +319,9 @@ export default function Home() {
             date={formatDate(currentAuction?.startTime || BigInt(DEFAULT_DATE))}
             isLatest={currentAuctionId === LATEST_AUCTION_ID.current}
           />
-        )}
+        )} */}
         {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
-        <div className="flex flex-col justify-center items-center gap-6">
+        <div className="flex flex-col justify-center items-center gap-10">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             {!isLoading && (
               <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
@@ -277,35 +348,43 @@ export default function Home() {
               </div>
             )}
             {!isLoading && currentAuctionId !== 0 && (
-              <AuctionDetails id={currentAuctionId} />
+              <AuctionDetails
+                id={currentAuctionId}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                isLatest={currentAuctionId === LATEST_AUCTION_ID.current}
+              />
             )}
             {isLoading && <Skeleton className="flex-1" />}
           </div>
           {currentAuctionId === LATEST_AUCTION_ID.current && ogImage && (
             <div className="flex flex-col justify-center items-center gap-1">
-              <label className="font-semibold underline">
-                🏆Yesterday&apos;s Winner🏆
+              <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
+                🏆<span className="underline">Today&apos;s Winner</span>🏆
               </label>
-              <div className="flex flex-col rounded-md justify-center items-center h-[200px] w-auto md:w-[376px] mt-1  overflow-hidden bg-white">
+              <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1  overflow-hidden bg-white aspect-[2/1]">
                 {ogImage && (
                   <img
                     src={ogImage}
                     alt="Open Graph"
-                    className="h-full w-full"
+                    className="object-cover w-full h-full"
+                    onClick={() => {
+                      window.location.href = ogUrl;
+                    }}
                   />
                 )}
               </div>
               <div className="inline-flex gap-1 italic">
-                <span className="font-normal">
+                <span className="font-normal text-gray-600">
                   The QR coin currently points to
                 </span>
                 <span className="font-medium underline">
                   <a
-                    href="https://qrcoin.fun/redirect"
+                    href={ogUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center hover:opacity-80 transition-opacity"
-                    aria-label="X (formerly Twitter)"
+                    aria-label="redirect"
                   >
                     {formatURL(ogUrl)}
                   </a>
@@ -316,7 +395,7 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="mt-10 md:mt-50 py-4 text-center flex flex-col items-center">
+      <footer className="mt-10 py-4 text-center flex flex-col items-center">
         <div className="flex items-center justify-center gap-6 mb-3">
           <a
             href="https://x.com/QRcoindotfun"

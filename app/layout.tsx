@@ -24,7 +24,7 @@ const frameMetadata = {
     title: "Launch App",
     action: {
       type: "launch_frame",
-      name: "QR Coin Mini App",
+      name: "$QR",
       url: `${String(process.env.NEXT_PUBLIC_HOST_URL)}/`,
       splashImageUrl: `${String(process.env.NEXT_PUBLIC_HOST_URL)}/qrLogo.png`,
       splashBackgroundColor: "#FFFFFF",
@@ -32,35 +32,37 @@ const frameMetadata = {
   },
 };
 
-export const metadata: Metadata = {
-  title: "QR coin",
-  description:
-    "A daily auction bid to control which website the QR points to next",
-  icons: "https://qrcoin.fun/qrLogo.png",
-  openGraph: {
-    url: "https://www.qrcoin.fun",
-    images: [
-      {
-        url: "https://qrcoin.fun/opgIMage.png",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary",
-    title: "QR Auction",
-    description:
-      "A daily auction bid to control which website the QR points to next",
-    images: {
-      url: "https://qrcoin.fun/opgIMage.png",
-      alt: "QRCoinDotFun Logo",
+export function generateMetadata(): Metadata {
+  const url = process.env.NEXT_PUBLIC_HOST_URL || "https://qrcoin.fun/";
+
+  return {
+    metadataBase: new URL(url),
+    title: "QR coin",
+    description: "Same QR. New Website. Every day.",
+    openGraph: {
+      images: [`${url}/opgIMage.png`],
+      title: "QR coin",
+      description: "Same QR. New Website. Every day.",
     },
-    creator: "@QRcoindotfun",
-  },
-  other: {
-    "fc:frame": JSON.stringify(frameMetadata),
-    "og:image": frameMetadata.imageUrl,
-  },
-};
+    twitter: {
+      card: "summary",
+      title: "QR Coin",
+      description: "Same QR. New Website. Every day.",
+      images: {
+        url: `${url}/opgIMage.png`,
+        alt: "QRCoinDotFun Logo",
+      },
+      creator: "@QRcoindotfun",
+    },
+    icons: {
+      icon: `${url}/qrLogo.png`,
+      apple: `${url}/qrLogo.png`,
+    },
+    other: {
+      "fc:frame": JSON.stringify(frameMetadata),
+    },
+  };
+}
 
 export default function RootLayout({
   children,
