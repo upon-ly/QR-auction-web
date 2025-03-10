@@ -52,8 +52,8 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens if you lose?
               </h3>
               <p className="text-gray-600">
-                Losing bids will be fully refunded immediately after the auction
-                settles.
+                Losing bids will be fully refunded immediately once a higher bid
+                is submitted for the given auction.
               </p>
             </div>
           </div>
