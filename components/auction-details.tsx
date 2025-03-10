@@ -93,6 +93,7 @@ export function AuctionDetails({
       ![
         "0x5B759eF9085C80CCa14F6B54eE24373f8C765474",
         "0x5371d2E73edf765752121426b842063fbd84f713",
+        "0x09928ceBB4c977C5e5Db237a2A2cE5CD10497CB8",
       ].includes(address as string)
     ) {
       toast.error("Only Admins can settle auction");
