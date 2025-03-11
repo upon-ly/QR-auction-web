@@ -24,12 +24,9 @@ type AuctionType = {
 };
 
 export function WinDetailsView(winnerdata: AuctionType) {
-  const [ensName, setENSname] = useState<string>(
-    `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
-  );
   const [ogImage, setOgImage] = useState<string | null>(null);
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
-    displayName: ensName,
+    displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
 
   const {
@@ -50,11 +47,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
         chain: base,
       });
 
-      setENSname(
-        name ||
-          `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
-      );
-
+      // Fetch Farcaster data
       const farcasterUser = await getFarcasterUser(winnerdata.winner);
       
       setNameInfo({

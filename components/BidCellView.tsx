@@ -28,7 +28,6 @@ type AuctionType = {
 type NameInfo = {
   displayName: string;
   farcasterUsername: string | null;
-  ensName: string | null;
   basename: string | null;
   pfpUrl: string | null;
 };
@@ -43,7 +42,6 @@ export function BidCellView({
   const [nameInfo, setNameInfo] = useState<NameInfo>({
     displayName: `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`,
     farcasterUsername: null,
-    ensName: null,
     basename: null,
     pfpUrl: null
   });
@@ -101,7 +99,6 @@ export function BidCellView({
       setNameInfo({
         displayName,
         farcasterUsername: farcasterUser?.username || null,
-        ensName: null,
         basename: name, // Store the getName result in basename
         pfpUrl: farcasterUser?.pfpUrl || null
       });

@@ -46,7 +46,6 @@ type AuctionType = {
 type NameInfo = {
   displayName: string;
   farcasterUsername: string | null;
-  ensName: string | null;
   basename: string | null;
   pfpUrl: string | null;
 };
@@ -64,7 +63,6 @@ export function AuctionDetails({
   const [bidderNameInfo, setBidderNameInfo] = useState<NameInfo>({
     displayName: "",
     farcasterUsername: null,
-    ensName: null,
     basename: null,
     pfpUrl: null
   });
@@ -206,16 +204,8 @@ export function AuctionDetails({
       setBidderNameInfo({
         displayName,
         farcasterUsername: farcasterUser?.username || null,
-        ensName: null,
         basename: name || null,
         pfpUrl: farcasterUser?.pfpUrl || null
-      });
-      
-      console.log("Updated bidder info:", {
-        farcasterUser,
-        highestBidder: bidderAddress,
-        highestBidderName: name,
-        displayName
       });
     };
 
