@@ -67,7 +67,9 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens with the funds?
               </h3>
               <p className="text-gray-600">
-                A portion of the winning funds will be used to buy & burn $QR.
+                Funds from the winning bids will be used to support the project
+                in a variety of ways including, but not limited to, buying $QR
+                on the open market.
               </p>
             </div>
           </div>
