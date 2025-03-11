@@ -1,18 +1,18 @@
 {
   "accountAssociation": {
-    "header": "eyJmaWQiOjIzNDY1OCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDgwQTgzMzI3ZWU0NUU4NTljMkY3N0IyMzI1NzA5NGJCRmZENjU4QUUifQ",
-    "payload": "eyJkb21haW4iOiJ3d3cucXJjb2luLmZ1biJ9",
-    "signature": "MHg1NTQyOGZkNzY1YWU3NTE3Yzg2YTAwMGNiYzIwOTIwMjMwZTk3YzJiMjJlNGY1ZjBiNjk1YTI5YzQwZWMyYzBhMmViNGZjYTQ3ZTExNGU4YTEyNGQwNzVkMTliMWFiYTU2MWFmZThkNTBmZGZiMGRjNGYyNGQ0Yjc0YzhlYjBlYzFj"
+    "header": "eyJmaWQiOjY1NzM3MCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGMzNzNDRjY4ZjNDYWIwODFiZTg2QzFmMEZjN2I2NWFDYTAzNTg3ZDEifQ",
+    "payload": "eyJkb21haW4iOiJxci1hdWN0aW9uLnZlcmNlbC5hcHAifQ",
+    "signature": "MHg2OGMzNzZmZTRhYmE5MzU1ZmRlNjNhOTIxOWI2M2NkYzQzZTczMWJmYWM0ZjNlM2JiZTY1MmEyOTVhZmE0MWRlNjFkNzZjZDE1ODAzOWM4MzEyOGI5MTA3NTdlZTM3N2ZlNzQwYmMxZTAzMjU0YTdhMDU3NzdhOWEzMzY5M2U3ZTFj"
   },
   "frame": {
-    "version": "4",
+    "version": "1",
     "name": "$QR",
-    "iconUrl": "https://www.qrcoin.fun/qrLogo.png",
-    "homeUrl": "https://www.qrcoin.fun",
-    "imageUrl": "https://www.qrcoin.fun/opgIMage.png",
+    "iconUrl": "https://qr-auction.vercel.app/icon.png",
+    "homeUrl": "https://qr-auction.vercel.app",
+    "imageUrl": "https://qr-auction.vercel.app/opgIMage.png",
     "buttonTitle": "Launch App",
-    "splashImageUrl": "https://www.qrcoin.fun/qrLogo.png",
+    "splashImageUrl": "https://qr-auction.vercel.app/qrLogo.png",
     "splashBackgroundColor": "#FFFFFF",
-    "webhookUrl": "https://www.qrcoin.fun/api/webhook"
+    "webhookUrl": "https://qr-auction.vercel.app/api/webhook"
   }
 }

@@ -156,9 +156,14 @@ export default function Home() {
         setIsLoading(lastAuctionId !== 0 ? false : true);
       }
     } else {
+      // Force the ID to be 0 if no auctions are loaded yet
+      console.log("[DEBUG] No auctions found, forcing ID to 0");
       setIsLoading(false);
     }
   }, [auctions.length]);
+
+  // Log the current auction ID for debugging
+  console.log("[DEBUG] Current Auction ID:", currentAuctionId, "Latest ID:", LATEST_AUCTION_ID.current);
 
   useEffect(() => {
     const load = async () => {
@@ -286,6 +291,13 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  console.log("[DEBUG] Page rendering with env:", {
+    NEXT_PUBLIC_ENABLE_TESTNETS: process.env.NEXT_PUBLIC_ENABLE_TESTNETS,
+    NEXT_PUBLIC_QRAuction: process.env.NEXT_PUBLIC_QRAuction,
+    NEXT_PUBLIC_QR_COIN: process.env.NEXT_PUBLIC_QR_COIN,
+    NEXT_PUBLIC_HOST_URL: process.env.NEXT_PUBLIC_HOST_URL
+  });
 
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
@@ -442,6 +454,15 @@ export default function Home() {
             )}
           </button>
         </div>
+        
+        {process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" && (
+          <a 
+            href="/debug" 
+            className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Debug Panel
+          </a>
+        )}
       </footer>
 
       <SafetyDialog
