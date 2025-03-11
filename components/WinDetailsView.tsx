@@ -55,14 +55,13 @@ export function WinDetailsView(winnerdata: AuctionType) {
           `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
       );
 
-      if (name) {
-        const farcasterUser = await getFarcasterUser(winnerdata.winner);
-        setNameInfo({
-          displayName: name,
-          pfpUrl: farcasterUser?.pfpUrl,
-          farcasterUsername: farcasterUser?.username
-        });
-      }
+      const farcasterUser = await getFarcasterUser(winnerdata.winner);
+      
+      setNameInfo({
+        displayName: name || `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
+        pfpUrl: farcasterUser?.pfpUrl,
+        farcasterUsername: farcasterUser?.username
+      });
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
