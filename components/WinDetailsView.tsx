@@ -11,6 +11,8 @@ import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
 import useEthPrice from "@/hooks/useEthPrice";
+import { WarpcastLogo } from "@/components/WarpcastLogo";
+import { getFarcasterUser } from "@/utils/farcaster";
 
 type AuctionType = {
   tokenId: bigint;
@@ -26,6 +28,9 @@ export function WinDetailsView(winnerdata: AuctionType) {
     `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
   );
   const [ogImage, setOgImage] = useState<string | null>(null);
+  const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
+    displayName: ensName,
+  });
 
   const {
     ethPrice: price,
@@ -49,6 +54,15 @@ export function WinDetailsView(winnerdata: AuctionType) {
         name ||
           `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`
       );
+
+      if (name) {
+        const farcasterUser = await getFarcasterUser(winnerdata.winner);
+        setNameInfo({
+          displayName: name,
+          pfpUrl: farcasterUser?.pfpUrl,
+          farcasterUsername: farcasterUser?.username
+        });
+      }
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +97,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
   return (
     <>
       <div className="flex flex-row justify-between items-start gap-1">
-        <div className="w-full">
+        <div className="">
           <div className="flex flex-row gap-2">
             <div className="text-gray-600">Winning bid</div>
             <button
@@ -102,11 +116,38 @@ export function WinDetailsView(winnerdata: AuctionType) {
             </div>
           </div>
         </div>
-        <div>
-          <div className="text-gray-600 text-right">Won by</div>
-          <div className="flex items-center gap-2">
-            <RandomColorAvatar />
-            <span>{ensName}</span>
+        
+        <div className="flex flex-col items-end" style={{ minWidth: '160px', maxWidth: '200px' }}>
+          <div className="text-gray-600 w-full text-right mb-1">Won by</div>
+          <div className="flex justify-end items-center w-full">
+            {nameInfo.pfpUrl ? (
+              <img 
+                src={nameInfo.pfpUrl} 
+                alt="Profile" 
+                className="w-6 h-6 rounded-full object-cover mr-1 flex-shrink-0"
+              />
+            ) : (
+              <div className="mr-2 flex-shrink-0">
+                <RandomColorAvatar />
+              </div>
+            )}
+            
+            {nameInfo.farcasterUsername ? (
+              <div className="flex items-center overflow-hidden">
+                <div className="text-right whitespace-nowrap text-ellipsis overflow-hidden max-w-[170px]">
+                  @{nameInfo.farcasterUsername}
+                </div>
+                <WarpcastLogo 
+                  size="md" 
+                  username={nameInfo.farcasterUsername} 
+                  className="ml-1 flex-shrink-0"
+                />
+              </div>
+            ) : (
+              <span className="truncate max-w-[170px] text-right">
+                {nameInfo.displayName}
+              </span>
+            )}
           </div>
         </div>
       </div>
