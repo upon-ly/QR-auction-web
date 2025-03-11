@@ -26,6 +26,8 @@ import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
 import useEthPrice from "@/hooks/useEthPrice";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { getFarcasterUser } from "@/utils/farcaster";
+import { WarpcastLogo } from "@/components/WarpcastLogo";
 
 interface AuctionDetailsProps {
   id: number;
@@ -41,6 +43,13 @@ type AuctionType = {
   url: string;
 };
 
+type NameInfo = {
+  displayName: string;
+  farcasterUsername: string | null;
+  basename: string | null;
+  pfpUrl: string | null;
+};
+
 export function AuctionDetails({
   id,
   onPrevious,
@@ -51,6 +60,12 @@ export function AuctionDetails({
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [settledAuctions, setSettledAcustions] = useState<AuctionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [bidderNameInfo, setBidderNameInfo] = useState<NameInfo>({
+    displayName: "",
+    farcasterUsername: null,
+    basename: null,
+    pfpUrl: null
+  });
 
   const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc();
   const { refetch, auctionDetail } = useFetchAuctionDetails();
@@ -154,6 +169,51 @@ export function AuctionDetails({
     ftSetled();
   }, [isComplete]);
 
+  useEffect(() => {
+    const fetchBidderName = async () => {
+      if (!auctionDetail?.highestBidder) return;
+      
+      // Make sure we're using a valid Ethereum address (0x...)
+      const bidderAddress = auctionDetail.highestBidder;
+      
+      // Fetch Farcaster username from the API
+      const farcasterUser = await getFarcasterUser(bidderAddress);
+      
+      // Format the address display
+      const formatAddress = (address: string) => {
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+      };
+      
+      // We can use the highestBidderName that's already fetched in useFetchAuctionDetails
+      // since getName already handles the priority between basename and ENS name
+      const name = auctionDetail.highestBidderName;
+      
+      // Prioritize names: Farcaster > getName result > formatted address
+      let displayName;
+      if (farcasterUser?.username) {
+        displayName = `@${farcasterUser.username}`;
+      } else if (name) {
+        displayName = name; // getName already handles basename/ENS priority
+      } else if (bidderAddress.startsWith('0x')) {
+        displayName = formatAddress(bidderAddress);
+      } else {
+        displayName = bidderAddress; // Fallback to whatever we have
+      }
+      
+      // Update bidder name info with properly typed state update
+      setBidderNameInfo({
+        displayName,
+        farcasterUsername: farcasterUser?.username || null,
+        basename: name || null,
+        pfpUrl: farcasterUser?.pfpUrl || null
+      });
+    };
+
+    if (auctionDetail?.highestBidder) {
+      fetchBidderName();
+    }
+  }, [auctionDetail]);
+
   return (
     <div className="space-y-6">
       <div className="space-y-5">
@@ -253,9 +313,19 @@ export function AuctionDetails({
 
                     {auctionDetail && auctionDetail.highestBidder && (
                       <div className="flex flex-row text-sm items-start justify-between">
-                        <button className="text-gray-600 text-left w-full">
-                          Highest bidder: {auctionDetail.highestBidder}
-                        </button>
+                        <div className="text-gray-600 text-left flex items-center">
+                          Highest bidder: 
+                          <span className="ml-1 flex items-center">
+                            {bidderNameInfo.displayName}
+                            {bidderNameInfo.farcasterUsername && (
+                              <WarpcastLogo 
+                                size="sm" 
+                                username={bidderNameInfo.farcasterUsername} 
+                                className="ml-1 opacity-80 hover:opacity-100"
+                              />
+                            )}
+                          </span>
+                        </div>
                         <button
                           onClick={() => setShowBidHistory(true)}
                           className="text-gray-600 underline text-right w-[120px]"
@@ -278,8 +348,25 @@ export function AuctionDetails({
                     <div>
                       <div className="text-gray-600">Won by</div>
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-gray-200 rounded-full" />
-                        <span>{auctionDetail?.highestBidder || "Unknown"}</span>
+                        {bidderNameInfo.pfpUrl ? (
+                          <img 
+                            src={bidderNameInfo.pfpUrl} 
+                            alt="Profile" 
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 bg-gray-200 rounded-full" />
+                        )}
+                        <span className="flex items-center">
+                          {bidderNameInfo.displayName}
+                          {bidderNameInfo.farcasterUsername && (
+                            <WarpcastLogo 
+                              size="md" 
+                              username={bidderNameInfo.farcasterUsername} 
+                              className="ml-0.5 opacity-80 hover:opacity-100"
+                            />
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -442,6 +442,15 @@ export default function Home() {
             )}
           </button>
         </div>
+        
+        {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" && process.env.NODE_ENV === "development") || process.env.VERCEL_ENV === "preview" && (
+          <a 
+            href="/debug" 
+            className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Debug Panel
+          </a>
+        )}
       </footer>
 
       <SafetyDialog
