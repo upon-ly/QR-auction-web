@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/tooltip";
 import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
+import { WarpcastLogo } from "./WarpcastLogo";
+import { getFarcasterUser } from "@/utils/farcaster";
 
 type AuctionType = {
   tokenId: bigint;
@@ -23,6 +25,14 @@ type AuctionType = {
   url: string;
 };
 
+type NameInfo = {
+  displayName: string;
+  farcasterUsername: string | null;
+  ensName: string | null;
+  basename: string | null;
+  pfpUrl: string | null;
+};
+
 export function BidCellView({
   bid,
   openDialog,
@@ -30,9 +40,13 @@ export function BidCellView({
   bid: AuctionType;
   openDialog: (url: string) => boolean;
 }) {
-  const [ensName, setENSname] = useState<string>(
-    `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`
-  );
+  const [nameInfo, setNameInfo] = useState<NameInfo>({
+    displayName: `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`,
+    farcasterUsername: null,
+    ensName: null,
+    basename: null,
+    pfpUrl: null
+  });
 
   function formatURL(url: string) {
     try {
@@ -53,30 +67,78 @@ export function BidCellView({
   }
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchNames = async () => {
+      // Make sure we're using a valid Ethereum address
+      const bidderAddress = bid.bidder;
+      
+      // Fetch name (basename or ENS) using onchainkit
       const name = await getName({
-        address: bid.bidder as Address,
+        address: bidderAddress as Address,
         chain: base,
       });
-
-      setENSname(name || `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`);
+      
+      // Fetch Farcaster username
+      const farcasterUser = await getFarcasterUser(bidderAddress);
+      
+      // Format the address display
+      const formatAddress = (address: string) => {
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+      };
+      
+      // Prioritize names: Farcaster > getName result > formatted address
+      let displayName;
+      if (farcasterUser?.username) {
+        displayName = `@${farcasterUser.username}`; // Add @ symbol
+      } else if (name) {
+        displayName = name; // getName already handles basename/ENS priority
+      } else if (bidderAddress.startsWith('0x')) {
+        displayName = formatAddress(bidderAddress);
+      } else {
+        displayName = bidderAddress; // Fallback to whatever we have
+      }
+      
+      // Update state with the results
+      setNameInfo({
+        displayName,
+        farcasterUsername: farcasterUser?.username || null,
+        ensName: null,
+        basename: name, // Store the getName result in basename
+        pfpUrl: farcasterUser?.pfpUrl || null
+      });
     };
 
-    fetch();
+    fetchNames();
   }, [bid.bidder]);
 
   return (
     <div className="flex items-center justify-between py-2 group">
       <div className="flex items-center space-x-3 min-w-0">
-        <RandomColorAvatar />
+        {nameInfo.pfpUrl ? (
+          <img 
+            src={nameInfo.pfpUrl} 
+            alt="Profile" 
+            className="w-8 h-8 rounded-full object-cover"
+          />
+        ) : (
+          <RandomColorAvatar />
+        )}
         <div className="min-w-0">
-          <p className="font-medium truncate">{ensName}</p>
+          <div className="flex items-center gap-1">
+            <p className="font-medium truncate">{nameInfo.displayName}</p>
+            {nameInfo.farcasterUsername && (
+              <WarpcastLogo 
+                size="md" 
+                username={nameInfo.farcasterUsername} 
+                className="ml-0.5 opacity-80 hover:opacity-100"
+              />
+            )}
+          </div>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <SafeExternalLink
                   href={bid.url}
-                  className="text-xs text-muted-foreground hover:underline  truncate flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:underline truncate flex items-center gap-1"
                   onBeforeNavigate={openDialog}
                 >
                   <Link2 className="h-3 w-3" />

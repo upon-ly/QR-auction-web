@@ -17,6 +17,7 @@ type Auction = {
   tokenId: bigint;
   highestBid: bigint;
   highestBidder: string;
+  highestBidderName?: string;
   startTime: bigint;
   endTime: bigint;
   settled: boolean;
@@ -51,19 +52,19 @@ export function useFetchAuctionDetails() {
       if (auctionDetails) {
         // Assert that auctionDetails is of the expected type
         const details = auctionDetails as AuctionResponse;
-        let bidder = details[2];
+        const bidderAddress = details[2];
 
+        // Get basename for display purposes only
         const name = await getName({
-          address: bidder as Address,
+          address: bidderAddress as Address,
           chain: base,
         });
-
-        bidder = name || `${bidder.slice(0, 4)}...${bidder.slice(-4)}`;
 
         setAuctiondetails({
           tokenId: details[0],
           highestBid: details[1],
-          highestBidder: bidder,
+          highestBidder: bidderAddress,
+          highestBidderName: name || undefined,
           startTime: details[3],
           endTime: details[4],
           settled: details[5],

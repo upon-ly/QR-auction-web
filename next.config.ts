@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   experimental: {
     turbo: {},
   },
+  images: {
+    domains: ['warpcast.com'],
+  },
   async rewrites() {
     return [
       {
