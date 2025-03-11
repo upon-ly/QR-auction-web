@@ -16,6 +16,27 @@ export default function DebugPage() {
   if (!mounted) return null;
   
   const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
+  const isDevOrStaging = process.env.NODE_ENV === "development" || process.env.VERCEL_ENV === "preview";
+
+  if (!isDevOrStaging) {
+    return (
+      <main className="min-h-screen p-4 md:p-8 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+              &larr; Back to main
+            </Link>
+          </div>
+          <div className="p-6 bg-red-100 text-red-800 rounded-lg mb-8">
+            <h2 className="text-lg font-semibold mb-2">⚠️ Access Denied</h2>
+            <p>
+              Debug information is only available in development or staging environments.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
