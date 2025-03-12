@@ -29,6 +29,7 @@ import { formatURL } from "@/utils/helperFunctions";
 import { frameSdk } from "@/lib/frame-sdk";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { ThemeDialog } from "@/components/ThemeDialog";
+import { useAuctionEvents } from "@/hooks/useAuctionEvents";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -58,7 +59,7 @@ export default function Home() {
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
 
 
-  const { auctions } = useFetchAuctions();
+  const { auctions, refetch: refetchAuctions } = useFetchAuctions();
 
   const DEFAULT_DATE = Math.floor(Date.now() / 1000);
 
@@ -250,8 +251,9 @@ export default function Home() {
     setNotificationDetails(context?.client.notificationDetails ?? null);
   }, [context]);
 
-  useEffect(() => {
-    async function fetchOgImage() {
+  // Extract fetchOgImage function so it can be called from event handlers
+  const fetchOgImage = useCallback(async () => {
+    try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await refetchSettings();
       const url =
@@ -282,9 +284,51 @@ export default function Home() {
         setOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
         setOgUrl(url);
       }
+    } catch (err) {
+      console.error("Error fetching OG image:", err);
     }
+  }, [refetchSettings]);
+
+  useEffect(() => {
     fetchOgImage();
-  }, [auctions.length]);
+  }, [auctions.length, fetchOgImage]);
+
+  // Add real-time event monitoring
+  useAuctionEvents({
+    onAuctionBid: (tokenId, bidder, amount, extended, endTime) => {
+      // Update auctions list when a new bid is placed
+      console.log(`Main page: New bid on auction #${tokenId}`);
+      refetchAuctions();
+      refetchSettings();
+    },
+    onAuctionSettled: (tokenId, winner, amount) => {
+      // Update auctions list when an auction is settled
+      console.log(`Main page: Auction #${tokenId} settled`);
+      refetchAuctions();
+      refetchSettings();
+      
+      // Refresh the OG image when an auction is settled to update "Today's Winner"
+      fetchOgImage();
+    },
+    onAuctionCreated: (tokenId, startTime, endTime) => {
+      // Update auctions list when a new auction is created
+      console.log(`Main page: New auction #${tokenId} created`);
+      refetchAuctions();
+      
+      // Update the latest auction ID reference
+      const newAuctionId = Number(tokenId);
+      LATEST_AUCTION_ID.current = newAuctionId;
+      
+      // Only set currentAuctionId if we're viewing the auction that was just settled/replaced
+      // or if the user had manually navigated to the latest auction
+      if (currentAuctionId === LATEST_AUCTION_ID.current || currentAuctionId === newAuctionId - 1) {
+        setCurrentAuctionId(newAuctionId);
+      }
+      
+      // Refresh the OG image when a new auction is created
+      fetchOgImage();
+    }
+  });
 
   // Wait for component to mount to avoid hydration issues
   useEffect(() => {
