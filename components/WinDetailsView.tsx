@@ -63,6 +63,12 @@ export function WinDetailsView(winnerdata: AuctionType) {
   useEffect(() => {
     async function fetchOgImage() {
       try {
+        // Special case for auction #7 - use the custom image link
+        if (winnerdata.tokenId === 7n) {
+          setOgImage("https://i.imgur.com/fzojQUs.png");
+          return;
+        }
+        
         const res = await fetch(`/api/og?url=${winnerdata.url}`);
         const data = await res.json();
         console.log(data);
@@ -84,7 +90,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       }
     }
     fetchOgImage();
-  }, [winnerdata.url]);
+  }, [winnerdata.url, winnerdata.tokenId]);
 
   return (
     <>
