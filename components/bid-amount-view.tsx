@@ -17,6 +17,7 @@ import { useAccount } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
+import { registerTransaction } from "@/hooks/useAuctionEvents";
 
 export function BidForm({
   auctionDetail,
@@ -84,6 +85,9 @@ export function BidForm({
         value: parseUnits(`${data.bid}`, 18),
         urlString: data.url,
       });
+      
+      // Register the transaction hash to prevent duplicate toasts
+      registerTransaction(hash);
 
       const transactionReceiptPr = waitForTransactionReceipt(config, {
         hash: hash,

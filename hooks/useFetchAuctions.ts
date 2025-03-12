@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useCallback } from "react";
 import { ethers, FallbackProvider, JsonRpcProvider } from "ethers";
 import { useWatchContractEvent, useClient } from "wagmi";
 import QRAuction from "../abi/QRAuction.json";
@@ -44,48 +44,51 @@ export function useFetchAuctions() {
 
   const client = useClient({ config });
 
-  // Fetch historical events and initialize state
-  useEffect(() => {
-    const provider = clientToProvider(client);
-    const fetchHistoricalAuctions = async () => {
-      try {
-        const contract = new ethers.Contract(
-          process.env.NEXT_PUBLIC_QRAuction as string,
-          QRAuction.abi,
-          provider
-        );
-        const filter = contract.filters.AuctionCreated();
-        const historicalEvents = await contract.queryFilter(
-          filter,
-          0,
-          "latest"
-        );
+  // Create a fetchHistoricalAuctions function that we can re-use
+  const fetchHistoricalAuctions = useCallback(async () => {
+    if (!client) return;
+    
+    try {
+      const provider = clientToProvider(client);
+      const contract = new ethers.Contract(
+        process.env.NEXT_PUBLIC_QRAuction as string,
+        QRAuction.abi,
+        provider
+      );
+      const filter = contract.filters.AuctionCreated();
+      const historicalEvents = await contract.queryFilter(
+        filter,
+        0,
+        "latest"
+      );
 
-        const formatted: AuctionType[] = historicalEvents.map((event) => {
-          let tokenId: bigint = 0n;
-          let startTime: bigint = 0n;
-          let endTime: bigint = 0n;
-          if ("args" in event && event.args && event.args[0] !== undefined) {
-            tokenId = event.args[0];
-          }
-          if ("args" in event && event.args && event.args[1] !== undefined) {
-            startTime = event.args[1];
-          }
-          if ("args" in event && event.args && event.args[2] !== undefined) {
-            endTime = event.args[2];
-          }
-          return { tokenId, startTime, endTime };
-        });
+      const formatted: AuctionType[] = historicalEvents.map((event) => {
+        let tokenId: bigint = 0n;
+        let startTime: bigint = 0n;
+        let endTime: bigint = 0n;
+        if ("args" in event && event.args && event.args[0] !== undefined) {
+          tokenId = event.args[0];
+        }
+        if ("args" in event && event.args && event.args[1] !== undefined) {
+          startTime = event.args[1];
+        }
+        if ("args" in event && event.args && event.args[2] !== undefined) {
+          endTime = event.args[2];
+        }
+        return { tokenId, startTime, endTime };
+      });
 
-        // Dispatch initialization action
-        dispatch({ type: "INITIALIZE", auctions: formatted });
-      } catch (error) {
-        console.error("Error fetching historical auctions:", error);
-      }
-    };
-
-    fetchHistoricalAuctions();
+      // Dispatch initialization action
+      dispatch({ type: "INITIALIZE", auctions: formatted });
+    } catch (error) {
+      console.error("Error fetching historical auctions:", error);
+    }
   }, [client]);
+
+  // Fetch historical events and initialize state on mount
+  useEffect(() => {
+    fetchHistoricalAuctions();
+  }, [fetchHistoricalAuctions]);
 
   // Listen for new events and update state
   useWatchContractEvent({
@@ -127,5 +130,8 @@ export function useFetchAuctions() {
     config,
   });
 
-  return { auctions: state.auctions };
+  return { 
+    auctions: state.auctions,
+    refetch: fetchHistoricalAuctions 
+  };
 }
