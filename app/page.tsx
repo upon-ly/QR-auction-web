@@ -28,6 +28,7 @@ import sdk, {
 import { formatURL } from "@/utils/helperFunctions";
 import { frameSdk } from "@/lib/frame-sdk";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
+import { ThemeDialog } from "@/components/ThemeDialog";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -53,6 +54,9 @@ export default function Home() {
   const [currentAuctionId, setCurrentAuctionId] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+
 
   const { auctions } = useFetchAuctions();
 
@@ -288,10 +292,16 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen p-4 md:p-8 bg-gray-50">
+    <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">$QR</h1>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setThemeDialogOpen(true)}
+            className="px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            Theme
+          </button>
           {/* <a
             href={`${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string}`}
             target="_blank"
@@ -442,14 +452,14 @@ export default function Home() {
             )}
           </button>
         </div>
-        
+
         {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" && process.env.NODE_ENV === "development") || process.env.VERCEL_ENV === "preview" && (
-          <a 
-            href="/debug" 
-            className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            Debug Panel
-          </a>
+            <a
+              href="/debug"
+              className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Debug Panel
+            </a>
         )}
       </footer>
 
@@ -459,6 +469,8 @@ export default function Home() {
         targetUrl={pendingUrl || ""}
         onContinue={handleContinue}
       />
+
+      <ThemeDialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen} />
     </main>
   );
 }
