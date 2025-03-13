@@ -290,7 +290,7 @@ function UI() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`} variant="outline" onClick={() => setThemeDialogOpen(true)}>
+          <Button className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`} variant="outline" onClick={() => setThemeDialogOpen(true)}>
             <span className="hidden md:inline">Theme</span>
             <Palette className="h-4 w-4 md:hidden" />
           </Button>
