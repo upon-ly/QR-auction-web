@@ -100,14 +100,14 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[300px] bg-background border-none">
+      <DialogContent className="sm:max-w-[300px] bg-background">
         <DialogHeader>
           <DialogTitle>Choose Theme</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <Button
             variant="outline"
-            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
+            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none hover:border-none" : ""}`}
             onClick={() => {
               clearCustomColors();
               setTheme("light");
