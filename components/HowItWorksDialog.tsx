@@ -16,7 +16,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
   const isBaseColors = useBaseColors();
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-background border-none">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <DialogTitle className="text-3xl font-bold">

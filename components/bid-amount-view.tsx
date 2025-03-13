@@ -157,7 +157,7 @@ export function BidForm({
           type="submit"
           className={`px-8 py-2 text-white ${
             isValid ? "bg-gray-900 hover:bg-gray-800" : "bg-gray-500"
-          } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`}
+          } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
           disabled={!isValid}
         >
           Place Bid

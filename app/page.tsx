@@ -346,7 +346,7 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className={isBaseColors ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground" : ""}
+            className={isBaseColors ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none" : ""}
             onClick={() => setThemeDialogOpen(true)}
           >
             Theme

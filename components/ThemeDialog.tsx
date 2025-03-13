@@ -100,14 +100,14 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[300px]">
+      <DialogContent className="sm:max-w-[300px] bg-background border-none">
         <DialogHeader>
           <DialogTitle>Choose Theme</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <Button
             variant="outline"
-            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`}
+            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
             onClick={() => {
               clearCustomColors();
               setTheme("light");
@@ -119,7 +119,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
           </Button>
           <Button
             variant="outline"
-            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`}
+            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
             onClick={() => {
               clearCustomColors();
               setTheme("dark");
@@ -133,7 +133,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
             {({ openConnectModal }) => (
               <Button
                 variant="outline"
-                className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`}
+                className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
                 onClick={() => {
                   if (isConnected) {
                     if (!colors) {
@@ -168,7 +168,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
                 {({ openAccountModal }) => (
                   <Button
                     variant="outline"
-                    className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""} w-1/2`}
+                    className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""} w-1/2`}
                     onClick={() => {
                       openAccountModal();
                       onOpenChange(false);
@@ -181,7 +181,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
 
               <Button
                 variant="outline"
-                className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""} w-1/2`}
+                className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""} w-1/2`}
                 onClick={() => (window.location.href = "/ui")}
               >
                 <Settings className="mr-2 h-4 w-4" />
