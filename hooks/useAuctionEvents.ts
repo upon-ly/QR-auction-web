@@ -189,7 +189,6 @@ export function useAuctionEvents({
           displayMessage,
           { 
             id: combinedEventId,
-            className: "bg-green-50 text-green-800 border border-green-200",
             duration: 5000, // Longer display time on mobile
             icon: "🔄"
           }
@@ -236,10 +235,8 @@ export function useAuctionEvents({
             if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
               // Get identity information and then show toast
               getBidderIdentity(bidder).then(displayName => {
-                toast(`New bid on auction #${tokenId}: ${Number(amount) / 1e18} ETH by ${displayName}`, { 
+                toast(`New bid: ${Number(amount) / 1e18} ETH by ${displayName}`, { 
                   id: eventId,
-                  // Use custom style for bid toasts
-                  className: "bg-gray-50 text-gray-800 border border-gray-200",
                   duration: 5000, // Longer display time on mobile
                   icon: "🔔"
                 });
