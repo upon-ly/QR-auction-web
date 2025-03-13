@@ -312,7 +312,7 @@ function UI() {
                 onChange={(e) => setNumberToMint(parseInt(e.target.value))}
                 className="w-24 px-3 py-2 border rounded-md"
               />
-              <Button onClick={mintBatchBasecolors}>Buy {numberToMint} Colors for {(0.001 * numberToMint)} ETH</Button>
+              <Button onClick={mintBatchBasecolors}>Buy {numberToMint} colors for {(0.001 * numberToMint)} ETH</Button>
             </div>
             {currentColors && (
               <div className="mb-6 p-0 w-full max-w-3xl border border-black">

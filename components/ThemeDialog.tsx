@@ -141,7 +141,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
                       )
                     ) {
                       alert(
-                        "Please configure your theme by clicking the settings icon"
+                        "Please configure your theme by clicking the settings icon in the bottom right corner of the \"Choose Theme\" popup"
                       );
                       return;
                     }
