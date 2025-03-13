@@ -1,6 +1,6 @@
 "use client";
 import { ThemeDialog } from "@/components/ThemeDialog";
-import React from "react";
+import React, { useCallback } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "wagmi";
@@ -10,8 +10,10 @@ import { base, baseSepolia } from "viem/chains";
 import { toast } from "sonner";
 import { parseEther } from "viem";
 import { Palette } from "lucide-react";
+import { useBaseColors } from "@/hooks/useBaseColors";
 
 function UI() {
+  const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const { address } = useAccount();
   const [userNfts, setUserNfts] = useState([]);
@@ -198,7 +200,7 @@ function UI() {
     }
   };
 
-  const fetchUserNfts = async () => {
+  const fetchUserNfts = useCallback(async () => {
     const response = await fetch(
       `https://${
         isTestnet ? "base-sepolia" : "base-mainnet"
@@ -209,7 +211,12 @@ function UI() {
     const data = await response.json();
     console.log(data);
     setUserNfts(data.ownedNfts);
-  };
+  }, [address, isTestnet, alchemyApiKey, baseColorsContractAddressTestnet, baseColorsContractAddress]);
+
+  useEffect(() => {
+    if (!address) return;
+    fetchUserNfts();
+  }, [address, fetchUserNfts]);
 
   const handleColorSelect = (title: string, colorType: string) => {
     switch (colorType) {
@@ -251,11 +258,6 @@ function UI() {
   };
 
   useEffect(() => {
-    if (!address) return;
-    fetchUserNfts();
-  }, [address, fetchUserNfts]);
-
-  useEffect(() => {
     if (primaryColor && backgroundColor && textColor) {
       console.log({
         primaryColor,
@@ -288,7 +290,7 @@ function UI() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setThemeDialogOpen(true)}>
+          <Button className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`} variant="outline" onClick={() => setThemeDialogOpen(true)}>
             <span className="hidden md:inline">Theme</span>
             <Palette className="h-4 w-4 md:hidden" />
           </Button>
@@ -312,7 +314,7 @@ function UI() {
                 onChange={(e) => setNumberToMint(parseInt(e.target.value))}
                 className="w-24 px-3 py-2 border rounded-md"
               />
-              <Button onClick={mintBatchBasecolors}>Buy {numberToMint} colors for {(0.001 * numberToMint)} ETH</Button>
+              <Button className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""}`} onClick={mintBatchBasecolors}>Buy {numberToMint} colors for {(0.001 * numberToMint)} ETH</Button>
             </div>
             {currentColors && (
               <div className="mb-6 p-0 w-full max-w-3xl border border-black">

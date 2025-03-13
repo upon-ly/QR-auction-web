@@ -31,6 +31,8 @@ import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { ThemeDialog } from "@/components/ThemeDialog";
 import { useAuctionEvents } from "@/hooks/useAuctionEvents";
 import { Button } from "@/components/ui/button";
+import { useBaseColors } from "@/hooks/useBaseColors";
+import clsx from "clsx";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -38,6 +40,7 @@ export default function Home() {
   const [context, setContext] = useState<Context.FrameContext>();
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [sendNotificationResult, setSendNotificationResult] = useState("");
+  const isBaseColors = useBaseColors();
 
   const [added, setAdded] = useState(false);
   const [notificationDetails, setNotificationDetails] =
@@ -343,7 +346,9 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => setThemeDialogOpen(true)}          >
+            className={isBaseColors ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground" : ""}
+            onClick={() => setThemeDialogOpen(true)}
+          >
             Theme
           </Button>
           {/* <a
@@ -378,13 +383,13 @@ export default function Home() {
         <div className="flex flex-col justify-center items-center gap-10">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             {!isLoading && (
-              <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
+              <div className={`${isBaseColors ? "bg-primary" : "bg-white"} flex flex-col justify-center p-8 h-[280px] md:h-[368px] rounded-lg`}>
                 <div className="inline-flex flex-col items-center mt-6">
                   <QRPage />
                   <div className="mt-1">
                     <SafeExternalLink
                       href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
-                      className="relative inline-flex items-center bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors w-full"
+                      className={`relative inline-flex items-center ${isBaseColors ? "bg-primary text-foreground" : "bg-white text-gray-700"} text-sm font-medium hover:bg-gray-50 transition-colors w-full`}
                       onBeforeNavigate={() => false}
                     >
                       <span className="block w-full text-center">
@@ -429,7 +434,7 @@ export default function Home() {
                 )}
               </div>
               <div className="inline-flex gap-1 italic">
-                <span className="font-normal text-gray-600 dark:text-[#696969]">
+                <span className={clsx(isBaseColors ? " text-foreground": " text-gray-600 dark:text-[#696969]", "font-normal")}>
                   The QR coin currently points to
                 </span>
                 <span className="font-medium underline">
@@ -483,14 +488,14 @@ export default function Home() {
           className="inline-flex items-center text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
-          <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>
+          <label className={clsx(isBaseColors ? "text-foreground" : "", "mr-1 cursor-pointer")}>CA: {contractAddress}</label>
           <button
             onClick={copyToClipboard}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className={clsx(isBaseColors ? " text-primary hover:text-primary/90" : "hover:bg-gray-100", "p-1 rounded-full transition-colors")}
             aria-label="Copy contract address"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-green-500" />
+              <Check className={clsx(isBaseColors ? "text-primary" : "text-green-500", "h-3 w-3")} />
             ) : (
               <Copy className="h-3 w-3 cursor-pointer" />
             )}
