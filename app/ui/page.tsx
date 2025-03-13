@@ -5,15 +5,14 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "wagmi";
 import { useState, useEffect } from "react";
-import { createConfig, http } from "wagmi";
 import { useReadContract, useWriteContract } from "wagmi";
 import { base, baseSepolia } from "viem/chains";
 import { toast } from "sonner";
 import { parseEther } from "viem";
 import { Palette } from "lucide-react";
 
-function page() {
-  const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
+function UI() {
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const { address } = useAccount();
   const [userNfts, setUserNfts] = useState([]);
   const [primaryColor, setPrimaryColor] = useState<string>("");
@@ -22,7 +21,6 @@ function page() {
   const [activeTab, setActiveTab] = useState("primary");
   const { data: hash, writeContractAsync, error } = useWriteContract();
   const {
-    data: mintBatchHash,
     writeContractAsync: mintBatchWriteContractAsync,
   } = useWriteContract();
 
@@ -71,7 +69,7 @@ function page() {
 
   const baseColorsContractAddress =
     "0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB";
-  const alchemyApiKey = "UJaPqAUB36RG41eR6aJWJM2yiSx1kE-f";
+  const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
 
   const abiForGetColorFunction = [
     {
@@ -255,7 +253,7 @@ function page() {
   useEffect(() => {
     if (!address) return;
     fetchUserNfts();
-  }, [address]);
+  }, [address, fetchUserNfts]);
 
   useEffect(() => {
     if (primaryColor && backgroundColor && textColor) {
@@ -517,4 +515,4 @@ function page() {
   );
 }
 
-export default page;
+export default UI;

@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { useAccount } from "wagmi";
 import { useReadContract } from "wagmi";
-import { base } from "viem/chains";
-import { http, createConfig } from "wagmi";
 import { Sun, Moon, Palette, Wallet, Settings } from "lucide-react";
 import { useEffect } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
