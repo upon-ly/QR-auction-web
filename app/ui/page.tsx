@@ -193,7 +193,7 @@ function UI() {
         value: parseEther((0.001 * numberToMint).toString()),
       });
       toast.success(`Minted ${numberToMint} colors`);
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => window.location.reload(), 3000);
     } catch (error) {
       toast.error("Failed to mint colors");
       console.error(error);
