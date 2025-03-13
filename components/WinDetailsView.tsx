@@ -148,7 +148,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
         <div className="flex flex-col mt-6 p-3 bg-green-50 border border-green-100 rounded-md h-full md:h-[236px]">
           <div className="inline-flex flex-row justify-between items-center w-full">
             <div className="text-sm">
-              <span className="text-gray-600 dark:text-[#696969]">Winning bid: </span>
+              <span className="text-gray-600 dark:text-[#696969]">Winner: </span>
               <SafeExternalLink
                 href={winnerdata.url}
                 className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
