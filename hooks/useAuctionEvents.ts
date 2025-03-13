@@ -22,6 +22,16 @@ const activeTransactions = new Set<string>();
 const identityCache = new Map<string, {displayName: string, timestamp: number}>();
 const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
+// Keep track of recent events for combining toasts
+type RecentEvent = {
+  type: 'settled' | 'created';
+  tokenId: bigint;
+  timestamp: number;
+  winner?: string;
+};
+const recentEvents = new Map<string, RecentEvent>();
+const COMBINE_WINDOW = 5000; // 5 seconds window to combine events
+
 /**
  * Register a transaction hash to prevent duplicate toasts
  * Call this function immediately after sending a transaction
@@ -129,6 +139,75 @@ export function useAuctionEvents({
   // Use a ref to track which events we've already shown toasts for
   const shownToastsRef = useRef<Record<string, number>>({});
 
+  // Function to check and potentially show a combined toast
+  const checkForCombinedToast = (currentEvent: RecentEvent) => {
+    const now = Date.now();
+    
+    // Check if we have a matching event to combine with
+    let matchingEventKey: string | null = null;
+    let matchingEvent: RecentEvent | null = null;
+    
+    for (const [key, event] of recentEvents.entries()) {
+      // Don't match with self
+      if (event.type === currentEvent.type && event.tokenId === currentEvent.tokenId) continue;
+      
+      // Check if events are within time window and form a valid pair
+      if (now - event.timestamp < COMBINE_WINDOW) {
+        if (
+          (event.type === 'settled' && currentEvent.type === 'created') ||
+          (event.type === 'created' && currentEvent.type === 'settled')
+        ) {
+          matchingEventKey = key;
+          matchingEvent = event;
+          break;
+        }
+      }
+    }
+    
+    // If we found a matching event, show a combined toast
+    if (matchingEvent && matchingEventKey) {
+      // Determine which is settled and which is created
+      let settledId: bigint;
+      let createdId: bigint;
+      
+      if (matchingEvent.type === 'settled') {
+        settledId = matchingEvent.tokenId;
+        createdId = currentEvent.tokenId;
+      } else {
+        settledId = currentEvent.tokenId;
+        createdId = matchingEvent.tokenId;
+      }
+      
+      // Create a unique ID for this combined event
+      const combinedEventId = `combined-${settledId.toString()}-${createdId.toString()}`;
+      
+      // Check if we've shown this toast recently
+      if (!shownToastsRef.current[combinedEventId] || now - shownToastsRef.current[combinedEventId] > 5000) {
+        const displayMessage = `Auction #${settledId} settled. Auction #${createdId} started!`;
+        
+        toast.success(
+          displayMessage,
+          { 
+            id: combinedEventId,
+            className: "bg-green-50 text-green-800 border border-green-200",
+            duration: 5000, // Longer display time on mobile
+            icon: "🔄"
+          }
+        );
+        
+        // Record that we've shown this toast
+        shownToastsRef.current[combinedEventId] = now;
+      }
+      
+      // Remove the events we've combined
+      recentEvents.delete(matchingEventKey);
+      return true; // We showed a combined toast
+    }
+    
+    // No matching event found
+    return false;
+  };
+
   useEffect(() => {
     if (!publicClient) return;
 
@@ -157,10 +236,11 @@ export function useAuctionEvents({
             if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
               // Get identity information and then show toast
               getBidderIdentity(bidder).then(displayName => {
-                toast(`New bid: ${Number(amount) / 1e18} ETH by ${displayName}`, { 
+                toast(`New bid on auction #${tokenId}: ${Number(amount) / 1e18} ETH by ${displayName}`, { 
                   id: eventId,
                   // Use custom style for bid toasts
                   className: "bg-gray-50 text-gray-800 border border-gray-200",
+                  duration: 5000, // Longer display time on mobile
                   icon: "🔔"
                 });
                 
@@ -192,23 +272,31 @@ export function useAuctionEvents({
           const isUserTransaction = transactionHash && activeTransactions.has(transactionHash);
           
           if (showToasts && !isUserTransaction && winner && tokenId !== undefined && amount !== undefined) {
-            // Create a unique ID for this event
-            const eventId = `settled-${tokenId.toString()}-${winner}-${amount.toString()}`;
             const now = Date.now();
             
-            // Only show toast if we haven't shown it in the last 5 seconds
-            if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
-              // Get identity information and then show toast
-              getBidderIdentity(winner).then(displayName => {
-                toast.success(
-                  `Auction #${tokenId} settled! Won by ${displayName}`,
-                  { id: eventId }
-                );
-                
-                // Record that we've shown this toast
-                shownToastsRef.current[eventId] = now;
-              });
+            // Create a recent event record for potential combining
+            const eventKey = `settled-${tokenId.toString()}`;
+            recentEvents.set(eventKey, {
+              type: 'settled',
+              tokenId,
+              timestamp: now,
+              winner
+            });
+            
+            // Try to show a combined toast first
+            const currentEvent = recentEvents.get(eventKey);
+            if (currentEvent && checkForCombinedToast(currentEvent)) {
+              // If we showed a combined toast, remove this event and skip individual toast
+              recentEvents.delete(eventKey);
+            } else {
+              // Do not show individual "auction settled" notifications at all
+              // This comment intentionally left to show where we removed code
             }
+            
+            // Clean up old events
+            setTimeout(() => {
+              recentEvents.delete(eventKey);
+            }, COMBINE_WINDOW);
           }
           
           if (onAuctionSettled && tokenId && winner && amount !== undefined) {
@@ -233,19 +321,30 @@ export function useAuctionEvents({
           const isUserTransaction = transactionHash && activeTransactions.has(transactionHash);
           
           if (showToasts && !isUserTransaction && tokenId !== undefined) {
-            // Create a unique ID for this event
-            const eventId = `created-${tokenId.toString()}`;
             const now = Date.now();
             
-            // Only show toast if we haven't shown it in the last 5 seconds
-            if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
-              toast.success(
-                `New auction #${tokenId} created!`,
-                { id: eventId }
-              );
-              // Record that we've shown this toast
-              shownToastsRef.current[eventId] = now;
+            // Create a recent event record for potential combining
+            const eventKey = `created-${tokenId.toString()}`;
+            recentEvents.set(eventKey, {
+              type: 'created',
+              tokenId,
+              timestamp: now
+            });
+            
+            // Try to show a combined toast first
+            const currentEvent = recentEvents.get(eventKey);
+            if (currentEvent && checkForCombinedToast(currentEvent)) {
+              // If we showed a combined toast, remove this event and skip individual toast
+              recentEvents.delete(eventKey);
+            } else {
+              // In QRAuction contract, new auctions are only created when previous ones settle
+              // So we don't show individual "created" notifications, only the combined ones
             }
+            
+            // Clean up old events
+            setTimeout(() => {
+              recentEvents.delete(eventKey);
+            }, COMBINE_WINDOW);
           }
           
           if (onAuctionCreated && tokenId && startTime !== undefined && endTime !== undefined) {
