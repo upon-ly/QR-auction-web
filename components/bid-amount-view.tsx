@@ -17,6 +17,8 @@ import { useAccount } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
+import { registerTransaction } from "@/hooks/useAuctionEvents";
+import { useBaseColors } from "@/hooks/useBaseColors";
 
 export function BidForm({
   auctionDetail,
@@ -29,6 +31,7 @@ export function BidForm({
   onSuccess: () => void;
   openDialog: (url: string) => boolean;
 }) {
+  const isBaseColors = useBaseColors();
   const { isConnected } = useAccount();
   const { bidAmount } = useWriteActions({
     tokenId: auctionDetail?.tokenId ? auctionDetail.tokenId : 0n,
@@ -84,6 +87,9 @@ export function BidForm({
         value: parseUnits(`${data.bid}`, 18),
         urlString: data.url,
       });
+      
+      // Register the transaction hash to prevent duplicate toasts
+      registerTransaction(hash);
 
       const transactionReceiptPr = waitForTransactionReceipt(config, {
         hash: hash,
@@ -94,7 +100,7 @@ export function BidForm({
         success: (data: any) => {
           reset();
           onSuccess();
-          return "Bid Successfull";
+          return "Bid Successful!";
         },
         error: (data: any) => {
           return "Failed to create bid";
@@ -122,7 +128,7 @@ export function BidForm({
               }
             }}
           />
-          <div className="absolute inset-y-0 right-7 flex items-center pointer-events-none text-gray-500 h-[36px]">
+          <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
             ETH
           </div>
           {errors.bid && (
@@ -138,7 +144,7 @@ export function BidForm({
               className="pr-16 border p-2 w-full"
               {...register("url")}
             />
-            <div className="absolute inset-y-0 right-7 flex items-center pointer-events-none text-gray-500 h-[36px]">
+            <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
               URL
             </div>
             {errors.url && (
@@ -151,7 +157,7 @@ export function BidForm({
           type="submit"
           className={`px-8 py-2 text-white ${
             isValid ? "bg-gray-900 hover:bg-gray-800" : "bg-gray-500"
-          }`}
+          } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
           disabled={!isValid}
         >
           Place Bid
@@ -160,7 +166,7 @@ export function BidForm({
         {displayUrl !== "" && (
           <div className="mt-4 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md">
             <div className="text-sm">
-              <span className="text-gray-600">Current bid website: </span>
+              <span className="text-gray-600 dark:text-[#696969]">Current bid website: </span>
               <SafeExternalLink
                 href={targetUrl || ""}
                 className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"

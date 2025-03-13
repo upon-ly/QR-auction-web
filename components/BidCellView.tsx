@@ -15,6 +15,7 @@ import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { WarpcastLogo } from "./WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
+import { useBaseColors } from "@/hooks/useBaseColors";
 
 type AuctionType = {
   tokenId: bigint;
@@ -39,6 +40,7 @@ export function BidCellView({
   bid: AuctionType;
   openDialog: (url: string) => boolean;
 }) {
+  const isBaseColors = useBaseColors();
   const [nameInfo, setNameInfo] = useState<NameInfo>({
     displayName: `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`,
     farcasterUsername: null,
@@ -135,7 +137,7 @@ export function BidCellView({
               <TooltipTrigger asChild>
                 <SafeExternalLink
                   href={bid.url}
-                  className="text-xs text-muted-foreground hover:underline truncate flex items-center gap-1"
+                  className={`${isBaseColors ? "text-foreground" : "text-muted-foreground"} text-xs hover:underline truncate flex items-center gap-1`}
                   onBeforeNavigate={openDialog}
                 >
                   <Link2 className="h-3 w-3" />

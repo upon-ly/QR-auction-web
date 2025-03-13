@@ -28,7 +28,8 @@ import useEthPrice from "@/hooks/useEthPrice";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
-
+import { useAuctionEvents, registerTransaction } from "@/hooks/useAuctionEvents";
+import { useBaseColors } from "@/hooks/useBaseColors";
 interface AuctionDetailsProps {
   id: number;
   onPrevious: () => void;
@@ -76,6 +77,7 @@ export function AuctionDetails({
   const { time, isComplete } = useCountdown(
     auctionDetail?.endTime ? Number(auctionDetail.endTime) : 0
   );
+  const isBaseColors = useBaseColors();
 
   const {
     ethPrice: price,
@@ -117,6 +119,9 @@ export function AuctionDetails({
 
     try {
       const hash = await settleTxn();
+      
+      // Register the transaction hash to prevent duplicate toasts
+      registerTransaction(hash);
 
       const transactionReceiptPr = waitForTransactionReceipt(config, {
         hash: hash,
@@ -134,7 +139,7 @@ export function AuctionDetails({
     } catch (error) {
       console.error(error);
     }
-  }, [isComplete, id, auctionDetail]);
+  }, [isComplete, id, auctionDetail, isConnected, address, settleTxn]);
 
   const updateDetails = async () => {
     await refetch();
@@ -146,17 +151,19 @@ export function AuctionDetails({
   };
 
   useEffect(() => {
-    const refetchDetails = async () => {
-      await refetch();
-      await refetchSettings();
+    if (id) {
+      const refetchDetails = async () => {
+        await refetch();
+        await refetchSettings();
 
-      if (auctionDetail !== undefined) {
-        setIsLoading(false);
-      }
-    };
-    setIsLoading(true);
-    refetchDetails();
-  }, [auctionDetail?.tokenId, id]);
+        if (auctionDetail !== undefined) {
+          setIsLoading(false);
+        }
+      };
+      setIsLoading(true);
+      refetchDetails();
+    }
+  }, [id, auctionDetail?.tokenId]);
 
   useEffect(() => {
     const ftSetled = async () => {
@@ -214,6 +221,33 @@ export function AuctionDetails({
     }
   }, [auctionDetail]);
 
+  // Use the auction events hook to listen for real-time updates
+  useAuctionEvents({
+    onAuctionBid: (tokenId, bidder, amount, extended, endTime) => {
+      // Only update if this event is for the current auction
+      if (tokenId === BigInt(id)) {
+        console.log(`Real-time update: New bid on auction #${id}`);
+        // Update auction details when a new bid is placed
+        refetch();
+      }
+    },
+    onAuctionSettled: (tokenId, winner, amount) => {
+      // Only update if this event is for the current auction
+      if (tokenId === BigInt(id)) {
+        console.log(`Real-time update: Auction #${id} settled`);
+        // Update auction details when the auction is settled
+        refetch();
+      }
+    },
+    onAuctionCreated: (tokenId, startTime, endTime) => {
+      console.log(`Real-time update: New auction #${tokenId} created`);
+      // The main page already handles updating to the latest auction
+      // We don't need to call onNext() here as it causes double navigation
+      // The parent component (page.tsx) already updates currentAuctionId
+    },
+    showToasts: false // Disable toasts in this component as they're already shown in the main page
+  });
+
   return (
     <div className="space-y-6">
       <div className="space-y-5">
@@ -223,19 +257,23 @@ export function AuctionDetails({
             <Button
               variant="outline"
               size="icon"
-              className={`rounded-full border-none ${
+              className={`rounded-full border-none transition-colors ${
                 isLatest
-                  ? "bg-blue-100 hover:bg-blue-200"
-                  : "bg-white hover:bg-gray-100"
-              }`}
+                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-800/50" 
+                  : "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30"
+              } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`}
               onClick={onPrevious}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="outline" 
               size="icon"
-              className="rounded-full hover:bg-gray-100 border-none disabled:opacity-50 disabled:hover:bg-transparent"
+              className={`rounded-full border-none transition-colors ${
+                isLatest
+                  ? `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 opacity-50 cursor-not-allowed ${isBaseColors ? "bg-primary/90 hover:bg-primary/90 hover:text-foreground" : ""}`
+                  : `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`
+              }`}
               onClick={onNext}
               disabled={isLatest}
             >
@@ -245,7 +283,7 @@ export function AuctionDetails({
           <Info
             size={30}
             onClick={() => setShowHowItWorks(true)}
-            className="cursor-pointer"
+            className={`${isBaseColors ? "text-foreground" : ""} cursor-pointer`}
           />
         </div>
         {isLoading && (
@@ -266,7 +304,7 @@ export function AuctionDetails({
                 <>
                   <div className="flex flex-row justify-between gap-8">
                     <div className="space-y-1">
-                      <div className="text-gray-600">Current bid</div>
+                      <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row justify-center items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
                           {formatEther(
@@ -276,17 +314,17 @@ export function AuctionDetails({
                           )}{" "}
                           ETH
                         </div>
-                        <div className="text-xl md:text-md font-medium text-gray-600">
+                        <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
                           {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
                         </div>
                       </div>
                     </div>
                     {!isComplete && (
                       <div className="space-y-1">
-                        <div className="text-gray-600 text-right">
+                        <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-right`}>
                           Time left
                         </div>
-                        <div className="text-xl md:text-2xl font-bold whitespace-nowrap text-right">
+                        <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-right`}>
                           {time}
                         </div>
                       </div>
@@ -304,7 +342,7 @@ export function AuctionDetails({
                     )}
                     {isComplete && (
                       <Button
-                        className="px-8 h-12 bg-gray-900 hover:bg-gray-800"
+                        className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""} px-8 h-12`}
                         onClick={handleSettle}
                       >
                         Settle and create auction
@@ -313,7 +351,7 @@ export function AuctionDetails({
 
                     {auctionDetail && auctionDetail.highestBidder && (
                       <div className="flex flex-row text-sm items-start justify-between">
-                        <div className="text-gray-600 text-left flex items-center">
+                        <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-left flex items-center`}>
                           Highest bidder: 
                           <span className="ml-1 flex items-center">
                             {bidderNameInfo.displayName}
@@ -328,7 +366,7 @@ export function AuctionDetails({
                         </div>
                         <button
                           onClick={() => setShowBidHistory(true)}
-                          className="text-gray-600 underline text-right w-[120px]"
+                          className={`${isBaseColors ? "text-foreground underline" : "text-gray-600 dark:text-[#696969] underline"} text-right w-[120px]`}
                         >
                           All bids
                         </button>
@@ -340,13 +378,13 @@ export function AuctionDetails({
                 <>
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="text-gray-600">Winning bid</div>
+                      <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
                         {auctionDetail?.highestBid || "0"} ETH
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-600">Won by</div>
+                      <div className="text-gray-600 dark:text-[#696969]">Won by</div>
                       <div className="flex items-center gap-2">
                         {bidderNameInfo.pfpUrl ? (
                           <img 
@@ -383,13 +421,13 @@ export function AuctionDetails({
                   <div className="flex flex-row items-center text-sm justify-between">
                     <button
                       onClick={() => setShowBidHistory(true)}
-                      className="text-gray-600 underline text-left w-full"
+                      className="text-gray-600 dark:text-[#696969] underline text-left w-full"
                     >
                       Prev bids
                     </button>
                     <button
                       onClick={() => setShowHowItWorks(true)}
-                      className="text-gray-600 underline text-right w-[120px]"
+                      className="text-gray-600 dark:text-[#696969] underline text-right w-[120px]"
                     >
                       How it works
                     </button>

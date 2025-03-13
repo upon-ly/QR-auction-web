@@ -28,6 +28,11 @@ import sdk, {
 import { formatURL } from "@/utils/helperFunctions";
 import { frameSdk } from "@/lib/frame-sdk";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
+import { ThemeDialog } from "@/components/ThemeDialog";
+import { useAuctionEvents } from "@/hooks/useAuctionEvents";
+import { Button } from "@/components/ui/button";
+import { useBaseColors } from "@/hooks/useBaseColors";
+import clsx from "clsx";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -35,6 +40,7 @@ export default function Home() {
   const [context, setContext] = useState<Context.FrameContext>();
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [sendNotificationResult, setSendNotificationResult] = useState("");
+  const isBaseColors = useBaseColors();
 
   const [added, setAdded] = useState(false);
   const [notificationDetails, setNotificationDetails] =
@@ -54,7 +60,10 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  const { auctions } = useFetchAuctions();
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+
+
+  const { auctions, refetch: refetchAuctions } = useFetchAuctions();
 
   const DEFAULT_DATE = Math.floor(Date.now() / 1000);
 
@@ -246,8 +255,9 @@ export default function Home() {
     setNotificationDetails(context?.client.notificationDetails ?? null);
   }, [context]);
 
-  useEffect(() => {
-    async function fetchOgImage() {
+  // Extract fetchOgImage function so it can be called from event handlers
+  const fetchOgImage = useCallback(async () => {
+    try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await refetchSettings();
       const url =
@@ -278,9 +288,51 @@ export default function Home() {
         setOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
         setOgUrl(url);
       }
+    } catch (err) {
+      console.error("Error fetching OG image:", err);
     }
+  }, [refetchSettings]);
+
+  useEffect(() => {
     fetchOgImage();
-  }, [auctions.length]);
+  }, [auctions.length, fetchOgImage]);
+
+  // Add real-time event monitoring
+  useAuctionEvents({
+    onAuctionBid: (tokenId, bidder, amount, extended, endTime) => {
+      // Update auctions list when a new bid is placed
+      console.log(`Main page: New bid on auction #${tokenId}`);
+      refetchAuctions();
+      refetchSettings();
+    },
+    onAuctionSettled: (tokenId, winner, amount) => {
+      // Update auctions list when an auction is settled
+      console.log(`Main page: Auction #${tokenId} settled`);
+      refetchAuctions();
+      refetchSettings();
+      
+      // Refresh the OG image when an auction is settled to update "Today's Winner"
+      fetchOgImage();
+    },
+    onAuctionCreated: (tokenId, startTime, endTime) => {
+      // Update auctions list when a new auction is created
+      console.log(`Main page: New auction #${tokenId} created`);
+      refetchAuctions();
+      
+      // Update the latest auction ID reference
+      const newAuctionId = Number(tokenId);
+      LATEST_AUCTION_ID.current = newAuctionId;
+      
+      // Only set currentAuctionId if we're viewing the auction that was just settled/replaced
+      // or if the user had manually navigated to the latest auction
+      if (currentAuctionId === LATEST_AUCTION_ID.current || currentAuctionId === newAuctionId - 1) {
+        setCurrentAuctionId(newAuctionId);
+      }
+      
+      // Refresh the OG image when a new auction is created
+      fetchOgImage();
+    }
+  });
 
   // Wait for component to mount to avoid hydration issues
   useEffect(() => {
@@ -288,10 +340,17 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen p-4 md:p-8 bg-gray-50">
+    <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">$QR</h1>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className={isBaseColors ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none" : ""}
+            onClick={() => setThemeDialogOpen(true)}
+          >
+            Theme
+          </Button>
           {/* <a
             href={`${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string}`}
             target="_blank"
@@ -324,13 +383,13 @@ export default function Home() {
         <div className="flex flex-col justify-center items-center gap-10">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             {!isLoading && (
-              <div className="flex flex-col justify-center p-8 h-[280px] md:h-[368px] bg-white rounded-lg">
+              <div className={`${isBaseColors ? "bg-primary" : "bg-white"} flex flex-col justify-center p-8 h-[280px] md:h-[368px] rounded-lg`}>
                 <div className="inline-flex flex-col items-center mt-6">
                   <QRPage />
                   <div className="mt-1">
                     <SafeExternalLink
                       href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
-                      className="relative inline-flex items-center bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors w-full"
+                      className={`relative inline-flex items-center ${isBaseColors ? "bg-primary text-foreground" : "bg-white text-gray-700"} text-sm font-medium hover:bg-gray-50 transition-colors w-full`}
                       onBeforeNavigate={() => false}
                     >
                       <span className="block w-full text-center">
@@ -385,7 +444,7 @@ export default function Home() {
                 )}
               </div>
               <div className="inline-flex gap-1 italic">
-                <span className="font-normal text-gray-600">
+                <span className={clsx(isBaseColors ? " text-foreground": " text-gray-600 dark:text-[#696969]", "font-normal")}>
                   The QR coin currently points to
                 </span>
                 <span className="font-medium underline">
@@ -436,30 +495,30 @@ export default function Home() {
           </a>
         </div>
         <div
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
+          className="inline-flex items-center text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
-          <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>
+          <label className={clsx(isBaseColors ? "text-foreground" : "", "mr-1 cursor-pointer")}>CA: {contractAddress}</label>
           <button
             onClick={copyToClipboard}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className={clsx(isBaseColors ? " text-foreground hover:text-primary/90" : "hover:bg-gray-100", "p-1 rounded-full transition-colors")}
             aria-label="Copy contract address"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-green-500" />
+              <Check className={clsx(isBaseColors ? "text-foreground" : "text-green-500", "h-3 w-3")} />
             ) : (
               <Copy className="h-3 w-3 cursor-pointer" />
             )}
           </button>
         </div>
-        
+
         {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" && process.env.NODE_ENV === "development") || process.env.VERCEL_ENV === "preview" && (
-          <a 
-            href="/debug" 
-            className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            Debug Panel
-          </a>
+            <a
+              href="/debug"
+              className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Debug Panel
+            </a>
         )}
       </footer>
 
@@ -469,6 +528,8 @@ export default function Home() {
         targetUrl={pendingUrl || ""}
         onContinue={handleContinue}
       />
+
+      <ThemeDialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen} />
     </main>
   );
 }
