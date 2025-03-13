@@ -98,7 +98,7 @@ export function BidForm({
         success: (data: any) => {
           reset();
           onSuccess();
-          return "Bid Successfull";
+          return "Bid Successful!";
         },
         error: (data: any) => {
           return "Failed to create bid";
