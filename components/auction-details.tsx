@@ -256,19 +256,23 @@ export function AuctionDetails({
             <Button
               variant="outline"
               size="icon"
-              className={`rounded-full border-none ${
+              className={`rounded-full border-none transition-colors ${
                 isLatest
-                  ? "bg-blue-100 hover:bg-blue-200"
-                  : "bg-white hover:bg-gray-100"
+                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-800/50" 
+                  : "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30"
               }`}
               onClick={onPrevious}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="outline" 
               size="icon"
-              className="rounded-full hover:bg-gray-100 border-none disabled:opacity-50 disabled:hover:bg-transparent"
+              className={`rounded-full border-none transition-colors ${
+                isLatest
+                  ? "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 opacity-50 cursor-not-allowed"
+                  : "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30"
+              }`}
               onClick={onNext}
               disabled={isLatest}
             >
@@ -299,7 +303,7 @@ export function AuctionDetails({
                 <>
                   <div className="flex flex-row justify-between gap-8">
                     <div className="space-y-1">
-                      <div className="text-gray-600">Current bid</div>
+                      <div className="text-gray-600 dark:text-[#696969]">Current bid</div>
                       <div className="flex flex-row justify-center items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
                           {formatEther(
@@ -309,14 +313,14 @@ export function AuctionDetails({
                           )}{" "}
                           ETH
                         </div>
-                        <div className="text-xl md:text-md font-medium text-gray-600">
+                        <div className="text-xl md:text-md font-medium text-gray-600 dark:text-[#696969]">
                           {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
                         </div>
                       </div>
                     </div>
                     {!isComplete && (
                       <div className="space-y-1">
-                        <div className="text-gray-600 text-right">
+                        <div className="text-gray-600 dark:text-[#696969] text-right">
                           Time left
                         </div>
                         <div className="text-xl md:text-2xl font-bold whitespace-nowrap text-right">
@@ -337,7 +341,7 @@ export function AuctionDetails({
                     )}
                     {isComplete && (
                       <Button
-                        className="px-8 h-12 bg-gray-900 hover:bg-gray-800"
+                        className="px-8 h-12"
                         onClick={handleSettle}
                       >
                         Settle and create auction
@@ -346,7 +350,7 @@ export function AuctionDetails({
 
                     {auctionDetail && auctionDetail.highestBidder && (
                       <div className="flex flex-row text-sm items-start justify-between">
-                        <div className="text-gray-600 text-left flex items-center">
+                        <div className="text-gray-600 dark:text-[#696969] text-left flex items-center">
                           Highest bidder: 
                           <span className="ml-1 flex items-center">
                             {bidderNameInfo.displayName}
@@ -361,7 +365,7 @@ export function AuctionDetails({
                         </div>
                         <button
                           onClick={() => setShowBidHistory(true)}
-                          className="text-gray-600 underline text-right w-[120px]"
+                          className="text-gray-600 dark:text-[#696969] underline text-right w-[120px]"
                         >
                           All bids
                         </button>
@@ -373,13 +377,13 @@ export function AuctionDetails({
                 <>
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="text-gray-600">Winning bid</div>
+                      <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
                         {auctionDetail?.highestBid || "0"} ETH
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-600">Won by</div>
+                      <div className="text-gray-600 dark:text-[#696969]">Won by</div>
                       <div className="flex items-center gap-2">
                         {bidderNameInfo.pfpUrl ? (
                           <img 
@@ -416,13 +420,13 @@ export function AuctionDetails({
                   <div className="flex flex-row items-center text-sm justify-between">
                     <button
                       onClick={() => setShowBidHistory(true)}
-                      className="text-gray-600 underline text-left w-full"
+                      className="text-gray-600 dark:text-[#696969] underline text-left w-full"
                     >
                       Prev bids
                     </button>
                     <button
                       onClick={() => setShowHowItWorks(true)}
-                      className="text-gray-600 underline text-right w-[120px]"
+                      className="text-gray-600 dark:text-[#696969] underline text-right w-[120px]"
                     >
                       How it works
                     </button>

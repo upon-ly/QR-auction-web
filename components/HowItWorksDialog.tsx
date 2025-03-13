@@ -36,7 +36,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
               <h3 className="text-lg font-semibold mb-1">
                 What happens if you win?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-[#696969]">
                 The website submitted with the winning bid will be where the QR
                 is pointed for 24 hours post-auction.
               </p>
@@ -51,7 +51,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
               <h3 className="text-lg font-semibold mb-1">
                 What happens if you lose?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-[#696969]">
                 Losing bids will be fully refunded immediately once a higher bid
                 is submitted for the given auction.
               </p>
@@ -66,7 +66,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
               <h3 className="text-lg font-semibold mb-1">
                 What happens with the funds?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-[#696969]">
                 Funds from the winning bids will be used to support the project
                 in a variety of ways including, but not limited to, buying $QR
                 on the open market.

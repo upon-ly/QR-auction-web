@@ -11,17 +11,23 @@ import { useReadContract } from "wagmi";
 import { base } from "viem/chains";
 import { http, createConfig } from "wagmi";
 import { Sun, Moon, Palette, Wallet, Settings } from "lucide-react";
+import { useEffect } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 interface ThemeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
   const { setTheme } = useTheme();
   const { address, isConnected } = useAccount();
+  const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
   const basecolorsThemeSettingsContractAddress =
     "0x711817e9a6a0a5949aea944b009f20658c8c53d0";
+
+  const basecolorsThemeSettingsContractAddressTestnet =
+    "0xE1f532A8A2750e93b4271b01B76cdA4FAb4b0dF2";
 
   const abiForGetColorFunction = [
     {
@@ -56,17 +62,25 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
   ];
 
   const { data: colors } = useReadContract({
-    address: basecolorsThemeSettingsContractAddress,
+    address: isTestnet
+      ? basecolorsThemeSettingsContractAddressTestnet
+      : basecolorsThemeSettingsContractAddress,
     abi: abiForGetColorFunction,
     functionName: "getColors",
     args: [address],
-    config: createConfig({
-      chains: [base],
-      transports: {
-        [base.id]: http(),
-      },
-    }),
   }) as { data: [string, string, string] | undefined };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("selected-theme");
+    if (savedTheme) {
+      if (savedTheme === "baseColors" && colors) {
+        handleBaseColorsMode();
+      } else {
+        clearCustomColors();
+        setTheme(savedTheme);
+      }
+    }
+  }, [colors]);
 
   const clearCustomColors = () => {
     document.documentElement.style.removeProperty("--primary");
@@ -76,6 +90,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
 
   const handleBaseColorsMode = () => {
     setTheme("baseColors");
+    localStorage.setItem("selected-theme", "baseColors");
     if (colors) {
       document.documentElement.style.setProperty("--primary", colors[0]);
       document.documentElement.style.setProperty("--background", colors[1]);
@@ -95,6 +110,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
             onClick={() => {
               clearCustomColors();
               setTheme("light");
+              localStorage.setItem("selected-theme", "light");
             }}
           >
             <Sun className="mr-2 h-4 w-4" />
@@ -105,6 +121,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
             onClick={() => {
               clearCustomColors();
               setTheme("dark");
+              localStorage.setItem("selected-theme", "dark");
             }}
           >
             <Moon className="mr-2 h-4 w-4" />
@@ -117,11 +134,17 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
                 onClick={() => {
                   if (isConnected) {
                     if (!colors) {
-                      window.open("https://basecolors.com/ui", "_blank");
+                      window.location.href = "/ui";
                       return;
                     }
-                    if (colors.every((c, i) => c === ["#000000", "#FFFFFF", "#000000"][i])) {
-                      alert("Please configure your theme by clicking the settings icon");
+                    if (
+                      colors.every(
+                        (c, i) => c === ["#000000", "#FFFFFF", "#000000"][i]
+                      )
+                    ) {
+                      alert(
+                        "Please configure your theme by clicking the settings icon"
+                      );
                       return;
                     }
                     handleBaseColorsMode();
@@ -156,9 +179,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
               <Button
                 variant="outline"
                 className="w-1/2"
-                onClick={() =>
-                  window.open("https://basecolors.com/ui", "_blank")
-                }
+                onClick={() => (window.location.href = "/ui")}
               >
                 <Settings className="mr-2 h-4 w-4" />
               </Button>

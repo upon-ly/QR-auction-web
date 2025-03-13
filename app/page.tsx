@@ -30,6 +30,7 @@ import { frameSdk } from "@/lib/frame-sdk";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { ThemeDialog } from "@/components/ThemeDialog";
 import { useAuctionEvents } from "@/hooks/useAuctionEvents";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -340,12 +341,11 @@ export default function Home() {
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">$QR</h1>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setThemeDialogOpen(true)}
-            className="px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
+          <Button
+            variant="outline"
+            onClick={() => setThemeDialogOpen(true)}          >
             Theme
-          </button>
+          </Button>
           {/* <a
             href={`${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string}`}
             target="_blank"
@@ -429,7 +429,7 @@ export default function Home() {
                 )}
               </div>
               <div className="inline-flex gap-1 italic">
-                <span className="font-normal text-gray-600">
+                <span className="font-normal text-gray-600 dark:text-[#696969]">
                   The QR coin currently points to
                 </span>
                 <span className="font-medium underline">
@@ -480,7 +480,7 @@ export default function Home() {
           </a>
         </div>
         <div
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
+          className="inline-flex items-center text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
           <label className="mr-1 cursor-pointer">CA: {contractAddress}</label>

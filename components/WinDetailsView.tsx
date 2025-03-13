@@ -91,10 +91,10 @@ export function WinDetailsView(winnerdata: AuctionType) {
       <div className="flex flex-row justify-between items-start gap-1">
         <div className="">
           <div className="flex flex-row gap-2">
-            <div className="text-gray-600">Winning bid</div>
+            <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
             <button
               onClick={winnerdata.openBids}
-              className="text-gray-600 underline text-left"
+              className="text-gray-600 dark:text-[#696969] underline text-left"
             >
               see bids
             </button>
@@ -103,14 +103,14 @@ export function WinDetailsView(winnerdata: AuctionType) {
             <div className="text-xl font-bold">
               {formatEther(winnerdata?.amount || 0n)} ETH
             </div>
-            <div className="text-xl md:text-md font-medium text-gray-600">
+            <div className="text-xl md:text-md font-medium text-gray-600 dark:text-[#696969]">
               {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
             </div>
           </div>
         </div>
         
         <div className="flex flex-col items-end" style={{ minWidth: '160px', maxWidth: '200px' }}>
-          <div className="text-gray-600 w-full text-right mb-1">Won by</div>
+          <div className="text-gray-600 dark:text-[#696969] w-full text-right mb-1">Won by</div>
           <div className="flex justify-end items-center w-full">
             {nameInfo.pfpUrl ? (
               <img 
@@ -148,7 +148,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
         <div className="flex flex-col mt-6 p-3 bg-green-50 border border-green-100 rounded-md h-full md:h-[236px]">
           <div className="inline-flex flex-row justify-between items-center w-full">
             <div className="text-sm">
-              <span className="text-gray-600">Winning bid: </span>
+              <span className="text-gray-600 dark:text-[#696969]">Winning bid: </span>
               <SafeExternalLink
                 href={winnerdata.url}
                 className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"

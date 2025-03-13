@@ -23,7 +23,7 @@ export default function DebugPage() {
       <main className="min-h-screen p-4 md:p-8 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+            <Link href="/" className="text-sm font-medium text-gray-600 dark:text-[#696969] hover:text-gray-900">
               &larr; Back to main
             </Link>
           </div>
@@ -43,7 +43,7 @@ export default function DebugPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+            <Link href="/" className="text-sm font-medium text-gray-600 dark:text-[#696969] hover:text-gray-900">
               &larr; Back to main
             </Link>
             <h1 className="text-2xl font-bold">QR Auction Debug</h1>

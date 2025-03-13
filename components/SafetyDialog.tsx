@@ -48,7 +48,7 @@ export function SafetyDialog({
               <h3 className="text-lg font-medium mb-2">
                 Beware of Phishing Scams
               </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
                 Never enter your credentials to prove you are not a bot
               </p>
             </div>
@@ -60,7 +60,7 @@ export function SafetyDialog({
             </div>
             <div>
               <h3 className="text-lg font-medium mb-2">Protect Your Wallet</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
                 Never connect your wallet or confirm transactions unless
                 you&apos;re 100% sure of the source&apos;s legitimacy
               </p>
@@ -73,7 +73,7 @@ export function SafetyDialog({
             </div>
             <div>
               <h3 className="text-lg font-medium mb-2">When In Doubt, Stop!</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
                 If something feels off, don&apos;t interact and please reach out
                 to us{" "}
                 <a
@@ -107,7 +107,7 @@ export function SafetyDialog({
                 }
                 className="h-4 w-4 border-2 border-gray-300 rounded-[3px] data-[state=checked]:border-[#1877F2] data-[state=checked]:bg-[#1877F2]"
               />
-              <label htmlFor="dontShow" className="text-gray-600 text-xs">
+              <label htmlFor="dontShow" className="text-gray-600 dark:text-[#696969] text-xs">
                 {`Don't show this warning again`}
               </label>
             </div>

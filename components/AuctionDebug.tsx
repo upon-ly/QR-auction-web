@@ -337,7 +337,7 @@ export function AuctionDebug() {
               
               {contractData.auction.status === 'Active' && (
                 <div className="mt-2 bg-blue-50 p-2 rounded text-center">
-                  <div className="text-sm text-gray-600">Time Remaining</div>
+                  <div className="text-sm text-gray-600 dark:text-[#696969]">Time Remaining</div>
                   <div className="font-mono text-xl font-bold">{timeLeft}</div>
                 </div>
               )}
