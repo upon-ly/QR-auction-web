@@ -283,7 +283,7 @@ export function AuctionDetails({
           <Info
             size={30}
             onClick={() => setShowHowItWorks(true)}
-            className={`${isBaseColors ? "text-primary" : ""} cursor-pointer`}
+            className={`${isBaseColors ? "text-foreground" : ""} cursor-pointer`}
           />
         </div>
         {isLoading && (

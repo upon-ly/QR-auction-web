@@ -491,11 +491,11 @@ export default function Home() {
           <label className={clsx(isBaseColors ? "text-foreground" : "", "mr-1 cursor-pointer")}>CA: {contractAddress}</label>
           <button
             onClick={copyToClipboard}
-            className={clsx(isBaseColors ? " text-primary hover:text-primary/90" : "hover:bg-gray-100", "p-1 rounded-full transition-colors")}
+            className={clsx(isBaseColors ? " text-foreground hover:text-primary/90" : "hover:bg-gray-100", "p-1 rounded-full transition-colors")}
             aria-label="Copy contract address"
           >
             {copied ? (
-              <Check className={clsx(isBaseColors ? "text-primary" : "text-green-500", "h-3 w-3")} />
+              <Check className={clsx(isBaseColors ? "text-foreground" : "text-green-500", "h-3 w-3")} />
             ) : (
               <Copy className="h-3 w-3 cursor-pointer" />
             )}
