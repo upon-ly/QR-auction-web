@@ -165,6 +165,19 @@ export function AuctionDetails({
     }
   }, [id, auctionDetail?.tokenId]);
 
+  // Update document title with current bid
+  useEffect(() => {
+    if (auctionDetail?.highestBid !== undefined) {
+      const currentBid = Number(formatEther(auctionDetail.highestBid));
+      const usdValue = currentBid * (price?.ethereum?.usd || 0);
+      const displayName = bidderNameInfo.displayName || 'No bids';
+      
+      document.title = currentBid === 0 
+        ? "QR Coin" 
+        : `QR $${usdValue.toFixed(2)} - ${displayName}`;
+    }
+  }, [auctionDetail?.highestBid, price?.ethereum?.usd, bidderNameInfo.displayName]);
+
   useEffect(() => {
     const ftSetled = async () => {
       const data = await auctionsSettled();
