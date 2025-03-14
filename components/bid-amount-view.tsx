@@ -124,7 +124,7 @@ export function BidForm({
             {...register("bid")}
             onFocus={(e: any) => {
               if (!e.target.value) {
-                e.target.value = minimumBid === 0 ? 0 : minimumBid;
+                e.target.value = minimumBid === 0 ? 0.001 : minimumBid;
               }
             }}
           />
