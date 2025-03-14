@@ -24,7 +24,7 @@ export function RandomColorAvatar() {
     <div
       className="w-7 h-7 rounded-full shadow-md"
       style={{
-        background: `linear-gradient(135deg, ${color} 0%, rgba(255,255,255,0.7) 100%)`,
+        background: color,
       }}
     />
   );
