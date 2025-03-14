@@ -422,7 +422,7 @@ export default function Home() {
                 🏆<span className="underline">Today&apos;s Winner</span>🏆
               </label>
               <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1  overflow-hidden bg-white aspect-[2/1]">
-                {ogImage && currentAuctionId !== 8 && (
+                {ogImage && currentAuctionId !== 8 && currentAuctionId !== 10 && (
                   <img
                     src={ogImage}
                     alt="Open Graph"
