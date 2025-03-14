@@ -442,6 +442,16 @@ export default function Home() {
                     }}
                   />
                 )}
+                {ogImage && currentAuctionId === 10 && (
+                  <img
+                    src={"https://i.imgur.com/Ryd5FD6.png"}
+                    alt="Open Graph"
+                    className="object-cover w-full h-full"
+                    onClick={() => {
+                      window.location.href = ogUrl;
+                    }}
+                  />
+                )}
               </div>
               <div className="inline-flex gap-1 italic">
                 <span className={clsx(isBaseColors ? " text-foreground": " text-gray-600 dark:text-[#696969]", "font-normal")}>
