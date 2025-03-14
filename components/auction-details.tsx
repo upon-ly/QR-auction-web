@@ -307,11 +307,14 @@ export function AuctionDetails({
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row justify-center items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
-                          {formatEther(
+                          {Number(formatEther(
                             auctionDetail?.highestBid
                               ? auctionDetail.highestBid
                               : 0n
-                          )}{" "}
+                          )).toLocaleString('en-US', {
+                            maximumFractionDigits: 3,
+                            minimumFractionDigits: 0
+                          })}{" "}
                           ETH
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
@@ -380,7 +383,10 @@ export function AuctionDetails({
                     <div>
                       <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
-                        {auctionDetail?.highestBid || "0"} ETH
+                        {Number(formatEther(auctionDetail?.highestBid || 0n)).toLocaleString('en-US', {
+                          maximumFractionDigits: 3,
+                          minimumFractionDigits: 0
+                        })} ETH
                       </div>
                     </div>
                     <div>
