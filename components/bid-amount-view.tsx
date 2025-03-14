@@ -143,6 +143,11 @@ export function BidForm({
               placeholder="https://"
               className="pr-16 border p-2 w-full"
               {...register("url")}
+              onFocus={(e: any) => {
+                if (!e.target.value) {
+                  e.target.value = "https://";
+                }
+              }}
             />
             <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
               URL
