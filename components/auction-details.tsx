@@ -167,16 +167,28 @@ export function AuctionDetails({
 
   // Update document title with current bid
   useEffect(() => {
-    if (auctionDetail?.highestBid !== undefined) {
+    // Start with default title
+    document.title = "QR";
+    
+    // Only proceed if we have auction data and it's not loading
+    if (!auctionDetail || isLoading) {
+      return;
+    }
+    
+    // Only show special title for active auctions with bids
+    const now = Math.floor(Date.now() / 1000);
+    const isAuctionActive = 
+      !auctionDetail.settled && 
+      auctionDetail.startTime > 0 && 
+      auctionDetail.endTime > now && 
+      auctionDetail.highestBid > 0n;
+    
+    if (isAuctionActive) {
       const currentBid = Number(formatEther(auctionDetail.highestBid));
       const usdValue = currentBid * (price?.ethereum?.usd || 0);
-      const displayName = bidderNameInfo.displayName || 'No bids';
-      
-      document.title = currentBid === 0 
-        ? "QR Coin" 
-        : `QR $${usdValue.toFixed(2)} - ${displayName}`;
+      document.title = `QR $${usdValue.toFixed(2)} - ${bidderNameInfo.displayName}`;
     }
-  }, [auctionDetail?.highestBid, price?.ethereum?.usd, bidderNameInfo.displayName]);
+  }, [auctionDetail, price?.ethereum?.usd, bidderNameInfo.displayName, isLoading]);
 
   useEffect(() => {
     const ftSetled = async () => {
