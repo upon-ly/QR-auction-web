@@ -22,7 +22,7 @@ export function RandomColorAvatar() {
 
   return (
     <div
-      className="w-7 h-7 rounded-full shadow-md"
+      className="w-7 h-7 rounded-full"
       style={{
         background: color,
       }}
