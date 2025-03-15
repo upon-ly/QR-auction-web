@@ -165,6 +165,31 @@ export function AuctionDetails({
     }
   }, [id, auctionDetail?.tokenId]);
 
+  // Update document title with current bid
+  useEffect(() => {
+    // Start with default title
+    document.title = "QR";
+    
+    // Only proceed if we have auction data and it's not loading
+    if (!auctionDetail || isLoading) {
+      return;
+    }
+    
+    // Only show special title for active auctions with bids
+    const now = Math.floor(Date.now() / 1000);
+    const isAuctionActive = 
+      !auctionDetail.settled && 
+      auctionDetail.startTime > 0 && 
+      auctionDetail.endTime > now && 
+      auctionDetail.highestBid > 0n;
+    
+    if (isAuctionActive) {
+      const currentBid = Number(formatEther(auctionDetail.highestBid));
+      const usdValue = currentBid * (price?.ethereum?.usd || 0);
+      document.title = `QR $${usdValue.toFixed(2)} - ${bidderNameInfo.displayName}`;
+    }
+  }, [auctionDetail, price?.ethereum?.usd, bidderNameInfo.displayName, isLoading]);
+
   useEffect(() => {
     const ftSetled = async () => {
       const data = await auctionsSettled();
@@ -307,11 +332,14 @@ export function AuctionDetails({
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row justify-center items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
-                          {formatEther(
+                          {Number(formatEther(
                             auctionDetail?.highestBid
                               ? auctionDetail.highestBid
                               : 0n
-                          )}{" "}
+                          )).toLocaleString('en-US', {
+                            maximumFractionDigits: 3,
+                            minimumFractionDigits: 0
+                          })}{" "}
                           ETH
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
@@ -324,7 +352,7 @@ export function AuctionDetails({
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-right`}>
                           Time left
                         </div>
-                        <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-right`}>
+                        <div className={`${isBaseColors ? "text-foreground" : ""} text-right text-xl md:text-2xl font-bold whitespace-nowrap`}>
                           {time}
                         </div>
                       </div>
@@ -380,7 +408,10 @@ export function AuctionDetails({
                     <div>
                       <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
-                        {auctionDetail?.highestBid || "0"} ETH
+                        {Number(formatEther(auctionDetail?.highestBid || 0n)).toLocaleString('en-US', {
+                          maximumFractionDigits: 3,
+                          minimumFractionDigits: 0
+                        })} ETH
                       </div>
                     </div>
                     <div>

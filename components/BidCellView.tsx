@@ -116,10 +116,10 @@ export function BidCellView({
           <img 
             src={nameInfo.pfpUrl} 
             alt="Profile" 
-            className="w-8 h-8 rounded-full object-cover"
+            className="w-7 h-7 rounded-full object-cover"
           />
         ) : (
-          <RandomColorAvatar />
+         <RandomColorAvatar />
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-1">
