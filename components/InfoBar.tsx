@@ -171,7 +171,7 @@ export const InfoBar: React.FC = () => {
                 )}
               </span>
               {index < updates.length - 1 && (
-                <div className="inline-block mx-2 h-8 w-px bg-gray-600 align-middle" style={{ marginTop: -2 }} />
+                <div className="inline-block mx-2 h-8 w-0.5 bg-gray-600 align-middle" style={{ marginTop: -2 }} />
               )}
             </React.Fragment>
           ))}
@@ -196,7 +196,7 @@ export const InfoBar: React.FC = () => {
                 )}
               </span>
               {index < updates.length - 1 && (
-                <div className="inline-block mx-2 h-8 w-px bg-gray-600 align-middle" style={{ marginTop: -2 }} />
+                <div className="inline-block mx-2 h-8 w-0.5 bg-gray-600 align-middle" style={{ marginTop: -2 }} />
               )}
             </React.Fragment>
           ))}
