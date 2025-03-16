@@ -127,3 +127,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes marquee2 {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 25s linear infinite;
+  animation-delay: -0.1s;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.animate-marquee2 {
+  animation: marquee2 25s linear infinite;
+  animation-delay: -0.1s;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Create a parent container hover state that affects all child animations */
+.marquee-container:hover .animate-marquee,
+.marquee-container:hover .animate-marquee2 {
+  animation-play-state: paused;
+}
+
+/* Add transition to smooth out updates */
+.animate-marquee,
+.animate-marquee2 {
+  transition: transform 0.5s ease-out;
+}

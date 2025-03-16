@@ -1,0 +1,467 @@
+import { useEffect, useState, useCallback } from 'react';
+import { formatEther, Address } from 'viem';
+import { createPublicClient, http, parseAbiItem } from 'viem';
+import { base } from 'viem/chains';
+import { useTokenPrice } from './useTokenPrice';
+import { getName } from '@coinbase/onchainkit/identity';
+import { getFarcasterUser } from '@/utils/farcaster';
+
+// UniswapV3 Pool contract address for $QR token on Base
+const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0';
+
+// Maximum number of buy events to display
+const MAX_BUY_EVENTS = 5;
+
+// ABI for the Swap event
+const swapEventAbi = parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)');
+
+// Cache identity information to avoid repeated API calls
+const identityCache = new Map<string, {displayName: string, timestamp: number, isResolved: boolean}>();
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
+// Format address for display as fallback
+const formatAddress = (address: string): string => {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+// Debug mode - set to true for verbose logging
+const DEBUG = true;
+
+// Helper for debug logging
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG) {
+    console.log('[useTradeActivity]', ...args);
+  }
+};
+
+/**
+ * Resolves an Ethereum address to a human-readable identity
+ * Prioritizes: Farcaster username > Basename/ENS > Formatted address
+ * Includes caching to avoid repeated API calls
+ */
+async function getBidderIdentity(address: string): Promise<string> {
+  // Defensive check for invalid addresses
+  if (!address || typeof address !== 'string') {
+    console.error("Invalid address provided to getBidderIdentity", address);
+    return "Unknown";
+  }
+
+  // Check cache first
+  const now = Date.now();
+  const cached = identityCache.get(address);
+  if (cached && cached.isResolved && now - cached.timestamp < CACHE_EXPIRY) {
+    return cached.displayName;
+  }
+
+  // If there's an unresolved cache entry, return the formatted address temporarily
+  const formattedAddress = formatAddress(address);
+  if (!cached) {
+    // Add to cache as unresolved initially to prevent multiple resolution attempts
+    identityCache.set(address, { 
+      displayName: formattedAddress, 
+      timestamp: now,
+      isResolved: false 
+    });
+  }
+  
+  try {
+    // Default to formatted address in case resolution fails
+    let displayName = formattedAddress;
+    
+    try {
+      // Use Coinbase onchainkit's getName to get basename/ENS
+      const name = await getName({
+        address: address as Address,
+        chain: base,
+      });
+      
+      if (name) {
+        displayName = name; // getName already handles basename/ENS priority
+      }
+    } catch (nameError) {
+      console.error("Error fetching onchain name:", nameError);
+      // Continue execution - we'll fall back to the formatted address
+    }
+    
+    try {
+      // Get Farcaster identity
+      const farcasterUser = await getFarcasterUser(address);
+      
+      // Prioritize Farcaster over other identities
+      if (farcasterUser?.username) {
+        displayName = `@${farcasterUser.username}`;
+      }
+    } catch (farcasterError) {
+      console.error("Error fetching Farcaster identity:", farcasterError);
+      // Continue execution - we'll use what we have so far
+    }
+    
+    // Cache the result
+    identityCache.set(address, { 
+      displayName, 
+      timestamp: now,
+      isResolved: true
+    });
+    
+    return displayName;
+  } catch (error) {
+    console.error("Error in getBidderIdentity:", error);
+    
+    // Mark as resolved to prevent further attempts
+    identityCache.set(address, { 
+      displayName: formattedAddress, 
+      timestamp: now,
+      isResolved: true
+    });
+    
+    return formattedAddress;
+  }
+}
+
+interface SwapEvent {
+  sender: string;
+  recipient: string;
+  amount0: bigint;
+  amount1: bigint;
+  sqrtPriceX96: bigint;
+  liquidity: bigint;
+  tick: number;
+}
+
+interface SwapLog {
+  args: SwapEvent;
+  blockHash: string;
+  logIndex: number;
+  transactionHash: string;
+}
+
+// Store a memory of pending updates that need price information
+interface PendingTradeUpdate {
+  txHash: string;
+  messageKey: string;
+  amountRaw: number;
+  trader: string;
+  nameResolved: boolean;
+}
+
+// Global list of pending updates waiting for price data
+const pendingUpdates = new Map<string, PendingTradeUpdate>();
+
+export const useTradeActivity = (callback: (message: string, txHash?: string, messageKey?: string) => void) => {
+  const [isListening, setIsListening] = useState(false);
+  const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
+  const [lastCheck, setLastCheck] = useState<bigint>(0n);
+  const { formatAmountToUsd, onPriceUpdate, priceUsd } = useTokenPrice();
+
+  // Handle price updates and update existing messages
+  useEffect(() => {
+    // When we get a price update, update all pending trade messages
+    const updateHandler = (price: number) => {
+      debugLog(`Price updated to ${price}, updating ${pendingUpdates.size} pending trade messages`);
+      
+      // Process all pending updates with the new price data
+      pendingUpdates.forEach((update, key) => {
+        const { txHash, messageKey, amountRaw, trader, nameResolved } = update;
+        
+        debugLog(`Updating message with key ${messageKey}:`, {
+          trader,
+          amountRaw,
+          nameResolved,
+          calculatedUsd: amountRaw * price
+        });
+        
+        // Format amount with the new price
+        const usdValue = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 0
+        }).format(amountRaw * price);
+        
+        // Create updated message with USD value
+        const updatedMessage = `${trader} bought $QR (${usdValue})`;
+        
+        // Send the updated message
+        callback(updatedMessage, txHash, messageKey);
+        
+        // Keep in pending list if name isn't resolved yet, otherwise remove
+        if (!nameResolved) {
+          debugLog(`Message ${messageKey} still waiting for name resolution`);
+          pendingUpdates.set(key, {
+            ...update
+          });
+        } else {
+          // Both name and price are resolved, we can remove
+          debugLog(`Message ${messageKey} fully resolved, removing from pending`);
+          pendingUpdates.delete(key);
+        }
+      });
+    };
+    
+    // Register for price updates
+    const cleanup = onPriceUpdate(updateHandler);
+    
+    // Initial check for pending updates if we already have price
+    if (priceUsd !== null && pendingUpdates.size > 0) {
+      debugLog(`Initial price already available (${priceUsd}), checking pending updates`);
+      updateHandler(priceUsd);
+    }
+    
+    return cleanup;
+  }, [onPriceUpdate, callback, priceUsd]);
+
+  // Process a swap event and return true if it's a buy event
+  const processSwapEvent = useCallback(async (log: SwapLog): Promise<boolean> => {
+    try {
+      // Create a unique ID for the event to avoid duplicates
+      const logId = `${log.blockHash}-${log.logIndex}`;
+      
+      // Skip if we've already processed this event
+      if (processedIds.has(logId)) {
+        debugLog(`Event ${logId} already processed, skipping`);
+        return false;
+      }
+      
+      // Mark this event as processed
+      setProcessedIds(prev => new Set([...prev, logId]));
+      
+      const { recipient, amount0 } = log.args;
+        
+      // Determine if this is a buy or sell
+      const isBuy = amount0 < 0n;
+      
+      // Only process buy transactions
+      if (!isBuy) {
+        debugLog(`Event ${logId} is not a buy event, skipping`);
+        return false;
+      }
+      
+      // Create a STABLE message key based solely on transaction data
+      const messageKey = `tx-${log.transactionHash}-${logId}`;
+      debugLog(`Processing buy event with key ${messageKey}`);
+      
+      // Get token amount raw value for later USD calculations
+      const absAmount = amount0 < 0n ? -amount0 : amount0;
+      const amountRaw = Number(formatEther(absAmount));
+      debugLog(`Amount raw: ${amountRaw}`);
+      
+      // Get transaction hash for block explorer link
+      const txHash = log.transactionHash;
+      
+      // Format address initially for display
+      const formattedAddress = formatAddress(recipient);
+      debugLog(`Trader address: ${recipient} (formatted: ${formattedAddress})`);
+      
+      // Try to get identity immediately from cache
+      const cached = identityCache.get(recipient);
+      let trader = formattedAddress;
+      let nameResolved = false;
+      
+      // Use cached identity if available
+      if (cached?.isResolved && cached.displayName !== formattedAddress) {
+        trader = cached.displayName;
+        nameResolved = true;
+        debugLog(`Using cached identity: ${trader}`);
+      }
+      
+      // Current price status
+      debugLog(`Current price status: ${priceUsd !== null ? priceUsd : 'not available'}`);
+      
+      // Try formatting amount if price is available
+      const usdFormatted = formatAmountToUsd(amountRaw);
+      
+      // Construct the initial message
+      let initialMessage = `${trader} bought $QR`;
+      
+      // Add USD amount if available
+      if (usdFormatted) {
+        initialMessage += ` (${usdFormatted})`;
+        debugLog(`USD formatted available: ${usdFormatted}`);
+      } else {
+        debugLog(`USD format not available, will add to pending`);
+      }
+      
+      // Always store this update for potential future updates (either price or name)
+      pendingUpdates.set(messageKey, {
+        txHash,
+        messageKey,
+        amountRaw,
+        trader,
+        nameResolved
+      });
+      
+      debugLog(`Sending initial message: "${initialMessage}"`);
+      
+      // Send initial message with the stable messageKey
+      callback(initialMessage, txHash, messageKey);
+      
+      // If we don't already have a resolved name, start async resolution
+      if (!nameResolved) {
+        debugLog(`Starting async name resolution for ${recipient}`);
+        
+        getBidderIdentity(recipient).then(resolvedTrader => {
+          debugLog(`Name resolved for ${recipient} => ${resolvedTrader}`);
+          
+          // Only update if the resolved identity is different from the formatted address
+          if (resolvedTrader !== formattedAddress) {
+            // Check if this update is still in the pending map
+            const pendingUpdate = pendingUpdates.get(messageKey);
+            
+            if (pendingUpdate) {
+              debugLog(`Updating pending entry with resolved name: ${resolvedTrader}`);
+              
+              // Update the trader name in the pending update
+              pendingUpdates.set(messageKey, {
+                ...pendingUpdate,
+                trader: resolvedTrader,
+                nameResolved: true
+              });
+              
+              // Construct updated message with resolved name
+              let resolvedMessage = `${resolvedTrader} bought $QR`;
+              
+              // Add USD amount if price is available
+              if (priceUsd !== null) {
+                const usdValue = new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
+                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 0
+                }).format(amountRaw * priceUsd);
+                
+                resolvedMessage += ` (${usdValue})`;
+                debugLog(`Added USD value to resolved name message: ${usdValue}`);
+                
+                // If we have both name and price resolved, we can remove from pending
+                pendingUpdates.delete(messageKey);
+                debugLog(`Name and price both resolved, removed from pending`);
+              } else {
+                debugLog(`Price still not available after name resolution`);
+              }
+              
+              debugLog(`Sending updated message with resolved name: "${resolvedMessage}"`);
+              
+              // Use the same messageKey to ensure it replaces the previous message
+              callback(resolvedMessage, txHash, messageKey);
+            } else {
+              debugLog(`Message ${messageKey} no longer in pending map`);
+            }
+          } else {
+            // Name resolved to the same as formatted address, mark as resolved
+            debugLog(`Resolved name is same as formatted address`);
+            const pendingUpdate = pendingUpdates.get(messageKey);
+            if (pendingUpdate) {
+              pendingUpdates.set(messageKey, {
+                ...pendingUpdate,
+                nameResolved: true
+              });
+              
+              // If we have price, we can remove from pending
+              if (priceUsd !== null) {
+                pendingUpdates.delete(messageKey);
+                debugLog(`Name (unchanged) and price both resolved, removed from pending`);
+              }
+            }
+          }
+        }).catch(error => {
+          console.error("Error resolving identity:", error);
+          
+          // Mark as resolved anyway to prevent endless retries
+          const pendingUpdate = pendingUpdates.get(messageKey);
+          if (pendingUpdate) {
+            debugLog(`Error resolving name, marking as resolved anyway`);
+            pendingUpdates.set(messageKey, {
+              ...pendingUpdate,
+              nameResolved: true
+            });
+            
+            // If we have price, we can remove from pending
+            if (priceUsd !== null) {
+              pendingUpdates.delete(messageKey);
+              debugLog(`Error in name resolution but price available, removed from pending`);
+            }
+          }
+        });
+      } else if (usdFormatted) {
+        // Both name and price are resolved, remove from pending
+        pendingUpdates.delete(messageKey);
+        debugLog(`Both name and price resolved immediately, removed from pending`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error processing swap event:', error, log);
+      return false;
+    }
+  }, [callback, processedIds, formatAmountToUsd, priceUsd]);
+
+  const fetchTradeActivity = useCallback(async () => {
+    try {
+      console.log('Fetching trade activity for $QR Uniswap V3 pool');
+      
+      // Create public client for Base mainnet
+      const client = createPublicClient({
+        chain: base,
+        transport: http('https://mainnet.base.org'),
+      });
+
+      // Get current block
+      const currentBlock = await client.getBlockNumber();
+      
+      // Only get events since the last check
+      const fromBlock = lastCheck > 0n ? lastCheck + 1n : currentBlock - BigInt(3000); // Default to ~2 hours if first check
+      
+      if (fromBlock >= currentBlock) {
+        console.log('No new blocks since last check');
+        return;
+      }
+      
+      console.log(`Checking events from block ${fromBlock} to ${currentBlock}`);
+      
+      const events = await client.getLogs({
+        address: QR_UNISWAP_POOL_ADDRESS,
+        event: swapEventAbi,
+        fromBlock,
+        toBlock: currentBlock
+      });
+      
+      // Fetch more events initially to ensure we have enough buys
+      console.log(`Found ${events.length} events`);
+      
+      // Start processing from the most recent events to find buy events
+      let buyEventCount = 0;
+      
+      // Process events in reverse chronological order (newest first)
+      for (let i = events.length - 1; i >= 0 && buyEventCount < MAX_BUY_EVENTS; i--) {
+        const isProcessed = await processSwapEvent(events[i] as SwapLog);
+        if (isProcessed) buyEventCount++;
+      }
+      
+      console.log(`Processed ${buyEventCount} buy events`);
+      
+      // Update the last check block
+      setLastCheck(currentBlock);
+    } catch (error) {
+      console.error('Error fetching trade activity:', error);
+    }
+  }, [lastCheck, processSwapEvent]);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchTradeActivity();
+    
+    // Set up interval to fetch every 15 seconds
+    const intervalId = setInterval(fetchTradeActivity, 15000);
+    
+    setIsListening(true);
+    console.log('Trade activity listener set up with 15-second interval');
+    
+    return () => {
+      clearInterval(intervalId);
+      setIsListening(false);
+      console.log('Trade activity listener cleaned up');
+    };
+  }, [fetchTradeActivity]);
+  
+  return { isListening };
+}; 
