@@ -155,7 +155,7 @@ export const InfoBar: React.FC = () => {
         <div className="animate-marquee whitespace-nowrap px-4 h-full flex items-center">
           {updates.map((update, index) => (
             <React.Fragment key={update.id}>
-              <span className="mx-4 font-medium flex items-center text-green-400">
+              <span className="mx-4 font-medium inline-flex items-center text-green-400">
                 <ArrowRightLeft className="mr-1" size={14} />
                 {update.message}
                 {update.txHash && (
@@ -170,9 +170,7 @@ export const InfoBar: React.FC = () => {
                   </a>
                 )}
               </span>
-              {index < updates.length - 1 && (
-                <div className="inline-block mx-2 h-8 w-0.5 bg-gray-600 align-middle" style={{ marginTop: -2 }} />
-              )}
+              {index < updates.length - 1 && <span className="text-gray-500 mx-2">|</span>}
             </React.Fragment>
           ))}
         </div>
@@ -195,9 +193,7 @@ export const InfoBar: React.FC = () => {
                   </a>
                 )}
               </span>
-              {index < updates.length - 1 && (
-                <div className="inline-block mx-2 h-8 w-0.5 bg-gray-600 align-middle" style={{ marginTop: -2 }} />
-              )}
+              {index < updates.length - 1 && <span className="text-gray-500 mx-2">|</span>}
             </React.Fragment>
           ))}
         </div>
