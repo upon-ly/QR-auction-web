@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { formatEther, Address } from 'viem';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { base } from 'viem/chains';
@@ -7,13 +7,27 @@ import { getName } from '@coinbase/onchainkit/identity';
 import { getFarcasterUser } from '@/utils/farcaster';
 
 // UniswapV3 Pool contract address for $QR token on Base
-const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0';
+const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0' as const;
+
+// QR token address (need this to track transfers)
+const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 
 // Maximum number of buy events to display
-const MAX_BUY_EVENTS = 5;
+const MAX_BUY_EVENTS = 10;
+
+// Known router/aggregator addresses that might appear as recipients
+const KNOWN_ROUTERS = new Set([
+  '0x6ff5693b99212da76ad316178a184ab56d299b43', // Uniswap V4 Universal Router
+  '0x6b2c0c7be2048daa9b5527982c29f48062b34d58', // OKX: DEX Router 7
+  '0x6a000f20005980200259b80c5102003040001068', // ParaSwap: Augustus V6.2
+  '0x111111125421ca6dc452d289314280a0f8842a65', // 1inch Aggregation Router V6
+]);
 
 // ABI for the Swap event
 const swapEventAbi = parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)');
+
+// Transfer event signature topic (keccak256 of Transfer(address,address,uint256))
+const TRANSFER_EVENT_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 // Cache identity information to avoid repeated API calls
 const identityCache = new Map<string, {displayName: string, timestamp: number, isResolved: boolean}>();
@@ -225,8 +239,9 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       // Mark this event as processed
       setProcessedIds(prev => new Set([...prev, logId]));
       
-      const { recipient, amount0 } = log.args;
-        
+      const { recipient, sender, amount0 } = log.args;
+      console.log(log.args.recipient)
+      
       // Determine if this is a buy or sell
       const isBuy = amount0 < 0n;
       
@@ -236,11 +251,11 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         return false;
       }
       
-      // Create a STABLE message key based solely on transaction data
+      // Create a stable message key
       const messageKey = `tx-${log.transactionHash}-${logId}`;
       debugLog(`Processing buy event with key ${messageKey}`);
       
-      // Get token amount raw value for later USD calculations
+      // Get token amount raw value
       const absAmount = amount0 < 0n ? -amount0 : amount0;
       const amountRaw = Number(formatEther(absAmount));
       debugLog(`Amount raw: ${amountRaw}`);
@@ -248,12 +263,79 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       // Get transaction hash for block explorer link
       const txHash = log.transactionHash;
       
-      // Format address initially for display
-      const formattedAddress = formatAddress(recipient);
-      debugLog(`Trader address: ${recipient} (formatted: ${formattedAddress})`);
+      // Check if the recipient is a known router/aggregator
+      const recipientLower = recipient.toLowerCase();
+      const senderLower = sender.toLowerCase();
+      console.log(recipientLower, senderLower)
+      const isRouter = KNOWN_ROUTERS.has(recipientLower) || KNOWN_ROUTERS.has(senderLower);
+      console.log(isRouter)
       
-      // Try to get identity immediately from cache
-      const cached = identityCache.get(recipient);
+      // For finding the actual recipient when the swap is through a router
+      let actualRecipient = recipient;
+      
+      if (isRouter) {
+        console.log(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
+        debugLog(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
+        try {
+          // Create a client to query transaction details
+          const client = createPublicClient({
+            chain: base,
+            transport: http('https://mainnet.base.org'),
+          });
+          
+          // Get the transaction receipt to find token transfers
+          const receipt = await client.getTransactionReceipt({
+            hash: log.transactionHash as `0x${string}`
+          });
+          
+          // Find Transfer events from $QR token in the same transaction
+          if (receipt.logs && receipt.logs.length > 0) {
+            // Sort logs by index to get the final transfers
+            const tokenTransfers = receipt.logs
+              .filter(transferLog => 
+                // Match ERC20 Transfer events for our token
+                transferLog.address.toLowerCase() === QR_TOKEN_ADDRESS.toLowerCase() &&
+                transferLog.topics && 
+                transferLog.topics[0] === TRANSFER_EVENT_TOPIC // Transfer event topic0
+              )
+              .sort((a, b) => a.logIndex - b.logIndex);
+            
+            debugLog(`Found ${tokenTransfers.length} token transfers in transaction`);
+            
+            // Take the last transfer that's not to the router or zero address
+            for (let i = tokenTransfers.length - 1; i >= 0; i--) {
+              const transfer = tokenTransfers[i];
+              if (transfer.topics && transfer.topics.length >= 3) {
+                // Topics[2] is the 'to' address in Transfer(address,address,uint256)
+                const toTopic = transfer.topics[2];
+                if (!toTopic) continue;
+                
+                const to = `0x${toTopic.slice(-40)}`.toLowerCase();
+                
+                // Skip zero address
+                if (to === '0x0000000000000000000000000000000000000000') continue;
+                
+                // Skip if recipient is another router
+                if (KNOWN_ROUTERS.has(to)) continue;
+                
+                actualRecipient = `0x${toTopic.slice(-40)}`;
+                debugLog(`Found actual recipient address: ${actualRecipient}`);
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error tracing actual recipient:', error);
+          debugLog(`Falling back to swap recipient address due to error`);
+        }
+      }
+      
+      // Format address for display
+      const formattedAddress = formatAddress(actualRecipient);
+      debugLog(`Using address for display: ${formattedAddress}`);
+      
+      // Try to get identity from cache
+      const cached = identityCache.get(actualRecipient);
       let trader = formattedAddress;
       let nameResolved = false;
       
@@ -281,7 +363,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         debugLog(`USD format not available, will add to pending`);
       }
       
-      // Always store this update for potential future updates (either price or name)
+      // Store this update for potential future updates
       pendingUpdates.set(messageKey, {
         txHash,
         messageKey,
@@ -292,15 +374,15 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       
       debugLog(`Sending initial message: "${initialMessage}"`);
       
-      // Send initial message with the stable messageKey
+      // Send initial message
       callback(initialMessage, txHash, messageKey);
       
-      // If we don't already have a resolved name, start async resolution
+      // If identity not resolved, start async resolution
       if (!nameResolved) {
-        debugLog(`Starting async name resolution for ${recipient}`);
+        debugLog(`Starting async name resolution for ${actualRecipient}`);
         
-        getBidderIdentity(recipient).then(resolvedTrader => {
-          debugLog(`Name resolved for ${recipient} => ${resolvedTrader}`);
+        getBidderIdentity(actualRecipient).then(resolvedTrader => {
+          debugLog(`Name resolved for ${actualRecipient} => ${resolvedTrader}`);
           
           // Only update if the resolved identity is different from the formatted address
           if (resolvedTrader !== formattedAddress) {
@@ -440,7 +522,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       
       // Start processing from the most recent events to find buy events
       let buyEventCount = 0;
-      const maxBuyEvents = lastCheck === 0n ? 5 : MAX_BUY_EVENTS; // Get at least 5 events on first load
+      const maxBuyEvents = lastCheck === 0n ? 10 : MAX_BUY_EVENTS; // Get at least 5 events on first load
       
       // Process events in reverse chronological order (newest first)
       for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
