@@ -7,6 +7,7 @@ import "./globals.css";
 import { Provider } from "../providers/provider";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
+import { InfoBar } from "@/components/InfoBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,7 +78,10 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Toaster position="top-center" richColors={true} />
-          <Provider>{children}</Provider>
+          <Provider>
+            <InfoBar />
+            {children}
+          </Provider>
         </ThemeProvider>
       </body>
     </html>

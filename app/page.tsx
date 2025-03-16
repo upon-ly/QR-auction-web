@@ -341,7 +341,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
+      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
         <h1 className="text-2xl font-bold">$QR</h1>
         <div className="flex items-center gap-3">
           <Button
