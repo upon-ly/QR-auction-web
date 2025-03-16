@@ -85,19 +85,30 @@ export const useInfoBarUpdates = () => {
     const now = Date.now();
     
     setUpdates(prev => {
-      // Don't clean up if we have too few updates (prevent blank InfoBar)
-      if (prev.length <= 1) return prev;
+      // Increment show count for all messages
+      const updatedMessages = prev.map(update => ({
+        ...update,
+        showCount: update.showCount + 1
+      }));
       
-      return prev
-        .map(update => ({
-          ...update,
-          showCount: update.showCount + 1
-        }))
-        .filter(update => {
-          // Keep if less than 10 seconds old OR shown less than twice
-          // (Changed from AND to OR to be less aggressive with cleanup)
-          return (now - update.timestamp < 10000) || (update.showCount < 2);
-        });
+      // If we have 5 or fewer updates, keep them all regardless of age
+      if (updatedMessages.length <= 5) {
+        return updatedMessages;
+      }
+      
+      // Sort by freshness (newest first) to ensure we always keep the freshest 5
+      const sortedMessages = [...updatedMessages].sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Keep the 5 freshest messages and any that are less than 15 seconds old
+      const filteredMessages = sortedMessages.filter((update, index) => {
+        // Always keep the 5 freshest messages
+        if (index < 5) return true;
+        
+        // Also keep any other messages that are recent
+        return now - update.timestamp < 15000;
+      });
+      
+      return filteredMessages;
     });
   }, []);
   
@@ -118,7 +129,7 @@ export const useInfoBarUpdates = () => {
         clearInterval(cleanupInterval.current);
       }
     };
-  }, [address, isConnected, cleanupOldUpdates]);
+  }, [isConnected, address, cleanupOldUpdates]);
   
   // Add trade activity updates
   useTradeActivity(addUpdate);
@@ -189,8 +200,8 @@ export const InfoBar: React.FC = () => {
       </div>
       
       {/* Market Cap Display */}
-      <div className="absolute right-0 top-0 h-full flex items-center bg-white px-4 font-medium text-sm border-l border-gray-700 whitespace-nowrap z-20">
-        <span className="text-black">{formatMarketCap()}</span>
+      <div className="absolute right-0 top-0 h-full flex items-center bg-black px-4 border-l border-gray-700 whitespace-nowrap z-20">
+        <span className="text-white">{formatMarketCap()}</span>
       </div>
     </div>
   );
