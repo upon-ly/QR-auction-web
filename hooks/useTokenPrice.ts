@@ -10,8 +10,34 @@ interface PriceCache {
   timestamp: number;
 }
 
+// LocalStorage key for persisting price data
+const PRICE_STORAGE_KEY = 'qr_price_cache';
+
+// Load cached price from localStorage on init
+const loadCachedPrice = (): PriceCache | null => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const cached = localStorage.getItem(PRICE_STORAGE_KEY);
+    if (!cached) return null;
+    
+    const data = JSON.parse(cached) as PriceCache;
+    const now = Date.now();
+    
+    // Only use cache if it's not too old
+    if (now - data.timestamp < 30 * 60 * 1000) { // 30 minutes max
+      console.log('Loaded price data from localStorage:', data);
+      return data;
+    }
+    return null;
+  } catch (e) {
+    console.error('Error loading price from localStorage:', e);
+    return null;
+  }
+};
+
 // Global cache to persist between component re-renders
-let tokenPriceCache: PriceCache | null = null;
+let tokenPriceCache: PriceCache | null = loadCachedPrice();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Global callback registry for price updates
@@ -23,6 +49,17 @@ export const useTokenPrice = () => {
   const [marketCap, setMarketCap] = useState<number | null>(tokenPriceCache?.marketCap || null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Save price to localStorage
+  const savePriceToStorage = useCallback((cache: PriceCache) => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(cache));
+    } catch (e) {
+      console.error('Error saving price to localStorage:', e);
+    }
+  }, []);
 
   const fetchTokenPrice = useCallback(async (force = false) => {
     // Check if we have a valid cached price
@@ -72,11 +109,16 @@ export const useTokenPrice = () => {
           setMarketCap(marketCapValue);
           
           // Update cache
-          tokenPriceCache = {
+          const newCache = {
             price,
             marketCap: marketCapValue,
             timestamp: now
           };
+          
+          tokenPriceCache = newCache;
+          
+          // Also save to localStorage for persistence between page loads
+          savePriceToStorage(newCache);
           
           // Notify all registered callbacks about the price update
           priceUpdateCallbacks.forEach(callback => {
@@ -97,11 +139,20 @@ export const useTokenPrice = () => {
     } catch (err) {
       console.error('Error fetching token price:', err);
       setError(err instanceof Error ? err.message : String(err));
+      
+      // If we have a cached price but it's expired, use it as fallback on error
+      if (tokenPriceCache && !force) {
+        console.log('Using expired cache as fallback after API error');
+        setPriceUsd(tokenPriceCache.price);
+        setMarketCap(tokenPriceCache.marketCap);
+        return { price: tokenPriceCache.price, marketCap: tokenPriceCache.marketCap };
+      }
+      
       return { price: null, marketCap: null };
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [savePriceToStorage]);
 
   // Register a callback for price updates
   const onPriceUpdate = useCallback((callback: PriceUpdateCallback) => {
@@ -124,6 +175,12 @@ export const useTokenPrice = () => {
 
   // Fetch price on initial load
   useEffect(() => {
+    // Always try to load from cache first on mount
+    if (tokenPriceCache?.price && !priceUsd) {
+      setPriceUsd(tokenPriceCache.price);
+      setMarketCap(tokenPriceCache.marketCap);
+    }
+    
     // Immediate fetch on mount
     fetchTokenPrice(true); // Force fetch on initial mount
     
@@ -138,26 +195,35 @@ export const useTokenPrice = () => {
     }, 2 * 60 * 1000);
     
     return () => clearInterval(refreshInterval);
-  }, [fetchTokenPrice]);
-
+  }, [fetchTokenPrice, priceUsd]);
+  
   // Ensure we have a price as soon as possible
   useEffect(() => {
     if (priceUsd === null) {
-      // If we don't have a price yet, retry after a short delay
-      const retryTimer = setTimeout(() => {
-        console.log('Retrying token price fetch after delay');
-        fetchTokenPrice(true);
-      }, 2000); // Retry after 2 seconds
+      // If we don't have a price yet, retry multiple times at increasing intervals
+      const retryTimes = [2000, 5000, 10000]; // Retry after 2s, 5s, and 10s
       
-      return () => clearTimeout(retryTimer);
+      const retryTimers = retryTimes.map((delay, index) => {
+        return setTimeout(() => {
+          console.log(`Retry ${index + 1} for token price fetch after ${delay}ms`);
+          fetchTokenPrice(true);
+        }, delay);
+      });
+      
+      return () => {
+        retryTimers.forEach(timer => clearTimeout(timer));
+      };
     }
   }, [priceUsd, fetchTokenPrice]);
 
   // Format a token amount to USD
   const formatAmountToUsd = useCallback((amount: number): string => {
-    if (priceUsd === null) return '';
+    // Always try to use the global cache if available, even if component state isn't updated yet
+    const priceToUse = priceUsd || tokenPriceCache?.price;
     
-    const usdValue = amount * priceUsd;
+    if (priceToUse === null || priceToUse === undefined) return '';
+    
+    const usdValue = amount * priceToUse;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -168,20 +234,28 @@ export const useTokenPrice = () => {
 
   // Format market cap for display
   const formatMarketCap = useCallback((): string => {
-    if (marketCap === null) return 'MKT CAP = N/A';
+    // Try to use global cache if state isn't set
+    const marketCapToUse = marketCap || tokenPriceCache?.marketCap;
+    
+    if (marketCapToUse === null || marketCapToUse === undefined) return 'MKT CAP = N/A';
     
     // Format with appropriate suffix (K, M, B)
     let formattedValue: string;
-    if (marketCap >= 1e9) {
-      formattedValue = `$${(marketCap / 1e9).toFixed(1)}B`;
-    } else if (marketCap >= 1e6) {
-      formattedValue = `$${(marketCap / 1e6).toFixed(1)}M`;
+    if (marketCapToUse >= 1e9) {
+      formattedValue = `$${(marketCapToUse / 1e9).toFixed(1)}B`;
+    } else if (marketCapToUse >= 1e6) {
+      formattedValue = `$${(marketCapToUse / 1e6).toFixed(1)}M`;
     } else {
-      formattedValue = `$${(marketCap / 1e3).toFixed(0)}K`;
+      formattedValue = `$${(marketCapToUse / 1e3).toFixed(0)}K`;
     }
     
     return `MKT CAP = ${formattedValue}`;
   }, [marketCap]);
+
+  // Get raw price even if not yet in state
+  const getRawPrice = useCallback((): number | null => {
+    return priceUsd || tokenPriceCache?.price || null;
+  }, [priceUsd]);
 
   return { 
     priceUsd, 
@@ -191,6 +265,7 @@ export const useTokenPrice = () => {
     fetchTokenPrice, 
     formatAmountToUsd,
     formatMarketCap,
-    onPriceUpdate
+    onPriceUpdate,
+    getRawPrice
   };
 }; 

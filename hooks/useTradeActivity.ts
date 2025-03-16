@@ -165,7 +165,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
   const [isListening, setIsListening] = useState(false);
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [lastCheck, setLastCheck] = useState<bigint>(0n);
-  const { formatAmountToUsd, onPriceUpdate, priceUsd } = useTokenPrice();
+  const { formatAmountToUsd, onPriceUpdate, priceUsd, getRawPrice } = useTokenPrice();
 
   // Handle price updates and update existing messages
   useEffect(() => {
@@ -184,7 +184,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
           calculatedUsd: amountRaw * price
         });
         
-        // Format amount with the new price
+        // Format amount with the new price consistently
         const usdValue = new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: 'USD',
@@ -192,7 +192,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
           minimumFractionDigits: 0
         }).format(amountRaw * price);
         
-        // Create updated message with USD value
+        // Create updated message with USD value, preserving the trader name
         const updatedMessage = `${trader} bought $QR (${usdValue})`;
         
         // Send the updated message
@@ -216,13 +216,14 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
     const cleanup = onPriceUpdate(updateHandler);
     
     // Initial check for pending updates if we already have price
-    if (priceUsd !== null && pendingUpdates.size > 0) {
-      debugLog(`Initial price already available (${priceUsd}), checking pending updates`);
-      updateHandler(priceUsd);
+    const currentPrice = getRawPrice();
+    if (currentPrice !== null && pendingUpdates.size > 0) {
+      debugLog(`Initial price already available (${currentPrice}), applying to pending updates`);
+      updateHandler(currentPrice);
     }
     
     return cleanup;
-  }, [onPriceUpdate, callback, priceUsd]);
+  }, [onPriceUpdate, callback, getRawPrice]);
 
   // Process a swap event and return true if it's a buy event
   const processSwapEvent = useCallback(async (log: SwapLog): Promise<boolean> => {
@@ -259,6 +260,9 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       const absAmount = amount0 < 0n ? -amount0 : amount0;
       const amountRaw = Number(formatEther(absAmount));
       debugLog(`Amount raw: ${amountRaw}`);
+      
+      // Get raw price directly from global cache to prevent UI render issues
+      const currentPrice = getRawPrice();
       
       // Get transaction hash for block explorer link
       const txHash = log.transactionHash;
@@ -347,10 +351,28 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       }
       
       // Current price status
-      debugLog(`Current price status: ${priceUsd !== null ? priceUsd : 'not available'}`);
+      debugLog(`Current price status: ${currentPrice !== null ? currentPrice : 'not available'}`);
       
-      // Try formatting amount if price is available
-      const usdFormatted = formatAmountToUsd(amountRaw);
+      // Try formatting amount with the most reliable price source
+      let usdFormatted = '';
+      if (currentPrice !== null) {
+        // Format directly using the raw price to avoid any state sync issues
+        usdFormatted = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 0
+        }).format(amountRaw * currentPrice);
+        debugLog(`USD formatted available: ${usdFormatted}`);
+      } else {
+        // Fallback to hook's formatter
+        usdFormatted = formatAmountToUsd(amountRaw);
+        if (usdFormatted) {
+          debugLog(`USD formatted from hook: ${usdFormatted}`);
+        } else {
+          debugLog(`USD price not available, will use backup system`);
+        }
+      }
       
       // Construct the initial message
       let initialMessage = `${trader} bought $QR`;
@@ -358,9 +380,10 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       // Add USD amount if available
       if (usdFormatted) {
         initialMessage += ` (${usdFormatted})`;
-        debugLog(`USD formatted available: ${usdFormatted}`);
       } else {
-        debugLog(`USD format not available, will add to pending`);
+        // Store the raw amount in the message for later price resolution
+        initialMessage += ` (${amountRaw.toFixed(2)} $QR)`;
+        debugLog(`Using tokenized amount as fallback`);
       }
       
       // Store this update for potential future updates
@@ -403,13 +426,13 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
               let resolvedMessage = `${resolvedTrader} bought $QR`;
               
               // Add USD amount if price is available
-              if (priceUsd !== null) {
+              if (currentPrice !== null) {
                 const usdValue = new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: 'USD',
                   maximumFractionDigits: 2,
                   minimumFractionDigits: 0
-                }).format(amountRaw * priceUsd);
+                }).format(amountRaw * currentPrice);
                 
                 resolvedMessage += ` (${usdValue})`;
                 debugLog(`Added USD value to resolved name message: ${usdValue}`);
@@ -439,7 +462,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
               });
               
               // If we have price, we can remove from pending
-              if (priceUsd !== null) {
+              if (currentPrice !== null) {
                 pendingUpdates.delete(messageKey);
                 debugLog(`Name (unchanged) and price both resolved, removed from pending`);
               }
@@ -458,7 +481,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
             });
             
             // If we have price, we can remove from pending
-            if (priceUsd !== null) {
+            if (currentPrice !== null) {
               pendingUpdates.delete(messageKey);
               debugLog(`Error in name resolution but price available, removed from pending`);
             }
@@ -475,7 +498,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       console.error('Error processing swap event:', error, log);
       return false;
     }
-  }, [callback, processedIds, formatAmountToUsd, priceUsd]);
+  }, [callback, processedIds, formatAmountToUsd, priceUsd, getRawPrice]);
 
   const fetchTradeActivity = useCallback(async () => {
     try {
