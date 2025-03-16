@@ -397,7 +397,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
 
   const fetchTradeActivity = useCallback(async () => {
     try {
-      console.log('Fetching trade activity for $QR Uniswap V3 pool');
+      debugLog('Fetching trade activity for $QR Uniswap V3 pool');
       
       // Create public client for Base mainnet
       const client = createPublicClient({
@@ -408,15 +408,25 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       // Get current block
       const currentBlock = await client.getBlockNumber();
       
-      // Only get events since the last check
-      const fromBlock = lastCheck > 0n ? lastCheck + 1n : currentBlock - BigInt(3000); // Default to ~2 hours if first check
+      // Only get events since the last check, or get more historical events if this is first load
+      let fromBlock: bigint;
+      
+      if (lastCheck > 0n) {
+        // Normal update - get events since last check
+        fromBlock = lastCheck + 1n;
+      } else {
+        // First load - get more historical events to ensure we have some events to display
+        const minHistoricalBlocks = BigInt(6000); // Approx ~4-6 hours of blocks
+        fromBlock = currentBlock > minHistoricalBlocks ? currentBlock - minHistoricalBlocks : 0n;
+        debugLog(`First load - fetching more historical events from block ${fromBlock}`);
+      }
       
       if (fromBlock >= currentBlock) {
-        console.log('No new blocks since last check');
+        debugLog('No new blocks since last check');
         return;
       }
       
-      console.log(`Checking events from block ${fromBlock} to ${currentBlock}`);
+      debugLog(`Checking events from block ${fromBlock} to ${currentBlock}`);
       
       const events = await client.getLogs({
         address: QR_UNISWAP_POOL_ADDRESS,
@@ -426,18 +436,19 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       });
       
       // Fetch more events initially to ensure we have enough buys
-      console.log(`Found ${events.length} events`);
+      debugLog(`Found ${events.length} events`);
       
       // Start processing from the most recent events to find buy events
       let buyEventCount = 0;
+      const maxBuyEvents = lastCheck === 0n ? 5 : MAX_BUY_EVENTS; // Get at least 5 events on first load
       
       // Process events in reverse chronological order (newest first)
-      for (let i = events.length - 1; i >= 0 && buyEventCount < MAX_BUY_EVENTS; i--) {
+      for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
         const isProcessed = await processSwapEvent(events[i] as SwapLog);
         if (isProcessed) buyEventCount++;
       }
       
-      console.log(`Processed ${buyEventCount} buy events`);
+      debugLog(`Processed ${buyEventCount} buy events`);
       
       // Update the last check block
       setLastCheck(currentBlock);
