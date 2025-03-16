@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccount } from 'wagmi'; 
-import { initializeChannels } from '@/lib/channelManager';
+// import { initializeChannels } from '@/lib/channelManager';
 import { useTradeActivity } from '@/hooks/useTradeActivity';
 import { useTokenPrice } from '@/hooks/useTokenPrice';
 import { ExternalLink, ArrowRightLeft } from 'lucide-react';
@@ -18,7 +18,7 @@ type InfoUpdate = {
 };
 
 // Store a browser instance ID to distinguish between local and remote events
-const BROWSER_INSTANCE_ID = Math.random().toString(36).substring(2, 15);
+// const BROWSER_INSTANCE_ID = Math.random().toString(36).substring(2, 15);
 
 export const useInfoBarUpdates = () => {
   const [updates, setUpdates] = useState<InfoUpdate[]>([]);
@@ -108,7 +108,7 @@ export const useInfoBarUpdates = () => {
     console.log('Setting up InfoBar channels for user:', address);
     
     // Initialize channels via the manager (still needed for wallet connections elsewhere)
-    initializeChannels(address, BROWSER_INSTANCE_ID);
+    // initializeChannels(address, BROWSER_INSTANCE_ID);
     
     // Set up cleanup interval for old updates
     cleanupInterval.current = setInterval(cleanupOldUpdates, 5000);
@@ -189,8 +189,8 @@ export const InfoBar: React.FC = () => {
       </div>
       
       {/* Market Cap Display */}
-      <div className="absolute right-0 top-0 h-full flex items-center bg-black px-4 font-medium text-sm border-l border-gray-700 whitespace-nowrap z-20">
-        <span className="text-white">{formatMarketCap()}</span>
+      <div className="absolute right-0 top-0 h-full flex items-center bg-white px-4 font-medium text-sm border-l border-gray-700 whitespace-nowrap z-20">
+        <span className="text-black">{formatMarketCap()}</span>
       </div>
     </div>
   );
