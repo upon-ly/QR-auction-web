@@ -169,12 +169,12 @@ export function BidForm({
         </Button>
 
         {displayUrl !== "" && (
-          <div className="mt-4 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md">
+          <div className={`mt-4 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-gray-800"}`}>
             <div className="text-sm">
-              <span className="text-gray-600 dark:text-[#696969]">Current bid website: </span>
+              <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-gray-300"}`}>Current bid website: </span>
               <SafeExternalLink
                 href={targetUrl || ""}
-                className="font-medium text-gray-700 hover:text-gray-900 transition-colors inline-flex items-center"
+                className={`font-medium hover:text-gray-900 transition-colors inline-flex items-center ${isBaseColors ? "text-foreground" : "text-gray-700 dark:text-gray-400"}`}
                 onBeforeNavigate={openDialog}
               >
                 {formatURL(displayUrl)}

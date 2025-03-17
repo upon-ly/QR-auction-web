@@ -13,7 +13,7 @@ const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0' as 
 const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 
 // Maximum number of buy events to display
-const MAX_BUY_EVENTS = 10;
+const MAX_BUY_EVENTS = 5;
 
 // Known router/aggregator addresses that might appear as recipients
 const KNOWN_ROUTERS = new Set([
@@ -21,6 +21,7 @@ const KNOWN_ROUTERS = new Set([
   '0x6b2c0c7be2048daa9b5527982c29f48062b34d58', // OKX: DEX Router 7
   '0x6a000f20005980200259b80c5102003040001068', // ParaSwap: Augustus V6.2
   '0x111111125421ca6dc452d289314280a0f8842a65', // 1inch Aggregation Router V6
+  '0x1111111254eeb25477b68fb85ed929f73a960582' // 1inch Aggregation Router V5
 ]);
 
 // ABI for the Swap event
@@ -545,7 +546,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       
       // Start processing from the most recent events to find buy events
       let buyEventCount = 0;
-      const maxBuyEvents = lastCheck === 0n ? 10 : MAX_BUY_EVENTS; // Get at least 5 events on first load
+      const maxBuyEvents = lastCheck === 0n ? 5 : MAX_BUY_EVENTS; // Get at least 5 events on first load
       
       // Process events in reverse chronological order (newest first)
       for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
