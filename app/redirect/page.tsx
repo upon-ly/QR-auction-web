@@ -7,6 +7,16 @@ import QRAuction from "@/abi/QRAuction.json"; // Adjust the path as needed
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Function to safely encode URLs, handling already percent-encoded URLs
+function sanitizeUrl(url: string): string {
+  try {
+    // Replace any problematic characters that might cause issues in HTTP headers
+    return url.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+  } catch {
+    return "";
+  }
+}
+
 export default async function RedirectPage() {
   const provider = new ethers.JsonRpcProvider(
     `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
@@ -46,13 +56,34 @@ export default async function RedirectPage() {
     qrMetaUrl = fallbackURL;
   }
   
-  // Don't use URL constructor as it's too strict with Unicode characters
-  // Just check if the URL has a valid protocol
+  // Create an HTML page with client-side redirect instead of using Next.js redirect
   if (qrMetaUrl && qrMetaUrl.startsWith('https://')) {
-    // Use the URL directly - it's already percent-encoded
-    return redirect(qrMetaUrl);
+    // Sanitize the URL to remove invalid characters
+    const sanitizedUrl = sanitizeUrl(qrMetaUrl);
+    
+    // Create an HTML response with client-side redirect
+    return new Response(
+      `<!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${sanitizedUrl}">
+          <title>Redirecting...</title>
+        </head>
+        <body>
+          <p>Redirecting to <a href="${sanitizedUrl}">${sanitizedUrl}</a>...</p>
+          <script>
+            window.location.href = "${sanitizedUrl}";
+          </script>
+        </body>
+      </html>`,
+      {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+        },
+      }
+    );
   } else {
-    // If no protocol or invalid URL format, use fallback
+    // For fallback URL, use direct redirect since it's known to be valid
     return redirect(fallbackURL);
   }
 }
