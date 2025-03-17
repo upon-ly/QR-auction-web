@@ -140,9 +140,32 @@ export const useInfoBarUpdates = () => {
 export const InfoBar: React.FC = () => {
   const { updates } = useInfoBarUpdates();
   const { formatMarketCap } = useTokenPrice();
+  const marqueeRef = useRef<HTMLDivElement>(null);
+  const marqueeCloneRef = useRef<HTMLDivElement>(null);
   
   // Common styles for the InfoBar
   const baseStyles = `fixed left-0 right-0 z-[9999] bg-black text-white border-b border-gray-700 shadow-md overflow-hidden h-8 flex items-center`;
+  
+  // Calculate animation duration based on content width to maintain consistent speed
+  useEffect(() => {
+    if (!marqueeRef.current || !marqueeCloneRef.current || updates.length === 0) return;
+    
+    // Base animation duration for 5 items (25s from CSS)
+    const baseDuration = 25;
+    
+    // This helps maintain consistent speed regardless of content length
+    // We calculate what the width would be with 5 items
+    const baseItemCount = 5;
+    const itemRatio = updates.length / baseItemCount;
+    
+    // Calculate adjusted duration based on ratio of actual items to base items
+    // This ensures animation appears at same speed regardless of item count
+    const adjustedDuration = baseDuration * itemRatio;
+    
+    // Apply the calculated duration
+    marqueeRef.current.style.animationDuration = `${adjustedDuration}s`;
+    marqueeCloneRef.current.style.animationDuration = `${adjustedDuration}s`;
+  }, [updates.length]);
   
   // Only render content if we have updates
   if (updates.length === 0) {
@@ -152,8 +175,8 @@ export const InfoBar: React.FC = () => {
   return (
     <div className={baseStyles}>
       <div className="relative flex overflow-x-hidden w-full marquee-container pr-[120px]">
-        <div className="animate-marquee whitespace-nowrap px-4 h-full flex items-center">
-          {updates.map((update, index) => (
+        <div ref={marqueeRef} className="animate-marquee whitespace-nowrap h-full flex items-center">
+          {updates.map((update) => (
             <React.Fragment key={update.id}>
               <span className="mx-4 font-medium inline-flex items-center text-green-400">
                 <ArrowRightLeft className="mr-1" size={14} />
@@ -170,13 +193,13 @@ export const InfoBar: React.FC = () => {
                   </a>
                 )}
               </span>
-              {index < updates.length - 1 && <span className="text-gray-500 mx-2">|</span>}
+              <span className="text-gray-500 mx-2">|</span>
             </React.Fragment>
           ))}
         </div>
         
-        <div className="absolute top-0 animate-marquee2 whitespace-nowrap px-4 h-full flex items-center">
-          {updates.map((update, index) => (
+        <div ref={marqueeCloneRef} className="absolute top-0 animate-marquee2 whitespace-nowrap h-full flex items-center">
+          {updates.map((update) => (
             <React.Fragment key={`clone-${update.id}`}>
               <span className="mx-4 font-medium inline-flex items-center text-green-400">
                 <ArrowRightLeft className="mr-1" size={14} />
@@ -193,7 +216,7 @@ export const InfoBar: React.FC = () => {
                   </a>
                 )}
               </span>
-              {index < updates.length - 1 && <span className="text-gray-500 mx-2">|</span>}
+              <span className="text-gray-500 mx-2">|</span>
             </React.Fragment>
           ))}
         </div>
