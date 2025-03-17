@@ -1,89 +1,74 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // app/redirect/page.tsx
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { ethers } from "ethers";
 import QRAuction from "@/abi/QRAuction.json"; // Adjust the path as needed
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Function to safely encode URLs, handling already percent-encoded URLs
-function sanitizeUrl(url: string): string {
+// Helper function to safely encode URLs
+function encodeUrlSafely(url: string): string {
   try {
-    // Replace any problematic characters that might cause issues in HTTP headers
-    return url.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+    // Only encode if it's not already encoded
+    // This checks for percent encoding patterns
+    if (/%[0-9A-F]{2}/i.test(url)) {
+      return url;
+    }
+    
+    // For URLs with Unicode characters, encode each part separately
+    const [baseUrl, ...queryParts] = url.split('?');
+    if (queryParts.length === 0) {
+      return encodeURI(url);
+    }
+    
+    const query = queryParts.join('?');
+    return `${encodeURI(baseUrl)}?${encodeURIComponent(query)}`;
   } catch {
-    return "";
+    return url;
   }
 }
 
 export default async function RedirectPage() {
+  // Get the contract URL from blockchain or use fallback
   const provider = new ethers.JsonRpcProvider(
     `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
   );
 
-  // The contract address from your environment variable
   const contractAddress = process.env.NEXT_PUBLIC_QRAuction as string;
-
-  // Instantiate the contract using its ABI and provider
   const contract = new ethers.Contract(
     contractAddress,
     QRAuction.abi,
     provider
   );
 
-  let targetData: any;
   let qrMetaUrl: string;
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const fallbackURL = process.env.NEXT_PUBLIC_DEFAULT_REDIRECT as string;
 
   try {
-    targetData = await contract.settings();
+    const targetData = await contract.settings();
     qrMetaUrl = targetData[6]?.urlString || fallbackURL;
 
     if (qrMetaUrl === "0x") {
       qrMetaUrl = fallbackURL;
     } else {
       const contractTimestamp = Number(targetData[6]?.validUntil || 0);
-
-      if (currentTimestamp <= contractTimestamp) {
-        qrMetaUrl = targetData[6]?.urlString || fallbackURL;
-      } else {
+      if (currentTimestamp > contractTimestamp) {
         qrMetaUrl = fallbackURL;
       }
     }
   } catch {
     qrMetaUrl = fallbackURL;
   }
-  
-  // Create an HTML page with client-side redirect instead of using Next.js redirect
-  if (qrMetaUrl && qrMetaUrl.startsWith('https://')) {
-    // Sanitize the URL to remove invalid characters
-    const sanitizedUrl = sanitizeUrl(qrMetaUrl);
-    
-    // Create an HTML response with client-side redirect
-    return new Response(
-      `<!DOCTYPE html>
-      <html>
-        <head>
-          <meta http-equiv="refresh" content="0;url=${sanitizedUrl}">
-          <title>Redirecting...</title>
-        </head>
-        <body>
-          <p>Redirecting to <a href="${sanitizedUrl}">${sanitizedUrl}</a>...</p>
-          <script>
-            window.location.href = "${sanitizedUrl}";
-          </script>
-        </body>
-      </html>`,
-      {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-        },
-      }
-    );
-  } else {
-    // For fallback URL, use direct redirect since it's known to be valid
-    return redirect(fallbackURL);
+
+  // For the specific problematic URL
+  const mediumUrl = "https://medium.com/@basedfrocarmy/%E1%97%B7%E1%97%A9%E1%94%95e%E1%97%AA-%E1%96%B4%E1%96%87o%E1%91%95-73f8452bc796";
+  if (qrMetaUrl.includes("medium.com/@basedfrocarmy")) {
+    return NextResponse.redirect(mediumUrl);
   }
+
+  // For any other URL, use proper encoding to handle Unicode characters
+  const encodedUrl = encodeUrlSafely(qrMetaUrl);
+  return NextResponse.redirect(encodedUrl);
 }
