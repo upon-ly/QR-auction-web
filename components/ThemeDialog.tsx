@@ -9,7 +9,7 @@ import { useTheme } from "next-themes";
 import { useAccount } from "wagmi";
 import { useReadContract } from "wagmi";
 import { Sun, Moon, Palette, Wallet, Settings } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useBaseColors } from "@/hooks/useBaseColors";
 
@@ -22,6 +22,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
   const { setTheme } = useTheme();
   const isBaseColors = useBaseColors();
   const { address, isConnected } = useAccount();
+  const initialMount = useRef(true);
   const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
   const basecolorsThemeSettingsContractAddress =
     "0x711817e9a6a0a5949aea944b009f20658c8c53d0";
@@ -72,15 +73,27 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("selected-theme");
+    
+    // Skip theme changes during initial mount to prevent flashing
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
+    }
+    
     if (savedTheme) {
-      if (savedTheme === "baseColors" && colors) {
+      if (savedTheme === "baseColors" && colors && isConnected) {
         handleBaseColorsMode();
+      } else if (savedTheme === "baseColors" && !isConnected) {
+        // If wallet is disconnected but baseColors theme is saved, switch to light
+        clearCustomColors();
+        setTheme("light");
+        localStorage.setItem("selected-theme", "light");
       } else {
         clearCustomColors();
         setTheme(savedTheme);
       }
     }
-  }, [colors]);
+  }, [colors, isConnected]);
 
   const clearCustomColors = () => {
     document.documentElement.style.removeProperty("--primary");
