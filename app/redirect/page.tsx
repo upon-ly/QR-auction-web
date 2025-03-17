@@ -8,9 +8,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function RedirectPage() {
-  const provider = new ethers.JsonRpcProvider(
-    `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-  );
+  const providerUrl = `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
+  const provider = new ethers.JsonRpcProvider(providerUrl);
 
   // The contract address from your environment variable
   const contractAddress = process.env.NEXT_PUBLIC_QRAuction as string;
@@ -42,12 +41,17 @@ export default async function RedirectPage() {
         qrMetaUrl = fallbackURL;
       }
     }
-  } catch (error) {
-    console.error("Error fetching contract url:", error);
+  } catch {
     qrMetaUrl = fallbackURL;
   }
-
-  redirect(qrMetaUrl);
-
-  return <p>Redirecting...</p>;
+  
+  // Process the URL to ensure it's valid for HTTP headers
+  try {
+    // Handle special characters and invalid URLs
+    const processedUrl = new URL(qrMetaUrl).toString();
+    return redirect(processedUrl);
+  } catch {
+    // If URL parsing fails, use the fallback
+    return redirect(fallbackURL);
+  }
 }
