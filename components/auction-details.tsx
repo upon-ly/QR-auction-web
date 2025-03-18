@@ -223,9 +223,12 @@ export function AuctionDetails({
       // Prioritize names: Farcaster > getName result > formatted address
       let displayName;
       if (farcasterUser?.username) {
-        displayName = `@${farcasterUser.username}`;
+        // Quick temp fix - replace !217978 with softwarecurator
+        const username = farcasterUser.username === "!217978" ? "softwarecurator" : farcasterUser.username;
+        displayName = `@${username}`;
       } else if (name) {
-        displayName = name; // getName already handles basename/ENS priority
+        // Quick temp fix - replace !217978 with softwarecurator
+        displayName = name === "!217978" ? "softwarecurator" : name;
       } else if (bidderAddress.startsWith('0x')) {
         displayName = formatAddress(bidderAddress);
       } else {
@@ -235,8 +238,8 @@ export function AuctionDetails({
       // Update bidder name info with properly typed state update
       setBidderNameInfo({
         displayName,
-        farcasterUsername: farcasterUser?.username || null,
-        basename: name || null,
+        farcasterUsername: farcasterUser?.username === "!217978" ? "softwarecurator" : (farcasterUser?.username || null),
+        basename: name === "!217978" ? "softwarecurator" : (name || null),
         pfpUrl: farcasterUser?.pfpUrl || null
       });
     };

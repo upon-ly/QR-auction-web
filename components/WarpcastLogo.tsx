@@ -14,7 +14,11 @@ export function WarpcastLogo({ className = "", size = 'sm', username }: Warpcast
     e.stopPropagation();
     e.preventDefault();
     
-    const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+    let cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+    
+    // Quick temp fix - replace !217978 with softwarecurator
+    cleanUsername = cleanUsername === "!217978" ? "softwarecurator" : cleanUsername;
+    
     window.open(`https://warpcast.com/${cleanUsername}`, '_blank');
   };
   

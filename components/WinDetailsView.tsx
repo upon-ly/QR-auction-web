@@ -52,10 +52,14 @@ export function WinDetailsView(winnerdata: AuctionType) {
       // Fetch Farcaster data
       const farcasterUser = await getFarcasterUser(winnerdata.winner);
       
+      // Quick temp fix - replace !217978 with softwarecurator
+      const fixedName = name === "!217978" ? "softwarecurator" : name;
+      const fixedUsername = farcasterUser?.username === "!217978" ? "softwarecurator" : farcasterUser?.username;
+      
       setNameInfo({
-        displayName: name || `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
+        displayName: fixedName || `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
         pfpUrl: farcasterUser?.pfpUrl,
-        farcasterUsername: farcasterUser?.username
+        farcasterUsername: fixedUsername
       });
     };
     fetchData();

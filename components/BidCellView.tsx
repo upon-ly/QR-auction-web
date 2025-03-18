@@ -88,9 +88,12 @@ export function BidCellView({
       // Prioritize names: Farcaster > getName result > formatted address
       let displayName;
       if (farcasterUser?.username) {
-        displayName = `@${farcasterUser.username}`; // Add @ symbol
+        // Quick temp fix - replace !217978 with softwarecurator
+        const username = farcasterUser.username === "!217978" ? "softwarecurator" : farcasterUser.username;
+        displayName = `@${username}`;
       } else if (name) {
-        displayName = name; // getName already handles basename/ENS priority
+        // Quick temp fix - replace !217978 with softwarecurator
+        displayName = name === "!217978" ? "softwarecurator" : name;
       } else if (bidderAddress.startsWith('0x')) {
         displayName = formatAddress(bidderAddress);
       } else {
@@ -100,8 +103,8 @@ export function BidCellView({
       // Update state with the results
       setNameInfo({
         displayName,
-        farcasterUsername: farcasterUser?.username || null,
-        basename: name, // Store the getName result in basename
+        farcasterUsername: farcasterUser?.username === "!217978" ? "softwarecurator" : (farcasterUser?.username || null),
+        basename: name === "!217978" ? "softwarecurator" : name, // Store the getName result in basename
         pfpUrl: farcasterUser?.pfpUrl || null
       });
     };
