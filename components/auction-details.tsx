@@ -276,9 +276,42 @@ export function AuctionDetails({
     showToasts: false // Disable toasts in this component as they're already shown in the main page
   });
 
+  // Format the end time in local timezone with abbreviated timezone name
+  const formatEndTime = () => {
+    if (!auctionDetail?.endTime) return "";
+    
+    const endDate = new Date(Number(auctionDetail.endTime) * 1000);
+    
+    // Format time as "11:45 AM"
+    const timeStr = endDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    
+    // Get timezone abbreviation using a more direct approach
+    // This gives us reliable abbreviations like ET, CT, PT, IST, etc.
+    const tzAbbr = (() => {
+      // Extract timezone abbreviation from date string
+      const tzMatch = endDate.toString().match(/\(([^)]+)\)/);
+      if (!tzMatch) return '';
+      
+      // If it has spaces (like "Eastern Daylight Time"), take first letter of each word
+      const tz = tzMatch[1];
+      if (tz.includes(' ')) {
+        return tz.split(' ').map(word => word[0]).join('');
+      }
+      
+      // Already an abbreviation like "GMT"
+      return tz;
+    })();
+    
+    return `ends @ ${timeStr} ${tzAbbr}`;
+  };
+
   return (
     <div className="space-y-6">
-      <div className="space-y-5">
+      <div className="space-y-2.5">
         <div className="flex flex-row justify-between items-center w-full">
           <div className="inline-flex justify-start items-center gap-2">
             <h1 className="text-3xl font-bold">Auction #{id}</h1>
@@ -358,11 +391,14 @@ export function AuctionDetails({
                         <div className={`${isBaseColors ? "text-foreground" : ""} text-right text-xl md:text-2xl font-bold whitespace-nowrap`}>
                           {time}
                         </div>
+                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs` }>
+                          {formatEndTime()}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {!isComplete && (
                       <BidForm
                         auctionDetail={auctionDetail}
