@@ -33,6 +33,7 @@ import { useAuctionEvents } from "@/hooks/useAuctionEvents";
 import { Button } from "@/components/ui/button";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import clsx from "clsx";
+import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -426,6 +427,8 @@ export default function Home() {
             )}
             {isLoading && <Skeleton className="flex-1" />}
           </div>
+
+          {/* Today's Winner section for the latest auction */}
           {currentAuctionId === LATEST_AUCTION_ID.current && ogImage && (
             <div className="flex flex-col justify-center items-center gap-1">
               <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
@@ -460,6 +463,11 @@ export default function Home() {
                 </span>
               </div>
             </div>
+          )}
+
+          {/* Winner Announcement for previous auction pages */}
+          {currentAuctionId !== LATEST_AUCTION_ID.current && currentAuctionId > 0 && (
+            <WinnerAnnouncement auctionId={currentAuctionId} />
           )}
         </div>
       </div>
