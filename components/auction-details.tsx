@@ -391,7 +391,7 @@ export function AuctionDetails({
                         <div className={`${isBaseColors ? "text-foreground" : ""} text-right text-xl md:text-2xl font-bold whitespace-nowrap`}>
                           {time}
                         </div>
-                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs`}>
+                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs mt-2` }>
                           {formatEndTime()}
                         </div>
                       </div>
