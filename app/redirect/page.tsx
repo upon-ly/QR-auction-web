@@ -42,17 +42,12 @@ export default async function RedirectPage() {
         qrMetaUrl = fallbackURL;
       }
     }
-  } catch {
+  } catch (error) {
+    console.error("Error fetching contract url:", error);
     qrMetaUrl = fallbackURL;
   }
 
-  // Process the URL to ensure it's valid for HTTP headers
-  try {
-    // Handle special characters and invalid URLs
-    const processedUrl = new URL(qrMetaUrl).toString();
-    return redirect(processedUrl);
-  } catch {
-    // If URL parsing fails, use the fallback
-    return redirect(fallbackURL);
-  }
+  redirect(qrMetaUrl);
+
+  return <p>Redirecting...</p>;
 }
