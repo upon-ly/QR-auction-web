@@ -86,7 +86,7 @@ export function TwitterEmbed({ tweetUrl }: TwitterEmbedProps) {
             tweetId, 
             container,
             {
-              theme: isBaseColors ? 'light' : document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+              theme: 'light', // Always use light mode for consistency
               conversation: 'none', // Hide the conversation
               width: '100%',
             }
