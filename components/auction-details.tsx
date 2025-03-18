@@ -311,7 +311,7 @@ export function AuctionDetails({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-5">
+      <div className="space-y-2.5">
         <div className="flex flex-row justify-between items-center w-full">
           <div className="inline-flex justify-start items-center gap-2">
             <h1 className="text-3xl font-bold">Auction #{id}</h1>
@@ -391,14 +391,14 @@ export function AuctionDetails({
                         <div className={`${isBaseColors ? "text-foreground" : ""} text-right text-xl md:text-2xl font-bold whitespace-nowrap`}>
                           {time}
                         </div>
-                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs mt-3` }>
+                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs` }>
                           {formatEndTime()}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {!isComplete && (
                       <BidForm
                         auctionDetail={auctionDetail}

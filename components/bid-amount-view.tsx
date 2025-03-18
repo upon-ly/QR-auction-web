@@ -113,7 +113,7 @@ export function BidForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <div className="flex flex-col gap-2 mb-4">
+      <div className="flex flex-col gap-2">
         <div className="relative flex-1">
           <Input
             type="number"
@@ -169,7 +169,7 @@ export function BidForm({
         </Button>
 
         {displayUrl !== "" && (
-          <div className={`mt-4 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-gray-800"}`}>
+          <div className={`mt-0.5 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-gray-800"}`}>
             <div className="text-sm">
               <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-gray-300"}`}>Current bid website: </span>
               <SafeExternalLink
