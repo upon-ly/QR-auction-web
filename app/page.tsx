@@ -422,7 +422,7 @@ export default function Home() {
                 🏆<span className="underline">Today&apos;s Winner</span>🏆
               </label>
               <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1  overflow-hidden bg-white aspect-[2/1]">
-                {ogImage && currentAuctionId !== 8 && currentAuctionId !== 10 && (
+                {ogImage && currentAuctionId !== 8 && currentAuctionId !== 10 && currentAuctionId !== 14 && (
                   <img
                     src={ogImage}
                     alt="Open Graph"
@@ -445,6 +445,16 @@ export default function Home() {
                 {ogImage && currentAuctionId === 10 && (
                   <img
                     src={"https://i.imgur.com/Ryd5FD6.png"}
+                    alt="Open Graph"
+                    className="object-cover w-full h-full"
+                    onClick={() => {
+                      window.location.href = ogUrl;
+                    }}
+                  />
+                )}
+                {ogImage && currentAuctionId === 14 && (
+                  <img
+                    src={"https://i.imgur.com/RcjPf8D.png"}
                     alt="Open Graph"
                     className="object-cover w-full h-full"
                     onClick={() => {

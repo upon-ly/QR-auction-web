@@ -79,6 +79,11 @@ export function WinDetailsView(winnerdata: AuctionType) {
           setOgImage("https://i.imgur.com/Ryd5FD6.png");
           return;
         }
+
+        if (winnerdata.tokenId === 13n) {
+          setOgImage("https://i.imgur.com/RcjPf8D.png");
+          return;
+        }
         
         const res = await fetch(`/api/og?url=${winnerdata.url}`);
         const data = await res.json();
