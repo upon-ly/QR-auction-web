@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AuctionNavigation } from "@/components/auction-navigation";
@@ -339,6 +339,16 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  // Map of auction IDs to custom image URLs wrapped in useMemo
+  const auctionImageOverrides = useMemo<Record<number, string>>(() => ({
+    2: "https://i.imgur.com/aZfUcoo.png",
+    5: "https://i.imgur.com/DkzUJvK.png",
+    6: "https://i.imgur.com/3KoEvNG.png",
+    8: "https://i.imgur.com/fzojQUs.png",
+    10: "https://i.imgur.com/Ryd5FD6.png",
+    14: "https://i.imgur.com/RcjPf8D.png",
+  }), []);
+
   return (
     <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
@@ -422,39 +432,9 @@ export default function Home() {
                 🏆<span className="underline">Today&apos;s Winner</span>🏆
               </label>
               <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1  overflow-hidden bg-white aspect-[2/1]">
-                {ogImage && currentAuctionId !== 8 && currentAuctionId !== 10 && currentAuctionId !== 14 && (
+                {ogImage && (
                   <img
-                    src={ogImage}
-                    alt="Open Graph"
-                    className="object-cover w-full h-full"
-                    onClick={() => {
-                      window.location.href = ogUrl;
-                    }}
-                  />
-                )}
-                {ogImage && currentAuctionId === 8 && (
-                  <img
-                    src={"https://i.imgur.com/fzojQUs.png"}
-                    alt="Open Graph"
-                    className="object-cover w-full h-full"
-                    onClick={() => {
-                      window.location.href = ogUrl;
-                    }}
-                  />
-                )}
-                {ogImage && currentAuctionId === 10 && (
-                  <img
-                    src={"https://i.imgur.com/Ryd5FD6.png"}
-                    alt="Open Graph"
-                    className="object-cover w-full h-full"
-                    onClick={() => {
-                      window.location.href = ogUrl;
-                    }}
-                  />
-                )}
-                {ogImage && currentAuctionId === 14 && (
-                  <img
-                    src={"https://i.imgur.com/RcjPf8D.png"}
+                    src={auctionImageOverrides[currentAuctionId] || ogImage}
                     alt="Open Graph"
                     className="object-cover w-full h-full"
                     onClick={() => {

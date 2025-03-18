@@ -69,19 +69,20 @@ export function WinDetailsView(winnerdata: AuctionType) {
   useEffect(() => {
     async function fetchOgImage() {
       try {
-        // Special case for auction #7 - use the custom image link
-        if (winnerdata.tokenId === 7n) {
-          setOgImage("https://i.imgur.com/fzojQUs.png");
-          return;
-        }
+        // Map of auction IDs to custom image URLs
+        const auctionImageOverrides: Record<string, string> = {
+          "1": "https://i.imgur.com/aZfUcoo.png",
+          "4": "https://i.imgur.com/DkzUJvK.png",
+          "5": "https://i.imgur.com/3KoEvNG.png",
+          "7": "https://i.imgur.com/fzojQUs.png",
+          "9": "https://i.imgur.com/Ryd5FD6.png",
+          "13": "https://i.imgur.com/RcjPf8D.png",
+        };
 
-        if (winnerdata.tokenId === 9n) {
-          setOgImage("https://i.imgur.com/Ryd5FD6.png");
-          return;
-        }
-
-        if (winnerdata.tokenId === 13n) {
-          setOgImage("https://i.imgur.com/RcjPf8D.png");
+        // Check if we have a custom image override for this auction
+        const tokenIdStr = winnerdata.tokenId.toString();
+        if (auctionImageOverrides[tokenIdStr]) {
+          setOgImage(auctionImageOverrides[tokenIdStr]);
           return;
         }
         
