@@ -15,6 +15,7 @@ interface TypingUserInfo {
   displayName: string;
   farcasterUsername: string | null;
   basename: string | null;
+  isResolved: boolean;
 }
 
 export const TypingIndicator = () => {
@@ -27,7 +28,13 @@ export const TypingIndicator = () => {
   // Fetch Farcaster username and basename when the typing user changes
   useEffect(() => {
     if (!typingUser || typingUser.startsWith('anonymous-')) {
-      setTypingUserInfo(null);
+      setTypingUserInfo({
+        address: typingUser || '',
+        displayName: 'someone',
+        farcasterUsername: null,
+        basename: null,
+        isResolved: true
+      });
       return;
     }
     
@@ -36,12 +43,13 @@ export const TypingIndicator = () => {
       return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
     };
     
-    // Set initial display info while we fetch data
+    // Set initial unresolved state - don't show indicator yet
     setTypingUserInfo({
       address: typingUser,
       displayName: formatAddressOrName(typingUser),
       farcasterUsername: null,
-      basename: null
+      basename: null,
+      isResolved: false
     });
     
     // Only attempt to fetch data for Ethereum addresses
@@ -73,10 +81,19 @@ export const TypingIndicator = () => {
             address: typingUser,
             displayName,
             farcasterUsername: farcasterInfo?.username === "!217978" ? "softwarecurator" : (farcasterInfo?.username || null),
-            basename: baseName === "!217978" ? "softwarecurator" : (baseName || null)
+            basename: baseName === "!217978" ? "softwarecurator" : (baseName || null),
+            isResolved: true
           });
         } catch (error) {
           console.error('Error fetching user data:', error);
+          // In case of error, mark as resolved with the fallback name
+          setTypingUserInfo({
+            address: typingUser,
+            displayName: formatAddress(typingUser),
+            farcasterUsername: null,
+            basename: null,
+            isResolved: true
+          });
         }
       };
       
@@ -121,7 +138,7 @@ export const TypingIndicator = () => {
     
     // If it's an anonymous user, don't show the address
     if (address.startsWith('anonymous-')) {
-      return 'Someone';
+      return 'someone';
     }
     
     // Check if the address contains ".eth" (ENS name)
@@ -138,20 +155,19 @@ export const TypingIndicator = () => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
   
-  // Don't render anything if no one is typing
-  if (!isTyping || !typingUser) {
+  // Don't render anything if no one is typing or names aren't resolved yet
+  if (!isTyping || !typingUser || !typingUserInfo || !typingUserInfo.isResolved) {
     return null;
   }
 
   // Get the display name from typing user info
-  const displayName = typingUserInfo?.displayName || 
-                      formatAddressOrName(typingUser);
+  const displayName = typingUserInfo.displayName;
 
   return (
-    <div className={`flex items-center text-xs whitespace-nowrap ${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} overflow-visible`}>
-      <span className="truncate">{displayName}</span>
-      <span className="mx-1 flex-shrink-0">is bidding</span>
-      <div className="flex items-center flex-shrink-0">
+    <div className={`inline-flex items-center text-xs whitespace-nowrap ${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"}`}>
+      <span className="truncate max-w-[150px]">{displayName}</span>
+      <span className="mx-1">is bidding</span>
+      <div className="inline-flex items-center">
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
