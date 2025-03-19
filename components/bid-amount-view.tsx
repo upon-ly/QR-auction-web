@@ -74,10 +74,6 @@ export function BidForm({
   } = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
     mode: "onChange", // Validate as the user types
-    defaultValues: {
-      bid: minimumBid,
-      url: "https://",
-    }
   });
 
   // Handle typing event separately from form validation
