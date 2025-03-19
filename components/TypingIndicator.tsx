@@ -6,11 +6,15 @@ import { onTyping } from '@/lib/channelManager';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { getFarcasterUser } from '@/utils/farcaster';
 import { useAccount } from 'wagmi';
+import { getName } from '@coinbase/onchainkit/identity';
+import { base } from 'viem/chains';
+import { Address } from 'viem';
 
 interface TypingUserInfo {
   address: string;
   displayName: string;
   farcasterUsername: string | null;
+  basename: string | null;
 }
 
 export const TypingIndicator = () => {
@@ -20,39 +24,63 @@ export const TypingIndicator = () => {
   const isBaseColors = useBaseColors();
   const { address } = useAccount();
   
-  // Fetch Farcaster username when the typing user changes
+  // Fetch Farcaster username and basename when the typing user changes
   useEffect(() => {
     if (!typingUser || typingUser.startsWith('anonymous-')) {
       setTypingUserInfo(null);
       return;
     }
     
-    // Set initial display info while we fetch Farcaster data
+    // Format address for initial display
+    const formatAddress = (addr: string) => {
+      return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+    };
+    
+    // Set initial display info while we fetch data
     setTypingUserInfo({
       address: typingUser,
       displayName: formatAddressOrName(typingUser),
-      farcasterUsername: null
+      farcasterUsername: null,
+      basename: null
     });
     
-    // Only attempt to fetch Farcaster data for Ethereum addresses
+    // Only attempt to fetch data for Ethereum addresses
     if (typingUser.startsWith('0x') && typingUser.length === 42) {
-      const fetchFarcasterInfo = async () => {
+      const fetchUserData = async () => {
         try {
+          // Fetch Farcaster info
           const farcasterInfo = await getFarcasterUser(typingUser);
           
-          if (farcasterInfo) {
-            setTypingUserInfo({
-              address: typingUser,
-              displayName: `@${farcasterInfo.username}`,
-              farcasterUsername: farcasterInfo.username
-            });
+          // Fetch basename
+          const baseName = await getName({
+            address: typingUser as Address,
+            chain: base,
+          });
+          
+          let displayName = formatAddress(typingUser);
+          
+          // Apply priority: Farcaster > basename > formatted address
+          if (farcasterInfo?.username) {
+            // Quick temp fix - replace !217978 with softwarecurator
+            const username = farcasterInfo.username === "!217978" ? "softwarecurator" : farcasterInfo.username;
+            displayName = `@${username}`;
+          } else if (baseName) {
+            // Quick temp fix - replace !217978 with softwarecurator
+            displayName = baseName === "!217978" ? "softwarecurator" : baseName;
           }
+          
+          setTypingUserInfo({
+            address: typingUser,
+            displayName,
+            farcasterUsername: farcasterInfo?.username === "!217978" ? "softwarecurator" : (farcasterInfo?.username || null),
+            basename: baseName === "!217978" ? "softwarecurator" : (baseName || null)
+          });
         } catch (error) {
-          console.error('Error fetching Farcaster info:', error);
+          console.error('Error fetching user data:', error);
         }
       };
       
-      fetchFarcasterInfo();
+      fetchUserData();
     }
   }, [typingUser]);
   
@@ -115,7 +143,7 @@ export const TypingIndicator = () => {
     return null;
   }
 
-  // Get the display name, prioritizing Farcaster username
+  // Get the display name from typing user info
   const displayName = typingUserInfo?.displayName || 
                       formatAddressOrName(typingUser);
 
