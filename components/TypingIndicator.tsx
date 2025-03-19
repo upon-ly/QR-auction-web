@@ -6,16 +6,11 @@ import { onTyping } from '@/lib/channelManager';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { getFarcasterUser } from '@/utils/farcaster';
 import { useAccount } from 'wagmi';
-import { getName } from '@coinbase/onchainkit/identity';
-import { base } from 'viem/chains';
-import { Address } from 'viem';
 
 interface TypingUserInfo {
   address: string;
   displayName: string;
   farcasterUsername: string | null;
-  basename: string | null;
-  isResolved: boolean;
 }
 
 export const TypingIndicator = () => {
@@ -25,79 +20,39 @@ export const TypingIndicator = () => {
   const isBaseColors = useBaseColors();
   const { address } = useAccount();
   
-  // Fetch Farcaster username and basename when the typing user changes
+  // Fetch Farcaster username when the typing user changes
   useEffect(() => {
     if (!typingUser || typingUser.startsWith('anonymous-')) {
-      setTypingUserInfo({
-        address: typingUser || '',
-        displayName: 'someone',
-        farcasterUsername: null,
-        basename: null,
-        isResolved: true
-      });
+      setTypingUserInfo(null);
       return;
     }
     
-    // Format address for initial display
-    const formatAddress = (addr: string) => {
-      return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
-    };
-    
-    // Set initial unresolved state - don't show indicator yet
+    // Set initial display info while we fetch Farcaster data
     setTypingUserInfo({
       address: typingUser,
       displayName: formatAddressOrName(typingUser),
-      farcasterUsername: null,
-      basename: null,
-      isResolved: false
+      farcasterUsername: null
     });
     
-    // Only attempt to fetch data for Ethereum addresses
+    // Only attempt to fetch Farcaster data for Ethereum addresses
     if (typingUser.startsWith('0x') && typingUser.length === 42) {
-      const fetchUserData = async () => {
+      const fetchFarcasterInfo = async () => {
         try {
-          // Fetch Farcaster info
           const farcasterInfo = await getFarcasterUser(typingUser);
           
-          // Fetch basename
-          const baseName = await getName({
-            address: typingUser as Address,
-            chain: base,
-          });
-          
-          let displayName = formatAddress(typingUser);
-          
-          // Apply priority: Farcaster > basename > formatted address
-          if (farcasterInfo?.username) {
-            // Quick temp fix - replace !217978 with softwarecurator
-            const username = farcasterInfo.username === "!217978" ? "softwarecurator" : farcasterInfo.username;
-            displayName = `@${username}`;
-          } else if (baseName) {
-            // Quick temp fix - replace !217978 with softwarecurator
-            displayName = baseName === "!217978" ? "softwarecurator" : baseName;
+          if (farcasterInfo) {
+            setTypingUserInfo({
+              address: typingUser,
+              displayName: `@${farcasterInfo.username}`,
+              farcasterUsername: farcasterInfo.username
+            });
           }
-          
-          setTypingUserInfo({
-            address: typingUser,
-            displayName,
-            farcasterUsername: farcasterInfo?.username === "!217978" ? "softwarecurator" : (farcasterInfo?.username || null),
-            basename: baseName === "!217978" ? "softwarecurator" : (baseName || null),
-            isResolved: true
-          });
         } catch (error) {
-          console.error('Error fetching user data:', error);
-          // In case of error, mark as resolved with the fallback name
-          setTypingUserInfo({
-            address: typingUser,
-            displayName: formatAddress(typingUser),
-            farcasterUsername: null,
-            basename: null,
-            isResolved: true
-          });
+          console.error('Error fetching Farcaster info:', error);
         }
       };
       
-      fetchUserData();
+      fetchFarcasterInfo();
     }
   }, [typingUser]);
   
@@ -155,19 +110,20 @@ export const TypingIndicator = () => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
   
-  // Don't render anything if no one is typing or names aren't resolved yet
-  if (!isTyping || !typingUser || !typingUserInfo || !typingUserInfo.isResolved) {
+  // Don't render anything if no one is typing
+  if (!isTyping || !typingUser) {
     return null;
   }
 
-  // Get the display name from typing user info
-  const displayName = typingUserInfo.displayName;
+  // Get the display name, prioritizing Farcaster username
+  const displayName = typingUserInfo?.displayName || 
+                      formatAddressOrName(typingUser);
 
   return (
-    <div className={`inline-flex items-center text-xs whitespace-nowrap ${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"}`}>
-      <span className="truncate max-w-[150px]">{displayName}</span>
-      <span className="mx-1">is bidding</span>
-      <div className="inline-flex items-center">
+    <div className={`flex items-center text-xs whitespace-nowrap ${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} overflow-visible`}>
+      <span className="truncate">{displayName}</span>
+      <span className="mx-1 flex-shrink-0">is bidding</span>
+      <div className="flex items-center flex-shrink-0">
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
