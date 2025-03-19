@@ -19,6 +19,7 @@ import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
 import { registerTransaction } from "@/hooks/useAuctionEvents";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import { useTypingStatus } from "@/hooks/useTypingStatus";
 
 export function BidForm({
   auctionDetail,
@@ -33,6 +34,7 @@ export function BidForm({
 }) {
   const isBaseColors = useBaseColors();
   const { isConnected } = useAccount();
+  const { handleTypingStart } = useTypingStatus();
   const { bidAmount } = useWriteActions({
     tokenId: auctionDetail?.tokenId ? auctionDetail.tokenId : 0n,
   });
@@ -72,7 +74,25 @@ export function BidForm({
   } = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
     mode: "onChange", // Validate as the user types
+    defaultValues: {
+      bid: minimumBid,
+      url: "https://",
+    }
   });
+
+  // Handle typing event separately from form validation
+  const handleKeyDown = () => {
+    // Always trigger typing events, even from anonymous users
+    console.log('Triggering typing event from keyboard input');
+    handleTypingStart();
+  };
+
+  // Also trigger typing on input change to catch paste events
+  const handleInputChange = () => {
+    // Always trigger typing events, even from anonymous users
+    console.log('Triggering typing event from input change');
+    handleTypingStart();
+  };
 
   const onSubmit = async (data: FormSchemaType) => {
     console.log("Form data:", data);
@@ -127,6 +147,8 @@ export function BidForm({
                 e.target.value = minimumBid === 0 ? 0.001 : minimumBid;
               }
             }}
+            onKeyDown={handleKeyDown}
+            onInput={handleInputChange}
           />
           <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
             ETH
@@ -148,6 +170,8 @@ export function BidForm({
                   e.target.value = "https://";
                 }
               }}
+              onKeyDown={handleKeyDown}
+              onInput={handleInputChange}
             />
             <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
               URL

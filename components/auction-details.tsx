@@ -30,6 +30,8 @@ import { getFarcasterUser } from "@/utils/farcaster";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { useAuctionEvents, registerTransaction } from "@/hooks/useAuctionEvents";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import { TypingIndicator } from "./TypingIndicator";
+
 interface AuctionDetailsProps {
   id: number;
   onPrevious: () => void;
@@ -364,9 +366,9 @@ export function AuctionDetails({
               {!auctionDetail.settled ? (
                 <>
                   <div className="flex flex-row justify-between gap-8">
-                    <div className="space-y-1">
+                    <div className="space-y-1.25 relative">
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
-                      <div className="flex flex-row justify-center items-center gap-1">
+                      <div className="flex flex-row items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
                           {Number(formatEther(
                             auctionDetail?.highestBid
@@ -381,6 +383,9 @@ export function AuctionDetails({
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
                           {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
                         </div>
+                      </div>
+                      <div className="h-4 mt-1 overflow-hidden" style={{ minHeight: "18px" }}>
+                        <TypingIndicator />
                       </div>
                     </div>
                     {!isComplete && (
