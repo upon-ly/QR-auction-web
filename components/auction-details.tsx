@@ -24,7 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAccount } from "wagmi";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
-import useEthPrice from "@/hooks/useEthPrice";
+import { formatQRAmount, formatUsdValue } from "@/utils/formatters";
+import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
@@ -81,11 +82,7 @@ export function AuctionDetails({
   );
   const isBaseColors = useBaseColors();
 
-  const {
-    ethPrice: price,
-    isLoading: isPriceLoading,
-    isError: isPriceError,
-  } = useEthPrice();
+  const { priceUsd: qrPrice, formatAmountToUsd } = useTokenPrice();
 
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
     useSafetyDialog();
@@ -94,9 +91,8 @@ export function AuctionDetails({
     return Number(val.tokenId) === id;
   });
 
-  const ethBalance = Number(formatEther(auctionDetail?.highestBid ?? 0n));
-  const ethPrice = price?.ethereum?.usd ?? 0;
-  const usdBalance = ethBalance * ethPrice;
+  const qrTokenAmount = Number(formatEther(auctionDetail?.highestBid ?? 0n));
+  const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
 
   const handleSettle = useCallback(async () => {
     if (!isComplete) {
@@ -187,10 +183,12 @@ export function AuctionDetails({
     
     if (isAuctionActive) {
       const currentBid = Number(formatEther(auctionDetail.highestBid));
-      const usdValue = currentBid * (price?.ethereum?.usd || 0);
-      document.title = `QR $${usdValue.toFixed(2)} - ${bidderNameInfo.displayName}`;
+      const usdValue = qrPrice ? currentBid * qrPrice : 0;
+      const formattedQR = formatQRAmount(currentBid);
+      const bidText = `${formattedQR} $QR ${usdValue > 0 ? `(${formatUsdValue(usdValue)})` : ''}`;
+      document.title = `QR ${bidText} - ${bidderNameInfo.displayName}`;
     }
-  }, [auctionDetail, price?.ethereum?.usd, bidderNameInfo.displayName, isLoading]);
+  }, [auctionDetail, qrPrice, bidderNameInfo.displayName, isLoading]);
 
   useEffect(() => {
     const ftSetled = async () => {
@@ -370,18 +368,14 @@ export function AuctionDetails({
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
-                          {Number(formatEther(
+                          {formatQRAmount(Number(formatEther(
                             auctionDetail?.highestBid
                               ? auctionDetail.highestBid
                               : 0n
-                          )).toLocaleString('en-US', {
-                            maximumFractionDigits: 3,
-                            minimumFractionDigits: 0
-                          })}{" "}
-                          ETH
+                          )))} $QR
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                          {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
+                          {usdBalance !== 0 && `(${formatUsdValue(usdBalance)})`}
                         </div>
                       </div>
                       <div className="h-4 mt-1 overflow-hidden" style={{ minHeight: "18px" }}>
@@ -452,10 +446,7 @@ export function AuctionDetails({
                     <div>
                       <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
-                        {Number(formatEther(auctionDetail?.highestBid || 0n)).toLocaleString('en-US', {
-                          maximumFractionDigits: 3,
-                          minimumFractionDigits: 0
-                        })} ETH
+                        {formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR
                       </div>
                     </div>
                     <div>

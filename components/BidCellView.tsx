@@ -16,6 +16,7 @@ import { SafeExternalLink } from "./SafeExternalLink";
 import { WarpcastLogo } from "./WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import { formatQRAmount } from "@/utils/formatters";
 
 type AuctionType = {
   tokenId: bigint;
@@ -155,7 +156,7 @@ export function BidCellView({
         </div>
       </div>
       <p className="font-mono text-sm font-medium whitespace-nowrap ml-4">
-        Ξ {formatEther(bid.amount)}
+        {formatQRAmount(Number(formatEther(bid.amount)))} $QR
       </p>
     </div>
   );

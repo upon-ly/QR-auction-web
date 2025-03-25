@@ -10,7 +10,8 @@ import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
-import useEthPrice from "@/hooks/useEthPrice";
+import { formatQRAmount, formatUsdValue } from "@/utils/formatters";
+import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
@@ -31,16 +32,11 @@ export function WinDetailsView(winnerdata: AuctionType) {
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
 
-  const {
-    ethPrice: price,
-    isLoading: isPriceLoading,
-    isError: isPriceError,
-  } = useEthPrice();
+  const { priceUsd: qrPrice } = useTokenPrice();
 
-  // Parse the ETH balance and the current price
-  const ethBalance = Number(formatEther(winnerdata.amount));
-  const ethPrice = price?.ethereum?.usd ?? 0;
-  const usdBalance = ethBalance * ethPrice;
+  // Calculate QR token balance and USD value instead of ETH
+  const qrTokenAmount = Number(formatEther(winnerdata.amount));
+  const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,10 +121,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
           </div>
           <div className="inline-flex flex-row justify-center items-center gap-1">
             <div className="text-xl font-bold">
-              {formatEther(winnerdata?.amount || 0n)} ETH
-            </div>
-            <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-              {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
+              {formatQRAmount(Number(formatEther(winnerdata?.amount || 0n)))} $QR {qrPrice ? `(${formatUsdValue(usdBalance)})` : ''}
             </div>
           </div>
         </div>
