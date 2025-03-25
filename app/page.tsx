@@ -351,7 +351,8 @@ export default function Home() {
     10: "https://i.imgur.com/Ryd5FD6.png",
     14: "https://i.imgur.com/RcjPf8D.png",
     15: "https://i.imgur.com/4KcwIzj.png",
-    16: "https://i.imgur.com/jyo2f0H.jpeg"
+    16: "https://i.imgur.com/jyo2f0H.jpeg",
+    21: "https://i.imgur.com/8qNqYIV.png"
   }), []);
 
   return (
