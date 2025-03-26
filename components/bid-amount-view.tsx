@@ -12,7 +12,7 @@ import { useWriteActions } from "@/hooks/useWriteActions";
 import { config } from "@/config/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
@@ -21,6 +21,8 @@ import { useBaseColors } from "@/hooks/useBaseColors";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { MIN_QR_BID } from "@/config/tokens";
 import { formatQRAmount } from "@/utils/formatters";
+import { UniswapModal } from "./ui/uniswap-modal";
+import { useState } from "react";
 
 export function BidForm({
   auctionDetail,
@@ -33,9 +35,18 @@ export function BidForm({
   onSuccess: () => void;
   openDialog: (url: string) => boolean;
 }) {
+  const [showUniswapModal, setShowUniswapModal] = useState(false);
   const isBaseColors = useBaseColors();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { handleTypingStart } = useTypingStatus();
+  
+  // Get user's QR token balance
+  const qrTokenAddress = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"; // QR token address
+  const { data: qrBalance } = useBalance({
+    address,
+    token: qrTokenAddress as `0x${string}`,
+  });
+  
   const { bidAmount } = useWriteActions({
     tokenId: auctionDetail?.tokenId ? auctionDetail.tokenId : 0n,
   });
@@ -142,6 +153,16 @@ export function BidForm({
       // Convert the millions input back to full token value
       const fullBidAmount = data.bid * 1_000_000;
       
+      // Check if user has enough QR tokens
+      const hasEnoughQR = qrBalance && Number(qrBalance.formatted) >= fullBidAmount;
+
+      if (!hasEnoughQR) {
+        // Open Uniswap swap modal instead of showing an error
+        toast.info("You don't have enough $QR tokens for this bid");
+        setShowUniswapModal(true);
+        return;
+      }
+      
       const hash = await bidAmount({
         value: parseUnits(`${fullBidAmount}`, 18),
         urlString: data.url,
@@ -230,6 +251,25 @@ export function BidForm({
         >
           Place Bid
         </Button>
+
+        <Button
+          onClick={(e) => {
+            e.preventDefault(); // Prevent form submission
+            setShowUniswapModal(true);
+          }}
+          type="button" // Explicitly set type to button to avoid form submission
+          className={`px-8 py-2 text-white ${
+            "bg-gray-900 hover:bg-gray-800"
+          } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
+        >
+          Swap to $QR
+        </Button>
+        <UniswapModal
+          open={showUniswapModal}
+          onOpenChange={setShowUniswapModal}
+          inputCurrency="NATIVE"
+          outputCurrency="0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"
+        />
 
         {displayUrl !== "" && (
           <div className={`mt-0.5 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-gray-800"}`}>

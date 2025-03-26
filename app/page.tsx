@@ -65,7 +65,6 @@ export default function Home() {
 
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
 
-
   const { auctions, refetch: refetchAuctions } = useFetchAuctions();
 
   const DEFAULT_DATE = Math.floor(Date.now() / 1000);
@@ -313,7 +312,7 @@ export default function Home() {
       console.log(`Main page: Auction #${tokenId} settled`);
       refetchAuctions();
       refetchSettings();
-      
+
       // Refresh the OG image when an auction is settled to update "Today's Winner"
       fetchOgImage();
     },
@@ -321,20 +320,23 @@ export default function Home() {
       // Update auctions list when a new auction is created
       console.log(`Main page: New auction #${tokenId} created`);
       refetchAuctions();
-      
+
       // Update the latest auction ID reference
       const newAuctionId = Number(tokenId);
       LATEST_AUCTION_ID.current = newAuctionId;
-      
+
       // Only set currentAuctionId if we're viewing the auction that was just settled/replaced
       // or if the user had manually navigated to the latest auction
-      if (currentAuctionId === LATEST_AUCTION_ID.current || currentAuctionId === newAuctionId - 1) {
+      if (
+        currentAuctionId === LATEST_AUCTION_ID.current ||
+        currentAuctionId === newAuctionId - 1
+      ) {
         setCurrentAuctionId(newAuctionId);
       }
-      
+
       // Refresh the OG image when a new auction is created
       fetchOgImage();
-    }
+    },
   });
 
   // Wait for component to mount to avoid hydration issues
@@ -343,21 +345,24 @@ export default function Home() {
   }, []);
 
   // Map of auction IDs to custom image URLs wrapped in useMemo
-  const auctionImageOverrides = useMemo<Record<number, string>>(() => ({
-    2: "https://i.imgur.com/aZfUcoo.png",
-    5: "https://i.imgur.com/DkzUJvK.png",
-    6: "https://i.imgur.com/3KoEvNG.png",
-    8: "https://i.imgur.com/fzojQUs.png",
-    10: "https://i.imgur.com/Ryd5FD6.png",
-    14: "https://i.imgur.com/RcjPf8D.png",
-    15: "https://i.imgur.com/4KcwIzj.png"
-  }), []);
+  const auctionImageOverrides = useMemo<Record<number, string>>(
+    () => ({
+      2: "https://i.imgur.com/aZfUcoo.png",
+      5: "https://i.imgur.com/DkzUJvK.png",
+      6: "https://i.imgur.com/3KoEvNG.png",
+      8: "https://i.imgur.com/fzojQUs.png",
+      10: "https://i.imgur.com/Ryd5FD6.png",
+      14: "https://i.imgur.com/RcjPf8D.png",
+      15: "https://i.imgur.com/4KcwIzj.png",
+    }),
+    []
+  );
 
   return (
     <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
-        <h1 
-          onClick={handleLatest} 
+        <h1
+          onClick={handleLatest}
           className="text-2xl font-bold cursor-pointer"
         >
           $QR
@@ -365,7 +370,11 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className={isBaseColors ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none" : ""}
+            className={
+              isBaseColors
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
+                : ""
+            }
             onClick={() => setThemeDialogOpen(true)}
           >
             Theme
@@ -402,13 +411,21 @@ export default function Home() {
         <div className="flex flex-col justify-center items-center gap-10">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             {!isLoading && (
-              <div className={`${isBaseColors ? "bg-primary" : "bg-white"} flex flex-col justify-center p-8 h-[280px] md:h-[368px] rounded-lg`}>
+              <div
+                className={`${
+                  isBaseColors ? "bg-primary" : "bg-white"
+                } flex flex-col justify-center p-8 h-[280px] md:h-[368px] rounded-lg`}
+              >
                 <div className="inline-flex flex-col items-center mt-6">
                   <QRPage />
                   <div className="mt-1">
                     <SafeExternalLink
                       href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
-                      className={`relative inline-flex items-center ${isBaseColors ? "bg-primary text-foreground" : "bg-white text-gray-700"} text-sm font-medium hover:bg-gray-50 transition-colors w-full`}
+                      className={`relative inline-flex items-center ${
+                        isBaseColors
+                          ? "bg-primary text-foreground"
+                          : "bg-white text-gray-700"
+                      } text-sm font-medium hover:bg-gray-50 transition-colors w-full`}
                       onBeforeNavigate={() => false}
                     >
                       <span className="block w-full text-center">
@@ -437,46 +454,83 @@ export default function Home() {
           </div>
 
           {/* Today's Winner section for the latest auction */}
-          {currentAuctionId === LATEST_AUCTION_ID.current && ogImage && (
-            <div className="flex flex-col justify-center items-center gap-1">
-              <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
-                🏆<span className="underline">Today&apos;s Winner</span>🏆
-              </label>
-              <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1  overflow-hidden bg-white aspect-[2/1]">
-                {ogImage && (
-                  <img
-                    src={auctionImageOverrides[currentAuctionId] || ogImage}
-                    alt="Open Graph"
-                    className="object-cover w-full h-full"
-                    onClick={() => {
-                      window.location.href = ogUrl;
-                    }}
-                  />
-                )}
-              </div>
-              <div className="inline-flex gap-1 italic">
-                <span className={clsx(isBaseColors ? " text-foreground": " text-gray-600 dark:text-[#696969]", "font-normal")}>
-                  The QR coin currently points to
-                </span>
-                <span className="font-medium underline">
-                  <a
-                    href={ogUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center hover:opacity-80 transition-opacity"
-                    aria-label="redirect"
-                  >
-                    {formatURL(ogUrl)}
-                  </a>
-                </span>
-              </div>
-            </div>
-          )}
+          <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
+            <div className="flex flex-col">
+              {/* Today's Winner on left */}
+              {currentAuctionId === LATEST_AUCTION_ID.current && ogImage && (
+                <div className="flex flex-col justify-center items-center gap-1">
+                  <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
+                    🏆<span className="underline">Today&apos;s Winner</span>🏆
+                  </label>
+                  <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1 overflow-hidden bg-white aspect-[2/1]">
+                    {ogImage && (
+                      <img
+                        src={auctionImageOverrides[currentAuctionId] || ogImage}
+                        alt="Open Graph"
+                        className="object-cover w-full h-full"
+                        onClick={() => {
+                          window.location.href = ogUrl;
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="inline-flex gap-1 italic">
+                    <span
+                      className={clsx(
+                        isBaseColors
+                          ? "text-foreground"
+                          : "text-gray-600 dark:text-[#696969]",
+                        "font-normal"
+                      )}
+                    >
+                      The QR coin currently points to
+                    </span>
+                    <span className="font-medium underline">
+                      <a
+                        href={ogUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center hover:opacity-80 transition-opacity"
+                        aria-label="redirect"
+                      >
+                        {formatURL(ogUrl)}
+                      </a>
+                    </span>
+                  </div>
+                </div>
+              )}
 
-          {/* Winner Announcement for previous auction pages */}
-          {currentAuctionId !== LATEST_AUCTION_ID.current && currentAuctionId > 0 && (
-            <WinnerAnnouncement auctionId={currentAuctionId} />
-          )}
+              {/* Winner Announcement for previous auction pages */}
+              {currentAuctionId !== LATEST_AUCTION_ID.current &&
+                currentAuctionId > 0 && (
+                  <WinnerAnnouncement auctionId={currentAuctionId} />
+                )}
+            </div>
+
+            {/* Uniswap Widget on right for desktop only */}
+            {!isLoading && currentAuctionId === LATEST_AUCTION_ID.current && (
+              <div className="hidden md:flex flex-col">
+                <h2 className="font-semibold text-xl md:text-2xl mb-2 text-center">
+                  Swap to $QR
+                </h2>
+                <div style={{ height: "510px" }}>
+                  <iframe
+                    src="https://app.uniswap.org/swap?inputCurrency=NATIVE&outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base"
+                    height="100%"
+                    width="100%"
+                    style={{
+                      border: 0,
+                      margin: 0,
+                      display: "block",
+                      borderRadius: "10px",
+                      height: "510px",
+                    }}
+                    title="Uniswap Widget"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -514,28 +568,47 @@ export default function Home() {
           className="inline-flex items-center text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono whitespace-nowrap cursor-pointer"
           onClick={copyToClipboard}
         >
-          <label className={clsx(isBaseColors ? "text-foreground" : "", "mr-1 cursor-pointer")}>CA: {contractAddress}</label>
+          <label
+            className={clsx(
+              isBaseColors ? "text-foreground" : "",
+              "mr-1 cursor-pointer"
+            )}
+          >
+            CA: {contractAddress}
+          </label>
           <button
             onClick={copyToClipboard}
-            className={clsx(isBaseColors ? " text-foreground hover:text-primary/90" : "hover:bg-gray-100", "p-1 rounded-full transition-colors")}
+            className={clsx(
+              isBaseColors
+                ? " text-foreground hover:text-primary/90"
+                : "hover:bg-gray-100",
+              "p-1 rounded-full transition-colors"
+            )}
             aria-label="Copy contract address"
           >
             {copied ? (
-              <Check className={clsx(isBaseColors ? "text-foreground" : "text-green-500", "h-3 w-3")} />
+              <Check
+                className={clsx(
+                  isBaseColors ? "text-foreground" : "text-green-500",
+                  "h-3 w-3"
+                )}
+              />
             ) : (
               <Copy className="h-3 w-3 cursor-pointer" />
             )}
           </button>
         </div>
 
-        {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" && process.env.NODE_ENV === "development") || process.env.VERCEL_ENV === "preview" && (
+        {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" &&
+          process.env.NODE_ENV === "development") ||
+          (process.env.VERCEL_ENV === "preview" && (
             <a
               href="/debug"
               className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
             >
               Debug Panel
             </a>
-        )}
+          ))}
       </footer>
 
       <SafetyDialog
