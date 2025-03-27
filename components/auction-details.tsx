@@ -98,6 +98,13 @@ export function AuctionDetails({
   const qrTokenAmount = Number(formatEther(auctionDetail?.highestBid ?? 0n));
   const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
 
+  // Check if this is auction #22 from v1 contract
+  const isAuction22 = id === 22;
+  // Check if auction is from legacy contract (1-22)
+  const isLegacyAuction = id <= 22;
+  // Check if this is the last auction in its contract
+  const isLastInContract = isLegacyAuction ? id === 22 : isLatest;
+
   const handleSettle = useCallback(async () => {
     if (!isComplete) {
       return;
@@ -329,12 +336,12 @@ export function AuctionDetails({
               variant="outline" 
               size="icon"
               className={`rounded-full border-none transition-colors ${
-                isLatest
+                (isLatest && !isAuction22)
                   ? `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 opacity-50 cursor-not-allowed ${isBaseColors ? "bg-primary/90 hover:bg-primary/90 hover:text-foreground" : ""}`
                   : `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`
               }`}
               onClick={onNext}
-              disabled={isLatest}
+              disabled={isLatest && !isAuction22}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -359,7 +366,8 @@ export function AuctionDetails({
           Number(auctionDetail.tokenId) === id &&
           !isLoading && (
             <>
-              {!auctionDetail.settled ? (
+              {/* Special handling for auction #22 - always show it as settled */}
+              {!auctionDetail.settled && !isAuction22 ? (
                 <>
                   <div className="flex flex-row justify-between gap-8">
                     <div className="space-y-1.25 relative">
@@ -440,62 +448,76 @@ export function AuctionDetails({
                 </>
               ) : (
                 <>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
-                      <div className="text-2xl font-bold">
-                        {formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR
+                  {/* Don't show the "Visit Winning Site" button for auction #22 */}
+                  {isAuction22 ? (
+                    <WinDetailsView
+                      tokenId={BigInt(id)}
+                      winner={auctionDetail.highestBidder}
+                      amount={auctionDetail.highestBid}
+                      url={auctionDetail.qrMetadata?.urlString || ""}
+                      openDialog={openDialog}
+                      openBids={openBid}
+                    />
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
+                          <div className="text-2xl font-bold">
+                            {formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600 dark:text-[#696969]">Won by</div>
+                          <div className="flex items-center gap-2">
+                            {bidderNameInfo.pfpUrl ? (
+                              <img 
+                                src={bidderNameInfo.pfpUrl} 
+                                alt="Profile" 
+                                className="w-6 h-6 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 bg-gray-200 rounded-full" />
+                            )}
+                            <span className="flex items-center">
+                              {bidderNameInfo.displayName}
+                              {bidderNameInfo.farcasterUsername && (
+                                <WarpcastLogo 
+                                  size="md" 
+                                  username={bidderNameInfo.farcasterUsername} 
+                                  className="ml-0.5 opacity-80 hover:opacity-100"
+                                />
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 dark:text-[#696969]">Won by</div>
-                      <div className="flex items-center gap-2">
-                        {bidderNameInfo.pfpUrl ? (
-                          <img 
-                            src={bidderNameInfo.pfpUrl} 
-                            alt="Profile" 
-                            className="w-6 h-6 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-200 rounded-full" />
-                        )}
-                        <span className="flex items-center">
-                          {bidderNameInfo.displayName}
-                          {bidderNameInfo.farcasterUsername && (
-                            <WarpcastLogo 
-                              size="md" 
-                              username={bidderNameInfo.farcasterUsername} 
-                              className="ml-0.5 opacity-80 hover:opacity-100"
-                            />
-                          )}
-                        </span>
+
+                      <Button
+                        className="w-full bg-gray-900 hover:bg-gray-800"
+                        onClick={() =>
+                          window.open(auctionDetail?.qrMetadata.urlString, "_blank")
+                        }
+                      >
+                        Visit Winning Site
+                      </Button>
+
+                      <div className="flex flex-row items-center text-sm justify-between">
+                        <button
+                          onClick={() => setShowBidHistory(true)}
+                          className="text-gray-600 dark:text-[#696969] underline text-left w-full"
+                        >
+                          Prev bids
+                        </button>
+                        <button
+                          onClick={() => setShowHowItWorks(true)}
+                          className="text-gray-600 dark:text-[#696969] underline text-right w-[120px]"
+                        >
+                          How it works
+                        </button>
                       </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    className="w-full bg-gray-900 hover:bg-gray-800"
-                    onClick={() =>
-                      window.open(auctionDetail?.qrMetadata.urlString, "_blank")
-                    }
-                  >
-                    Visit Winning Site
-                  </Button>
-
-                  <div className="flex flex-row items-center text-sm justify-between">
-                    <button
-                      onClick={() => setShowBidHistory(true)}
-                      className="text-gray-600 dark:text-[#696969] underline text-left w-full"
-                    >
-                      Prev bids
-                    </button>
-                    <button
-                      onClick={() => setShowHowItWorks(true)}
-                      className="text-gray-600 dark:text-[#696969] underline text-right w-[120px]"
-                    >
-                      How it works
-                    </button>
-                  </div>
+                    </>
+                  )}
                 </>
               )}
             </>
