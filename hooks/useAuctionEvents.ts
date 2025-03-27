@@ -120,6 +120,7 @@ type UseAuctionEventsProps = {
   onAuctionSettled?: (tokenId: bigint, winner: string, amount: bigint) => void;
   onAuctionCreated?: (tokenId: bigint, startTime: bigint, endTime: bigint) => void;
   showToasts?: boolean;
+  tokenId?: bigint;
 };
 
 /**
@@ -134,6 +135,7 @@ export function useAuctionEvents({
   onAuctionSettled,
   onAuctionCreated,
   showToasts = true,
+  tokenId,
 }: UseAuctionEventsProps) {
   const publicClient = usePublicClient();
   // Use a ref to track which events we've already shown toasts for
@@ -210,7 +212,7 @@ export function useAuctionEvents({
   useEffect(() => {
     if (!publicClient) return;
 
-    const contractAddress = process.env.NEXT_PUBLIC_QRAuction as Address;
+    const contractAddress = tokenId && tokenId >= 1 && tokenId <= 22 ? process.env.NEXT_PUBLIC_QRAuction as Address : process.env.NEXT_PUBLIC_QRAuctionV2 as Address;
 
     // Watch for auction bid events
     const unwatchBid = publicClient.watchEvent({
@@ -357,5 +359,5 @@ export function useAuctionEvents({
       unwatchSettled();
       unwatchCreated();
     };
-  }, [publicClient, onAuctionBid, onAuctionSettled, onAuctionCreated, showToasts]);
+  }, [publicClient, onAuctionBid, onAuctionSettled, onAuctionCreated, showToasts, tokenId]);
 } 

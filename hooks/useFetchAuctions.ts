@@ -38,9 +38,10 @@ function clientToProvider(client: any) {
   return new JsonRpcProvider(transport.url, network);
 }
 
-export function useFetchAuctions() {
+export function useFetchAuctions(tokenId?: bigint) {
   const initialState: AuctionState = { auctions: [], historicalLoaded: false };
   const [state, dispatch] = useReducer(auctionReducer, initialState);
+  const isLegacyAuction = tokenId && tokenId <= 22n;
 
   const client = useClient({ config });
 
@@ -51,7 +52,7 @@ export function useFetchAuctions() {
     try {
       const provider = clientToProvider(client);
       const contract = new ethers.Contract(
-        process.env.NEXT_PUBLIC_QRAuction as string,
+        isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as string : process.env.NEXT_PUBLIC_QRAuctionV2 as string,
         QRAuction.abi,
         provider
       );
@@ -83,7 +84,7 @@ export function useFetchAuctions() {
     } catch (error) {
       console.error("Error fetching historical auctions:", error);
     }
-  }, [client]);
+  }, [client, isLegacyAuction]);
 
   // Fetch historical events and initialize state on mount
   useEffect(() => {

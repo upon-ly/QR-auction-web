@@ -33,14 +33,15 @@ function clientToProvider(client: Client<Transport, Chain>) {
   return new JsonRpcProvider(transport.url, network);
 }
 
-export function useFetchBids() {
+export function useFetchBids(tokenId?: bigint) {
   const client = useClient({ config });
-
+  const isLegacyAuction = tokenId && tokenId <= 22n;
+  
   const fetchHistoricalAuctions = async () => {
     try {
       const provider = clientToProvider(client);
       const contract = new ethers.Contract(
-        process.env.NEXT_PUBLIC_QRAuction as string,
+        isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as string : process.env.NEXT_PUBLIC_QRAuctionV2 as string,
         QRAuction.abi,
         provider
       );

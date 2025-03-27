@@ -3,23 +3,26 @@
 "use client";
 
 import { z } from "zod";
-import { formatEther } from "viem";
+import { formatEther, parseUnits } from "viem";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { waitForTransactionReceipt } from "@wagmi/core";
 import { toast } from "sonner";
 import { useWriteActions } from "@/hooks/useWriteActions";
-import { parseUnits } from "viem";
 import { config } from "@/config/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
 import { registerTransaction } from "@/hooks/useAuctionEvents";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
+import { MIN_QR_BID } from "@/config/tokens";
+import { formatQRAmount } from "@/utils/formatters";
+import { UniswapModal } from "./ui/uniswap-modal";
+import { useState } from "react";
 
 export function BidForm({
   auctionDetail,
@@ -32,9 +35,18 @@ export function BidForm({
   onSuccess: () => void;
   openDialog: (url: string) => boolean;
 }) {
+  const [showUniswapModal, setShowUniswapModal] = useState(false);
   const isBaseColors = useBaseColors();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { handleTypingStart } = useTypingStatus();
+  
+  // Get user's QR token balance
+  const qrTokenAddress = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"; // QR token address
+  const { data: qrBalance } = useBalance({
+    address,
+    token: qrTokenAddress as `0x${string}`,
+  });
+  
   const { bidAmount } = useWriteActions({
     tokenId: auctionDetail?.tokenId ? auctionDetail.tokenId : 0n,
   });
@@ -48,10 +60,47 @@ export function BidForm({
 
   // Compute the increment and the minBid
   const increment = (lastHighestBid * minBidIncrement) / hundred;
-  const minimumBid = Number(formatEther(lastHighestBid + increment));
+  
+  // Calculate full QR value
+  const fullMinimumBid = lastHighestBid === 0n 
+    ? MIN_QR_BID 
+    : Number(formatEther(lastHighestBid + increment));
+    
+  // Display value in millions (divide by 1M)
+  const rawDisplayMinimumBid = fullMinimumBid / 1_000_000;
+  
+  // Determine the required decimal places dynamically
+  const minDecimalPlaces = (() => {
+    // Get the fractional part
+    const fractionalPart = rawDisplayMinimumBid % 1;
+    if (fractionalPart === 0) return 1; // At least 1 decimal place for readability
+    
+    // Convert to string and count decimal places
+    const fractionalStr = fractionalPart.toString().split('.')[1] || '';
+    
+    // Find last non-zero digit
+    let lastNonZeroPos = 0;
+    for (let i = 0; i < fractionalStr.length; i++) {
+      if (fractionalStr[i] !== '0') {
+        lastNonZeroPos = i + 1; // +1 because we need to include this digit
+      }
+    }
+    
+    // Cap at 6 decimal places for usability
+    return Math.min(lastNonZeroPos, 6);
+  })();
+  
+  // Create a properly rounded display value with the required precision
+  const decimalFactor = Math.pow(10, minDecimalPlaces);
+  const safeMinimumBid = Math.floor(rawDisplayMinimumBid * decimalFactor) / decimalFactor;
+  
+  // Format with the required decimal places but trim trailing zeros
+  const formattedMinBid = safeMinimumBid.toFixed(minDecimalPlaces).replace(/\.?0+$/, '');
+  
+  // Step size for the input (0.001, 0.0001, etc. based on required precision)
+  const stepSize = Math.pow(10, -minDecimalPlaces).toString();
 
   const targetUrl = auctionDetail?.qrMetadata?.urlString || "";
-
   const displayUrl = targetUrl ? (targetUrl === "0x" ? "" : targetUrl) : "";
 
   // Define the schema using the computed minimum
@@ -60,7 +109,9 @@ export function BidForm({
       .number({
         invalid_type_error: "Bid must be a number",
       })
-      .min(Number(minimumBid), `Bid must be at least ${minimumBid}`),
+      // Validate against safe minimum value that matches our display format
+      .refine(val => val >= safeMinimumBid, 
+        `Bid must be at least ${formattedMinBid}`),
     url: z.string().url("Invalid URL"),
   });
 
@@ -99,8 +150,21 @@ export function BidForm({
     }
 
     try {
+      // Convert the millions input back to full token value
+      const fullBidAmount = data.bid * 1_000_000;
+      
+      // Check if user has enough QR tokens
+      const hasEnoughQR = qrBalance && Number(qrBalance.formatted) >= fullBidAmount;
+
+      if (!hasEnoughQR) {
+        // Open Uniswap swap modal instead of showing an error
+        toast.info("You don't have enough $QR tokens for this bid");
+        setShowUniswapModal(true);
+        return;
+      }
+      
       const hash = await bidAmount({
-        value: parseUnits(`${data.bid}`, 18),
+        value: parseUnits(`${fullBidAmount}`, 18),
         urlString: data.url,
       });
       
@@ -133,21 +197,21 @@ export function BidForm({
         <div className="relative flex-1">
           <Input
             type="number"
-            min={minimumBid === 0 ? "0.001" : minimumBid}
-            step="any"
-            placeholder={`${minimumBid === 0 ? "0.001" : minimumBid} or more`}
+            min={safeMinimumBid}
+            step={stepSize}
+            placeholder={`${formattedMinBid} or more`}
             className="pr-16 border p-2 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             {...register("bid")}
             onFocus={(e: any) => {
               if (!e.target.value) {
-                e.target.value = minimumBid === 0 ? 0.001 : minimumBid;
+                e.target.value = formattedMinBid;
               }
             }}
             onKeyDown={handleKeyDown}
             onInput={handleInputChange}
           />
           <div className={`${isBaseColors ? "text-foreground" : "text-gray-500"} absolute inset-y-0 right-7 flex items-center pointer-events-none h-[36px]`}>
-            ETH
+            M $QR
           </div>
           {errors.bid && (
             <p className="text-red-500 text-sm mt-1">{errors.bid.message}</p>
@@ -187,6 +251,25 @@ export function BidForm({
         >
           Place Bid
         </Button>
+
+        <Button
+          onClick={(e) => {
+            e.preventDefault(); // Prevent form submission
+            setShowUniswapModal(true);
+          }}
+          type="button" // Explicitly set type to button to avoid form submission
+          className={`px-8 py-2 text-white ${
+            "bg-gray-900 hover:bg-gray-800"
+          } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
+        >
+          Swap to $QR
+        </Button>
+        <UniswapModal
+          open={showUniswapModal}
+          onOpenChange={setShowUniswapModal}
+          inputCurrency="NATIVE"
+          outputCurrency="0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"
+        />
 
         {displayUrl !== "" && (
           <div className={`mt-0.5 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-gray-800"}`}>

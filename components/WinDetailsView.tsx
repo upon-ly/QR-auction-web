@@ -10,10 +10,12 @@ import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
 import { formatURL } from "@/utils/helperFunctions";
-import useEthPrice from "@/hooks/useEthPrice";
+import { formatQRAmount, formatUsdValue } from "@/utils/formatters";
+import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import useEthPrice from "@/hooks/useEthPrice";
 
 type AuctionType = {
   tokenId: bigint;
@@ -31,16 +33,17 @@ export function WinDetailsView(winnerdata: AuctionType) {
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
 
-  const {
-    ethPrice: price,
-    isLoading: isPriceLoading,
-    isError: isPriceError,
-  } = useEthPrice();
+  const { priceUsd: qrPrice } = useTokenPrice();
+  const { ethPrice } = useEthPrice();
 
-  // Parse the ETH balance and the current price
-  const ethBalance = Number(formatEther(winnerdata.amount));
-  const ethPrice = price?.ethereum?.usd ?? 0;
-  const usdBalance = ethBalance * ethPrice;
+  // Calculate QR token balance and USD value instead of ETH
+  const qrTokenAmount = Number(formatEther(winnerdata.amount));
+  const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
+  
+  // Check if tokenId is between 1-22 to determine if we show ETH or QR
+  const isLegacyAuction = winnerdata.tokenId <= 22n;
+  const currentEthPrice = ethPrice?.ethereum?.usd || 0;
+  const ethBalance = isLegacyAuction ? qrTokenAmount * currentEthPrice : 0;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,10 +130,11 @@ export function WinDetailsView(winnerdata: AuctionType) {
           </div>
           <div className="inline-flex flex-row justify-center items-center gap-1">
             <div className="text-xl font-bold">
-              {formatEther(winnerdata?.amount || 0n)} ETH
-            </div>
-            <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-              {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
+              {formatQRAmount(Number(formatEther(winnerdata?.amount || 0n)))} {isLegacyAuction ? 'ETH' : '$QR'} {
+                isLegacyAuction 
+                  ? ethBalance > 0 ? `($${ethBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : ''
+                  : qrPrice ? `(${formatUsdValue(usdBalance)})` : ''
+              }
             </div>
           </div>
         </div>

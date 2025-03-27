@@ -4,6 +4,7 @@ import { formatEther } from 'viem';
 import QRAuction from '../abi/QRAuction.json';
 import { config } from "../config/config";
 import { Address } from 'viem';
+import { formatQRAmount } from "@/utils/formatters";
 
 type QRMetadata = {
   validUntil: string;
@@ -344,7 +345,7 @@ export function AuctionDebug() {
               
               <div className="flex justify-between">
                 <span>Highest Bid:</span>
-                <span className="font-mono">{contractData.auction.highestBid} ETH</span>
+                <span className="font-mono">{formatQRAmount(Number(contractData.auction.highestBid))} $QR</span>
               </div>
               
               <div className="flex justify-between">
@@ -413,7 +414,7 @@ export function AuctionDebug() {
               </div>
               <div className="flex justify-between">
                 <span>Reserve Price:</span>
-                <span>{contractData.settings?.reservePrice} ETH</span>
+                <span>{formatQRAmount(Number(contractData.settings?.reservePrice))} $QR</span>
               </div>
               <div className="flex justify-between">
                 <span>Launched:</span>

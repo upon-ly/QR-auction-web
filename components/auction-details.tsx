@@ -24,13 +24,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAccount } from "wagmi";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "./SafetyDialog";
-import useEthPrice from "@/hooks/useEthPrice";
+import { formatQRAmount, formatUsdValue } from "@/utils/formatters";
+import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { useAuctionEvents, registerTransaction } from "@/hooks/useAuctionEvents";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { TypingIndicator } from "./TypingIndicator";
+import { useWhitelistStatus } from "@/hooks/useWhitelistStatus";
+import { Address } from "viem";
 
 interface AuctionDetailsProps {
   id: number;
@@ -70,9 +73,9 @@ export function AuctionDetails({
     pfpUrl: null
   });
 
-  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc();
-  const { refetch, auctionDetail } = useFetchAuctionDetails();
-  const { refetchSettings, settingDetail } = useFetchAuctionSettings();
+  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc(BigInt(id));
+  const { refetch, auctionDetail } = useFetchAuctionDetails(BigInt(id));
+  const { refetchSettings, settingDetail } = useFetchAuctionSettings(BigInt(id));
 
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
   const { isConnected, address } = useAccount();
@@ -81,22 +84,19 @@ export function AuctionDetails({
   );
   const isBaseColors = useBaseColors();
 
-  const {
-    ethPrice: price,
-    isLoading: isPriceLoading,
-    isError: isPriceError,
-  } = useEthPrice();
+  const { priceUsd: qrPrice, formatAmountToUsd } = useTokenPrice();
 
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
     useSafetyDialog();
+
+  const { isWhitelisted, isLoading: whitelistLoading } = useWhitelistStatus(address as Address);
 
   const currentSettledAuction = settledAuctions.find((val) => {
     return Number(val.tokenId) === id;
   });
 
-  const ethBalance = Number(formatEther(auctionDetail?.highestBid ?? 0n));
-  const ethPrice = price?.ethereum?.usd ?? 0;
-  const usdBalance = ethBalance * ethPrice;
+  const qrTokenAmount = Number(formatEther(auctionDetail?.highestBid ?? 0n));
+  const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
 
   const handleSettle = useCallback(async () => {
     if (!isComplete) {
@@ -108,14 +108,8 @@ export function AuctionDetails({
       return;
     }
 
-    if (
-      ![
-        "0x5B759eF9085C80CCa14F6B54eE24373f8C765474",
-        "0x5371d2E73edf765752121426b842063fbd84f713",
-        "0x09928ceBB4c977C5e5Db237a2A2cE5CD10497CB8",
-      ].includes(address as string)
-    ) {
-      toast.error("Only Admins can settle auction");
+    if (!isWhitelisted) {
+      toast.error("Only whitelisted settlers can settle auctions");
       return;
     }
 
@@ -141,7 +135,7 @@ export function AuctionDetails({
     } catch (error) {
       console.error(error);
     }
-  }, [isComplete, id, auctionDetail, isConnected, address, settleTxn]);
+  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, settleTxn]);
 
   const updateDetails = async () => {
     await refetch();
@@ -187,10 +181,12 @@ export function AuctionDetails({
     
     if (isAuctionActive) {
       const currentBid = Number(formatEther(auctionDetail.highestBid));
-      const usdValue = currentBid * (price?.ethereum?.usd || 0);
-      document.title = `QR $${usdValue.toFixed(2)} - ${bidderNameInfo.displayName}`;
+      const usdValue = qrPrice ? currentBid * qrPrice : 0;
+      const formattedQR = formatQRAmount(currentBid);
+      const bidText = `${formattedQR} $QR ${usdValue > 0 ? `(${formatUsdValue(usdValue)})` : ''}`;
+      document.title = `QR ${bidText} - ${bidderNameInfo.displayName}`;
     }
-  }, [auctionDetail, price?.ethereum?.usd, bidderNameInfo.displayName, isLoading]);
+  }, [auctionDetail, qrPrice, bidderNameInfo.displayName, isLoading]);
 
   useEffect(() => {
     const ftSetled = async () => {
@@ -370,18 +366,14 @@ export function AuctionDetails({
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
-                          {Number(formatEther(
+                          {formatQRAmount(Number(formatEther(
                             auctionDetail?.highestBid
                               ? auctionDetail.highestBid
                               : 0n
-                          )).toLocaleString('en-US', {
-                            maximumFractionDigits: 3,
-                            minimumFractionDigits: 0
-                          })}{" "}
-                          ETH
+                          )))} $QR
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                          {usdBalance !== 0 && `($${usdBalance.toFixed(0)})`}
+                          {usdBalance !== 0 && `(${formatUsdValue(usdBalance)})`}
                         </div>
                       </div>
                       <div className="h-4 mt-1 overflow-hidden" style={{ minHeight: "18px" }}>
@@ -452,10 +444,7 @@ export function AuctionDetails({
                     <div>
                       <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                       <div className="text-2xl font-bold">
-                        {Number(formatEther(auctionDetail?.highestBid || 0n)).toLocaleString('en-US', {
-                          maximumFractionDigits: 3,
-                          minimumFractionDigits: 0
-                        })} ETH
+                        {formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR
                       </div>
                     </div>
                     <div>
