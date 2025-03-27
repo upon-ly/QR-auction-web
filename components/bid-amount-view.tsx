@@ -262,7 +262,7 @@ export function BidForm({
             "bg-gray-900 hover:bg-gray-800"
           } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
         >
-          Swap to $QR
+          Buy $QR
         </Button>
         <UniswapModal
           open={showUniswapModal}
