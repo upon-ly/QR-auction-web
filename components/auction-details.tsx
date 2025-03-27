@@ -32,6 +32,8 @@ import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { useAuctionEvents, registerTransaction } from "@/hooks/useAuctionEvents";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { TypingIndicator } from "./TypingIndicator";
+import { useWhitelistStatus } from "@/hooks/useWhitelistStatus";
+import { Address } from "viem";
 
 interface AuctionDetailsProps {
   id: number;
@@ -87,6 +89,8 @@ export function AuctionDetails({
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } =
     useSafetyDialog();
 
+  const { isWhitelisted, isLoading: whitelistLoading } = useWhitelistStatus(address as Address);
+
   const currentSettledAuction = settledAuctions.find((val) => {
     return Number(val.tokenId) === id;
   });
@@ -104,14 +108,8 @@ export function AuctionDetails({
       return;
     }
 
-    if (
-      ![
-        "0x5B759eF9085C80CCa14F6B54eE24373f8C765474",
-        "0x5371d2E73edf765752121426b842063fbd84f713",
-        "0x09928ceBB4c977C5e5Db237a2A2cE5CD10497CB8",
-      ].includes(address as string)
-    ) {
-      toast.error("Only Admins can settle auction");
+    if (!isWhitelisted) {
+      toast.error("Only whitelisted settlers can settle auctions");
       return;
     }
 
@@ -137,7 +135,7 @@ export function AuctionDetails({
     } catch (error) {
       console.error(error);
     }
-  }, [isComplete, id, auctionDetail, isConnected, address, settleTxn]);
+  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, settleTxn]);
 
   const updateDetails = async () => {
     await refetch();
