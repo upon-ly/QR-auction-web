@@ -82,7 +82,8 @@ export function WinDetailsView(winnerdata: AuctionType) {
           "13": "https://i.imgur.com/RcjPf8D.png",
           "14": "https://i.imgur.com/4KcwIzj.png",
           "15": "https://i.imgur.com/jyo2f0H.jpeg",
-          "20": "https://i.imgur.com/8qNqYIV.png"
+          "20": "https://i.imgur.com/8qNqYIV.png",
+          "22": "https://i.imgur.com/21yjB2x.png",
         };
 
         // Check if we have a custom image override for this auction
