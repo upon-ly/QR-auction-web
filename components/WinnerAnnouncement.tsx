@@ -28,7 +28,8 @@ const ANNOUNCEMENT_TWEETS: Record<number, string> = {
   18: "https://x.com/qrcoindotfun/status/1903878962499166519",
   19: "https://x.com/qrcoindotfun/status/1904329392714629342",
   20: "https://x.com/qrcoindotfun/status/1904686185563185397",
-  21: "https://x.com/qrcoindotfun/status/1905051744691740794"
+  21: "https://x.com/qrcoindotfun/status/1905051744691740794",
+  22: "https://x.com/qrcoindotfun/status/1905340393610260770"
 };
 
 export function WinnerAnnouncement({ auctionId }: WinnerAnnouncementProps) {
