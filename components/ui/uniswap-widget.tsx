@@ -18,7 +18,7 @@ export function UniswapWidget({
   const uniswapUrl = `https://app.uniswap.org/swap?inputCurrency=${inputCurrency}&outputCurrency=${outputCurrency}&chain=base&exactField=output&exactAmount=1000000`;
 
   return (
-    <div className={`h-full w-full rounded-lg overflow-hidden border ${isBaseColors ? "border-primary/20" : "border-gray-200"} ${className}`} style={{ height: '100%' }}>
+    <div className={`h-full w-full rounded-lg overflow-hidden border ${isBaseColors ? "border-primary/20" : "light:border-gray-200"} ${className}`} style={{ height: '100%' }}>
       <iframe
         src={uniswapUrl}
         height="100%"

@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { parseEther } from "viem";
 import { Palette } from "lucide-react";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import { useRouter } from "next/navigation";
+import { useFetchAuctions } from "@/hooks/useFetchAuctions";
 
 function UI() {
   const isBaseColors = useBaseColors();
@@ -113,6 +115,9 @@ function UI() {
     functionName: "getColors",
     args: [address],
   }) as { data: [string, string, string] | undefined };
+
+  const router = useRouter();
+  const { auctions } = useFetchAuctions();
 
   useEffect(() => {
     if (colors) {
@@ -267,13 +272,27 @@ function UI() {
     }
   }, [primaryColor, backgroundColor, textColor]);
 
+  const handleLogoClick = () => {
+    if (auctions && auctions.length > 0) {
+      const lastAuction = auctions[auctions.length - 1];
+      const latestId = Number(lastAuction.tokenId);
+      if (latestId > 0) {
+        router.push(`/auction/${latestId}`);
+      } else {
+        router.push('/');
+      }
+    } else {
+      router.push('/');
+    }
+  };
+
   return (
     <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
       <div className="flex items-center gap-3">
 
         <h1
-          onClick={() => (window.location.href = "/")}
+          onClick={handleLogoClick}
           className="text-xl md:text-2xl font-bold cursor-pointer"
         >
           $QR
