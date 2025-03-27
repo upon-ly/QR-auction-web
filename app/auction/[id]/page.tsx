@@ -320,6 +320,18 @@ export default function AuctionPage() {
           {(!isLatestAuction || isAuction22) && currentAuctionId > 0 && (
             <WinnerAnnouncement auctionId={currentAuctionId} />
           )}
+          
+          {/* Mobile Uniswap Widget */}
+          {isLatestAuction && !isAuction22 && (
+            <div className="md:hidden w-full mt-4 mb-8">
+              <h2 className="font-semibold text-xl text-center mb-4">
+                <span className="underline">Buy $QR</span>
+              </h2>
+              <div style={{ height: "510px" }}>
+                <UniswapWidget />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
