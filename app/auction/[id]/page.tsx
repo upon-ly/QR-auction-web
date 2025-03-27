@@ -303,10 +303,10 @@ export default function AuctionPage() {
               {isLatestAuction && (
                 <>
                   <h2 className="font-semibold text-xl md:text-2xl text-center">
-                    Swap to $QR
+                    <span className="underline">Buy $QR</span>
                   </h2>
                   <div style={{ height: "510px" }}>
-                    <UniswapWidget/>
+                    <UniswapWidget />
                   </div>
                 </>
               )}
