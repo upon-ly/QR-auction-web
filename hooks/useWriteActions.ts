@@ -50,7 +50,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       // Then call createBid on V2 contract - contract will automatically use the approved amount
       console.log("Placing bid with URL:", urlString);
       const tx = await bidAuction({
-        address: process.env.NEXT_PUBLIC_QRAuction as Address,
+        address: process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
         abi: QRAuctionV2.abi,
         functionName: "createBid",
         args: [tokenId, urlString],
@@ -66,7 +66,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
   const settleTxn = async () => {
     try {
       const tx = await settleAndCreate({
-        address: process.env.NEXT_PUBLIC_QRAuction as Address,
+        address: process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
         abi: QRAuctionV2.abi,
         functionName: "settleCurrentAndCreateNewAuction",
         args: [],

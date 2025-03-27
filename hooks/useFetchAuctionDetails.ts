@@ -34,11 +34,12 @@ type AuctionResponse = [
   qrMetadata: QRData
 ];
 
-export function useFetchAuctionDetails() {
+export function useFetchAuctionDetails(tokenId?: bigint) {
   const [auctionDetail, setAuctiondetails] = useState<Auction>();
+  const isLegacyAuction = tokenId && tokenId <= 22n;
 
   const { data: auctionDetails, refetch } = useReadContract({
-    address: process.env.NEXT_PUBLIC_QRAuction as Address,
+    address: isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as Address : process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
     abi: QRAuction.abi,
     functionName: "auction",
     args: [],

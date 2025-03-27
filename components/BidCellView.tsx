@@ -49,6 +49,17 @@ export function BidCellView({
     pfpUrl: null
   });
 
+  // Check if it's a legacy auction (1-22)
+  const isLegacyAuction = bid.tokenId <= 22n;
+  const amount = Number(formatEther(bid.amount));
+
+  function formatAmount(amount: number, isLegacy: boolean) {
+    if (isLegacy) {
+      return `Ξ ${amount.toFixed(3)}`;
+    }
+    return `${formatQRAmount(amount)} $QR`;
+  }
+
   function formatURL(url: string) {
     try {
       const urlObj = new URL(url);
@@ -156,7 +167,7 @@ export function BidCellView({
         </div>
       </div>
       <p className="font-mono text-sm font-medium whitespace-nowrap ml-4">
-        {formatQRAmount(Number(formatEther(bid.amount)))} $QR
+        {formatAmount(amount, isLegacyAuction)}
       </p>
     </div>
   );

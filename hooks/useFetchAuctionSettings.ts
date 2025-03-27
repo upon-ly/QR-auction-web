@@ -31,11 +31,12 @@ type AuctionSettingsResponse = [
   qrMetadata: QRData
 ];
 
-export function useFetchAuctionSettings() {
+export function useFetchAuctionSettings(tokenId?: bigint) {
   const [settingDetail, setSettingdetails] = useState<Settings>();
+  const isLegacyAuction = tokenId && tokenId <= 22n;
 
   const { data: settingDetails, refetch: refetchSettings } = useReadContract({
-    address: process.env.NEXT_PUBLIC_QRAuction as Address,
+    address: isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as Address : process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
     abi: QRAuction.abi,
     functionName: "settings",
     args: [],

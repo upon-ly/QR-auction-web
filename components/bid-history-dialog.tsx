@@ -39,7 +39,7 @@ export function BidHistoryDialog({
   openDialog,
 }: BidHistoryDialogProps) {
   const [auctionBids, setAuctionBids] = useState<AuctionType[]>([]);
-  const { fetchHistoricalAuctions } = useFetchBids();
+  const { fetchHistoricalAuctions } = useFetchBids(BigInt(auctionId));
 
   useEffect(() => {
     const fetchData = async () => {

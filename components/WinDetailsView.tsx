@@ -15,6 +15,7 @@ import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
+import useEthPrice from "@/hooks/useEthPrice";
 
 type AuctionType = {
   tokenId: bigint;
@@ -33,10 +34,16 @@ export function WinDetailsView(winnerdata: AuctionType) {
   });
 
   const { priceUsd: qrPrice } = useTokenPrice();
+  const { ethPrice } = useEthPrice();
 
   // Calculate QR token balance and USD value instead of ETH
   const qrTokenAmount = Number(formatEther(winnerdata.amount));
   const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
+  
+  // Check if tokenId is between 1-22 to determine if we show ETH or QR
+  const isLegacyAuction = winnerdata.tokenId <= 22n;
+  const currentEthPrice = ethPrice?.ethereum?.usd || 0;
+  const ethBalance = isLegacyAuction ? qrTokenAmount * currentEthPrice : 0;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,7 +128,11 @@ export function WinDetailsView(winnerdata: AuctionType) {
           </div>
           <div className="inline-flex flex-row justify-center items-center gap-1">
             <div className="text-xl font-bold">
-              {formatQRAmount(Number(formatEther(winnerdata?.amount || 0n)))} $QR {qrPrice ? `(${formatUsdValue(usdBalance)})` : ''}
+              {formatQRAmount(Number(formatEther(winnerdata?.amount || 0n)))} {isLegacyAuction ? 'ETH' : '$QR'} {
+                isLegacyAuction 
+                  ? ethBalance > 0 ? `($${ethBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : ''
+                  : qrPrice ? `(${formatUsdValue(usdBalance)})` : ''
+              }
             </div>
           </div>
         </div>

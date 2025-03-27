@@ -56,8 +56,8 @@ export default function AuctionPage() {
 
   const isBaseColors = useBaseColors();
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } = useSafetyDialog();
-  const { auctions, refetch: refetchAuctions } = useFetchAuctions();
-  const { refetchSettings } = useFetchAuctionSettings();
+  const { auctions, refetch: refetchAuctions } = useFetchAuctions(BigInt(currentAuctionId));
+  const { refetchSettings } = useFetchAuctionSettings(BigInt(currentAuctionId));
 
   const handleLogoClick = () => {
     if (auctions && auctions.length > 0) {
@@ -138,6 +138,7 @@ export default function AuctionPage() {
   };
 
   useAuctionEvents({
+    tokenId: BigInt(currentAuctionId),
     onAuctionBid: (tokenId) => {
       if (Number(tokenId) === currentAuctionId) {
         refetchAuctions();

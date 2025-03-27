@@ -29,7 +29,8 @@ function clientToProvider(client: Client<Transport, Chain>) {
   return new JsonRpcProvider(transport.url, network);
 }
 
-export function useFetchSettledAuc() {
+export function useFetchSettledAuc(tokenId?: bigint) {
+  const isLegacyAuction = tokenId && tokenId <= 22n;
   const client = useClient({
     config,
   });
@@ -38,7 +39,7 @@ export function useFetchSettledAuc() {
     try {
       const provider = clientToProvider(client);
       const contract = new ethers.Contract(
-        process.env.NEXT_PUBLIC_QRAuction as string,
+        isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as string : process.env.NEXT_PUBLIC_QRAuctionV2 as string,
         QRAuction.abi,
         provider
       );

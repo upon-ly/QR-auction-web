@@ -71,9 +71,9 @@ export function AuctionDetails({
     pfpUrl: null
   });
 
-  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc();
-  const { refetch, auctionDetail } = useFetchAuctionDetails();
-  const { refetchSettings, settingDetail } = useFetchAuctionSettings();
+  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc(BigInt(id));
+  const { refetch, auctionDetail } = useFetchAuctionDetails(BigInt(id));
+  const { refetchSettings, settingDetail } = useFetchAuctionSettings(BigInt(id));
 
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
   const { isConnected, address } = useAccount();
