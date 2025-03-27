@@ -33,7 +33,7 @@ type AuctionSettingsResponse = [
 
 export function useFetchAuctionSettings(tokenId?: bigint) {
   const [settingDetail, setSettingdetails] = useState<Settings>();
-  const isLegacyAuction = tokenId && tokenId <= 22n;
+  const isLegacyAuction = tokenId && tokenId <= 23n;
 
   const { data: settingDetails, refetch: refetchSettings } = useReadContract({
     address: isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as Address : process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
