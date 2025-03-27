@@ -39,7 +39,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         address: QR_TOKEN_ADDRESS as Address,
         abi: erc20ABI,
         functionName: "approve",
-        args: [process.env.NEXT_PUBLIC_QRAuction as Address, value],
+        args: [process.env.NEXT_PUBLIC_QRAuctionV2 as Address, value],
       });
       
       console.log("Approval tx:", approveTx);
