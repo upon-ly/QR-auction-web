@@ -499,12 +499,6 @@ export default function Home() {
                   </div>
                 </div>
               )}
-
-              {/* Winner Announcement for previous auction pages */}
-              {currentAuctionId !== LATEST_AUCTION_ID.current &&
-                currentAuctionId > 0 && (
-                  <WinnerAnnouncement auctionId={currentAuctionId} />
-                )}
             </div>
 
             {/* Uniswap Widget on right for desktop only */}
@@ -531,6 +525,11 @@ export default function Home() {
               </div>
             )}
           </div>
+          {/* Winner Announcement for previous auction pages */}
+          {currentAuctionId !== LATEST_AUCTION_ID.current &&
+            currentAuctionId > 0 && (
+              <WinnerAnnouncement auctionId={currentAuctionId} />
+            )}
         </div>
       </div>
 
