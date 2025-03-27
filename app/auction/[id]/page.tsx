@@ -67,7 +67,7 @@ export default function AuctionPage() {
       const lastAuction = auctions[auctions.length - 1];
       const latestId = Number(lastAuction.tokenId);
       if (latestId > 0) {
-        router.push(`/auction/${latestId}`);
+        router.push(`/`);
       } else {
         router.push('/');
       }
