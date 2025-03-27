@@ -1,11 +1,25 @@
 "use client";
 
-
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useFetchAuctions } from "@/hooks/useFetchAuctions";
 
 export default function HomePage() {
-  return (
-    <div className="flex justify-center items-center h-screen">
-      <h1 className="text-4xl font-bold">the website is currently under construction. please come back later.</h1>
-    </div>
-  );
+  const router = useRouter();
+  const { auctions } = useFetchAuctions();
+
+  useEffect(() => {
+    if (auctions && auctions.length > 0) {
+      const lastAuction = auctions[auctions.length - 1];
+      const latestId = Number(lastAuction.tokenId);
+      if (latestId > 0) {
+        console.log(`Redirecting to latest auction: /auction/${latestId}`);
+        router.replace(`/auction/${latestId}`);
+      } else {
+        console.log("No auctions found");
+      }
+    } else if (auctions) {
+      console.log("No auctions found");
+    }
+  }, [auctions, router]);
 }
