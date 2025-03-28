@@ -258,11 +258,11 @@ export function BidForm({
             setShowUniswapModal(true);
           }}
           type="button" // Explicitly set type to button to avoid form submission
-          className={`px-8 py-2 text-white ${
+          className={`md:hidden px-8 py-2 text-white ${
             "bg-gray-900 hover:bg-gray-800"
           } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`}
         >
-          Swap to $QR
+          Buy $QR
         </Button>
         <UniswapModal
           open={showUniswapModal}

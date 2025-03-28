@@ -19,7 +19,7 @@ export function UniswapModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
         <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle>Swap to $QR</DialogTitle>
+          <DialogTitle>Buy $QR</DialogTitle>
         </DialogHeader>
         <div className="h-[450px] md:h-[500px]">
           <UniswapWidget 
