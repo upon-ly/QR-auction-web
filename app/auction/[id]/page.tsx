@@ -185,7 +185,8 @@ export default function AuctionPage() {
         15: "https://i.imgur.com/4KcwIzj.png",
         16: "https://i.imgur.com/jyo2f0H.jpeg",
         21: "https://i.imgur.com/8qNqYIV.png",
-        23: "https://i.imgur.com/21yjB2x.png"
+        23: "https://i.imgur.com/21yjB2x.png",
+        24: "https://i.imgur.com/5gCWL3S.png"
     }),
     []
   );
@@ -283,11 +284,11 @@ export default function AuctionPage() {
                       }}
                     />
                   </div>
-                  <div className="inline-flex gap-1 italic">
-                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
+                  <div className="inline-flex gap-1 italic max-w-full">
+                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal shrink-0")}>
                       The QR coin currently points to
                     </span>
-                    <span className="font-medium underline">
+                    <span className="font-medium underline truncate">
                       <a
                         href={ogUrl}
                         target="_blank"
