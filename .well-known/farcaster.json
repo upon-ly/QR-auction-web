@@ -7,12 +7,12 @@
   "frame": {
     "version": "1",
     "name": "QR Coin",
-    "iconUrl": "https://www.qrcoin.fun/qrLogo.png",
-    "homeUrl": "https://www.qrcoin.fun",
-    "imageUrl": "https://www.qrcoin.fun/opgIMage.png",
+    "iconUrl": "https://qrcoin.fun/qrLogo.png",
+    "homeUrl": "https://qrcoin.fun",
+    "imageUrl": "https://qrcoin.fun/opgIMage.png",
     "buttonTitle": "Launch App",
-    "splashImageUrl": "https://www.qrcoin.fun/qrLogo.png",
+    "splashImageUrl": "https://qrcoin.fun/qrLogo.png",
     "splashBackgroundColor": "#FFFFFF",
-    "webhookUrl": "https://www.qrcoin.fun/api/webhook"
+    "webhookUrl": "https://qrcoin.fun/api/webhook"
   }
 }
