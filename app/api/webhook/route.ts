@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         await setUserNotificationDetails(fid, event.notificationDetails);
         await sendFrameNotification({
           fid,
-          title: "Welcome to $QR Coin",
-          body: "Frame is now added to your client",
+          title: "Welcome to $QR",
+          body: "Bid for the QR to point to your site next!",
         });
       } else {
         await deleteUserNotificationDetails(fid);
