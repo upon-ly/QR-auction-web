@@ -12,19 +12,27 @@ export const getDisplayUrl = (url: string) => {
   }
 };
 
-export function formatURL(url: string) {
+export function formatURL(url: string, today = false) {
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.replace("www.", "");
     const path = urlObj.pathname;
-
-    // If there's a path, show first 5 characters + ellipsis
-    if (path && path.length > 1) {
-      // Check if path exists and is not just "/"
-      return `${domain}${path.slice(0, 6)}...`;
+    
+    // If path doesn't exist or is just "/"
+    if (!path || path === "/") {
+      return domain;
     }
-
-    return domain;
+    
+    // Determine maximum path length based on today parameter
+    const maxPathLength = today ? 27 : 6;
+    
+    // If the path is short enough to display fully, don't add ellipsis
+    if (path.length <= maxPathLength) {
+      return `${domain}${path}`;
+    }
+    
+    // Otherwise, truncate with ellipsis
+    return `${domain}${path.slice(0, maxPathLength-3)}...`;
   } catch {
     return url;
   }

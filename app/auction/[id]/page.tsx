@@ -19,7 +19,6 @@ import { toast } from "sonner";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "@/components/SafetyDialog";
 import { SafeExternalLink } from "@/components/SafeExternalLink";
-import { formatURL } from "@/utils/helperFunctions";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { ThemeDialog } from "@/components/ThemeDialog";
 import { useAuctionEvents } from "@/hooks/useAuctionEvents";
@@ -29,6 +28,7 @@ import clsx from "clsx";
 import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
+import { formatURL } from "@/utils/helperFunctions";
 
 interface SettingsResponse {
   data: Array<{
@@ -270,7 +270,7 @@ export default function AuctionPage() {
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div className="flex flex-col">
               {isLatestAuction && ogImage && !isAuction22 && (
-                <div className="flex flex-col justify-center items-center gap-1">
+                <div className="flex flex-col justify-center items-start gap-1">
                   <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
                     🏆<span className="underline">Today&apos;s Winner</span>🏆
                   </label>
@@ -284,21 +284,22 @@ export default function AuctionPage() {
                       }}
                     />
                   </div>
-                  <div className="inline-flex gap-1 italic max-w-full">
-                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal shrink-0")}>
-                      The QR coin currently points to
+                  <div className="flex flex-col items-start italic" style={{ width: '100%', maxWidth: '376px' }}>
+                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
+                      The QR coin currently points to:
                     </span>
-                    <span className="font-medium underline truncate">
+                    <div className="w-full overflow-hidden truncate">
                       <a
                         href={ogUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center hover:opacity-80 transition-opacity"
+                        className="font-medium underline hover:opacity-80 transition-opacity"
+                        title={ogUrl}
                         aria-label="redirect"
                       >
-                        {formatURL(ogUrl)}
+                        {formatURL(ogUrl, true)}
                       </a>
-                    </span>
+                    </div>
                   </div>
                 </div>
               )}
