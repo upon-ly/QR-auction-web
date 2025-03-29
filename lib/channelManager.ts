@@ -23,20 +23,6 @@ export interface PresenceEvent {
 export type TypingCallback = (user: string, action: TypingAction, source: string) => void;
 export type PresenceCallback = (user: string, source: string) => void;
 
-// Add these types and functions for wallet activity
-type WalletActivityAction = 'connected';
-type WalletActivityCallback = (user: string, action: WalletActivityAction, source: string) => void;
-const walletActivityCallbacks = new Set<WalletActivityCallback>();
-
-interface WalletActivityMessage {
-  data: {
-    user: string;
-    action: WalletActivityAction;
-    source: string;
-    timestamp: number;
-  };
-}
-
 // Channels
 let auctionChannel: RealtimeChannel | null = null;
 let presenceChannel: RealtimeChannel | null = null;
@@ -53,12 +39,12 @@ const seenConnections = new Set<string>();
 /**
  * Initialize Supabase Realtime channels
  */
-export const initializeChannels = (userId: string, browserInstanceId: string = 'unknown') => {
+export const initializeChannels = (user: string, browserInstanceId: string = 'unknown') => {
   // Close existing channels if they exist
   if (auctionChannel) auctionChannel.unsubscribe();
   if (presenceChannel) presenceChannel.unsubscribe();
 
-  console.log('Initializing Supabase Realtime channels for user:', userId, 'instance:', browserInstanceId);
+  console.log('Initializing Supabase Realtime channels for user:', user, 'instance:', browserInstanceId);
 
   // Create auction channel for broadcasting typing events
   auctionChannel = supabase.channel('auction');
@@ -123,31 +109,19 @@ export const initializeChannels = (userId: string, browserInstanceId: string = '
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Presence channel subscribed, tracking presence for:', userId);
+        console.log('Presence channel subscribed, tracking presence for:', user);
         
         // Track user presence with the browser instance ID to distinguish between sessions
         await presenceChannel?.track({
-          user: userId,
+          user,
           source: browserInstanceId,
           online_at: new Date().toISOString(),
         });
         
         // Broadcast a join event to the auction channel to ensure it's seen
-        broadcastJoin(userId, browserInstanceId);
+        broadcastJoin(user, browserInstanceId);
       }
     });
-
-  // Subscribe to wallet activity channel
-  auctionChannel.on('broadcast', { event: 'wallet-activity' }, (payload) => {
-    const walletEvent = payload.payload as WalletActivityMessage['data'];
-    walletActivityCallbacks.forEach(callback => {
-      try {
-        callback(walletEvent.user, walletEvent.action, walletEvent.source);
-      } catch (error) {
-        console.error('Error in wallet activity callback:', error);
-      }
-    });
-  });
 };
 
 /**
@@ -235,49 +209,4 @@ export const cleanupChannels = () => {
   
   // Clear the seen connections set
   seenConnections.clear();
-};
-
-export const broadcastWalletActivity = (user: string, action: WalletActivityAction, source: string) => {
-  if (!auctionChannel) {
-    console.warn('Auction channel not initialized for wallet activity broadcast');
-    return;
-  }
-  
-  console.log('Broadcasting wallet activity event:', { user, action, source });
-  
-  auctionChannel.send({
-    type: 'broadcast',
-    event: 'wallet-activity',
-    payload: { user, action, source },
-  })
-  .then(() => {
-    console.log('Wallet activity broadcast successful');
-  })
-  .catch((error) => {
-    console.error('Error broadcasting wallet activity:', error);
-  });
-};
-
-export const onWalletActivity = (callback: WalletActivityCallback) => {
-  if (!auctionChannel) {
-    console.warn('Auction channel not initialized for wallet activity subscription');
-    return () => {};
-  }
-
-  // Add to callbacks set
-  walletActivityCallbacks.add(callback);
-
-  // Subscribe to broadcast events
-  const subscription = auctionChannel
-    .on('broadcast', { event: 'wallet-activity' }, (payload) => {
-      const { user, action, source } = payload.payload;
-      console.log('Received wallet activity:', payload.payload);
-      callback(user, action, source);
-    });
-
-  // Return cleanup function
-  return () => {
-    walletActivityCallbacks.delete(callback);
-    subscription.unsubscribe();
-  };
 }; 

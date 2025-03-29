@@ -29,7 +29,6 @@ import clsx from "clsx";
 import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
-import { WalletActivityIndicator } from "@/components/WalletActivityIndicator";
 
 interface SettingsResponse {
   data: Array<{
@@ -186,8 +185,7 @@ export default function AuctionPage() {
         15: "https://i.imgur.com/4KcwIzj.png",
         16: "https://i.imgur.com/jyo2f0H.jpeg",
         21: "https://i.imgur.com/8qNqYIV.png",
-        23: "https://i.imgur.com/21yjB2x.png",
-        24: "https://i.imgur.com/5gCWL3S.png"
+        23: "https://i.imgur.com/21yjB2x.png"
     }),
     []
   );
@@ -205,27 +203,24 @@ export default function AuctionPage() {
         >
           $QR
         </h1>
-        <div className="flex flex-col items-end gap-1 relative">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className={
-                isBaseColors
-                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
-                  : ""
-              }
-              onClick={() => setThemeDialogOpen(true)}
-            >
-              Theme
-            </Button>
-            <ConnectButton
-              accountStatus={{
-                smallScreen: "avatar",
-                largeScreen: "full",
-              }}
-            />
-          </div>
-          <WalletActivityIndicator />
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className={
+              isBaseColors
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
+                : ""
+            }
+            onClick={() => setThemeDialogOpen(true)}
+          >
+            Theme
+          </Button>
+          <ConnectButton
+            accountStatus={{
+              smallScreen: "avatar",
+              largeScreen: "full",
+            }}
+          />
         </div>
       </nav>
 
@@ -288,11 +283,11 @@ export default function AuctionPage() {
                       }}
                     />
                   </div>
-                  <div className="inline-flex gap-1 italic max-w-full">
-                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal shrink-0")}>
+                  <div className="inline-flex gap-1 italic">
+                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
                       The QR coin currently points to
                     </span>
-                    <span className="font-medium underline truncate">
+                    <span className="font-medium underline">
                       <a
                         href={ogUrl}
                         target="_blank"
