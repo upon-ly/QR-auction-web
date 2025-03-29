@@ -5,8 +5,8 @@
     "signature": "MHg1NTQyOGZkNzY1YWU3NTE3Yzg2YTAwMGNiYzIwOTIwMjMwZTk3YzJiMjJlNGY1ZjBiNjk1YTI5YzQwZWMyYzBhMmViNGZjYTQ3ZTExNGU4YTEyNGQwNzVkMTliMWFiYTU2MWFmZThkNTBmZGZiMGRjNGYyNGQ0Yjc0YzhlYjBlYzFj"
   },
   "frame": {
-    "version": "4",
-    "name": "$QR",
+    "version": "1",
+    "name": "QR Coin",
     "iconUrl": "https://www.qrcoin.fun/qrLogo.png",
     "homeUrl": "https://www.qrcoin.fun",
     "imageUrl": "https://www.qrcoin.fun/opgIMage.png",
