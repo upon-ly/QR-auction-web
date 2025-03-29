@@ -186,7 +186,8 @@ export default function AuctionPage() {
         16: "https://i.imgur.com/jyo2f0H.jpeg",
         21: "https://i.imgur.com/8qNqYIV.png",
         23: "https://i.imgur.com/21yjB2x.png",
-        24: "https://i.imgur.com/5gCWL3S.png"
+        24: "https://i.imgur.com/5gCWL3S.png",
+        25: "https://i.imgur.com/Q5UspzS.png"
     }),
     []
   );
@@ -270,7 +271,7 @@ export default function AuctionPage() {
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div className="flex flex-col">
               {isLatestAuction && ogImage && !isAuction22 && (
-                <div className="flex flex-col justify-center items-start gap-1">
+                <div className="flex flex-col justify-center items-center gap-1">
                   <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
                     🏆<span className="underline">Today&apos;s Winner</span>🏆
                   </label>
@@ -284,7 +285,7 @@ export default function AuctionPage() {
                       }}
                     />
                   </div>
-                  <div className="flex flex-col items-start italic" style={{ width: '100%', maxWidth: '376px' }}>
+                  <div className="flex flex-col items-center italic">
                     <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
                       The QR coin currently points to:
                     </span>
