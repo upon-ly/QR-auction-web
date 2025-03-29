@@ -227,7 +227,6 @@ export default function AuctionPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto">
-        {isLoading && <Skeleton className="h-[40px] w-full mb-4" />}
         <div className="flex flex-col justify-center items-center gap-9">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div
