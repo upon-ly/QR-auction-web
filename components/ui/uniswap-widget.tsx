@@ -32,6 +32,8 @@ export function UniswapWidget({
         }}
         title="Uniswap Widget"
         allow="clipboard-write"
+        tabIndex={-1}
+        loading="lazy"
       />
     </div>
   );

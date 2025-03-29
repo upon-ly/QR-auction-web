@@ -29,6 +29,7 @@ import clsx from "clsx";
 import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
+import { WalletActivityIndicator } from "@/components/WalletActivityIndicator";
 
 interface SettingsResponse {
   data: Array<{
@@ -204,24 +205,27 @@ export default function AuctionPage() {
         >
           $QR
         </h1>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
-                : ""
-            }
-            onClick={() => setThemeDialogOpen(true)}
-          >
-            Theme
-          </Button>
-          <ConnectButton
-            accountStatus={{
-              smallScreen: "avatar",
-              largeScreen: "full",
-            }}
-          />
+        <div className="flex flex-col items-end gap-1 relative">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className={
+                isBaseColors
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
+                  : ""
+              }
+              onClick={() => setThemeDialogOpen(true)}
+            >
+              Theme
+            </Button>
+            <ConnectButton
+              accountStatus={{
+                smallScreen: "avatar",
+                largeScreen: "full",
+              }}
+            />
+          </div>
+          <WalletActivityIndicator />
         </div>
       </nav>
 
