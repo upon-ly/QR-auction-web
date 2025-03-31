@@ -7,10 +7,17 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Type definitions
 export type TypingAction = 'started-typing' | 'stopped-typing';
+export type ConnectionAction = 'wallet-connected';
 
 export interface TypingEvent {
   user: string;
   action: TypingAction;
+  source: string;
+}
+
+export interface ConnectionEvent {
+  user: string;
+  action: ConnectionAction;
   source: string;
 }
 
@@ -21,6 +28,7 @@ export interface PresenceEvent {
 }
 
 export type TypingCallback = (user: string, action: TypingAction, source: string) => void;
+export type ConnectionCallback = (user: string, action: ConnectionAction, source: string) => void;
 export type PresenceCallback = (user: string, source: string) => void;
 
 // Channels
@@ -30,16 +38,68 @@ let presenceChannel: RealtimeChannel | null = null;
 // Typing listeners
 const typingListeners: TypingCallback[] = [];
 
+// Connection listeners
+const connectionListeners: ConnectionCallback[] = [];
+
 // User join listeners
 const presenceListeners: PresenceCallback[] = [];
 
 // Track seen wallet connections to avoid duplicates
 const seenConnections = new Set<string>();
 
+// Store the last known user info for reconnection
+let lastUserInfo: { user: string; browserInstanceId: string } | null = null;
+
+// Heartbeat interval to keep connection alive
+let heartbeatInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Check if Supabase channels are healthy and reconnect if needed
+ */
+const checkChannelHealth = () => {
+  if (!lastUserInfo) return;
+  
+  const { user, browserInstanceId } = lastUserInfo;
+  
+  // Check if channels are still connected
+  const auctionChannelState = auctionChannel?.state;
+  const presenceChannelState = presenceChannel?.state;
+  
+  console.log('Channel health check - Auction:', auctionChannelState, 'Presence:', presenceChannelState);
+  
+  // If either channel is closed or errored, reinitialize
+  if (
+    !auctionChannel || 
+    !presenceChannel || 
+    auctionChannelState === 'closed' || 
+    presenceChannelState === 'closed' ||
+    auctionChannelState === 'errored' || 
+    presenceChannelState === 'errored'
+  ) {
+    console.log('Channels need reconnection, reinitializing...');
+    initializeChannels(user, browserInstanceId);
+  }
+};
+
+/**
+ * Start heartbeat to ensure channels stay connected
+ */
+const startHeartbeat = () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+  
+  // Check channel health every 30 seconds
+  heartbeatInterval = setInterval(checkChannelHealth, 30000);
+};
+
 /**
  * Initialize Supabase Realtime channels
  */
 export const initializeChannels = (user: string, browserInstanceId: string = 'unknown') => {
+  // Store user info for reconnection
+  lastUserInfo = { user, browserInstanceId };
+  
   // Close existing channels if they exist
   if (auctionChannel) auctionChannel.unsubscribe();
   if (presenceChannel) presenceChannel.unsubscribe();
@@ -58,7 +118,23 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
         listener(typingEvent.user, typingEvent.action, typingEvent.source);
       });
     })
-    .subscribe();
+    .on('broadcast', { event: 'connection' }, (payload) => {
+      const connectionEvent = payload.payload as ConnectionEvent;
+      console.log('Received connection event:', connectionEvent);
+      
+      // Notify all connection listeners
+      connectionListeners.forEach(listener => {
+        listener(connectionEvent.user, connectionEvent.action, connectionEvent.source);
+      });
+    })
+    .subscribe((status) => {
+      console.log('Auction channel status:', status);
+      
+      // Add extra monitoring for connection state using subscription callback
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        console.log('Auction channel closed or errored, will check health soon');
+      }
+    });
 
   // Create presence channel for user tracking
   presenceChannel = supabase.channel('presence');
@@ -108,6 +184,8 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
       });
     })
     .subscribe(async (status) => {
+      console.log('Presence channel status:', status);
+      
       if (status === 'SUBSCRIBED') {
         console.log('Presence channel subscribed, tracking presence for:', user);
         
@@ -120,8 +198,13 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
         
         // Broadcast a join event to the auction channel to ensure it's seen
         broadcastJoin(user, browserInstanceId);
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        console.log('Presence channel closed or errored, will check health soon');
       }
     });
+
+  // Start heartbeat to ensure channels stay connected
+  startHeartbeat();
 };
 
 /**
@@ -193,6 +276,44 @@ export const onUserJoin = (callback: PresenceCallback): (() => void) => {
   };
 };
 
+/**
+ * Broadcast wallet connection event to the channel
+ */
+export const broadcastConnection = (user: string, browserInstanceId: string = 'unknown') => {
+  if (!auctionChannel) {
+    console.warn('Auction channel not initialized');
+    return;
+  }
+
+  console.log('Broadcasting connection event:', { user, action: 'wallet-connected', source: browserInstanceId });
+  
+  // Include browser instance ID to identify the source
+  auctionChannel.send({
+    type: 'broadcast',
+    event: 'connection',
+    payload: { user, action: 'wallet-connected', source: browserInstanceId }
+  })
+  .then(() => {
+    console.log('Connection event broadcast successfully');
+  })
+  .catch((error) => {
+    console.error('Error broadcasting connection event:', error);
+  });
+};
+
+/**
+ * Listen for wallet connection events
+ */
+export const onConnection = (callback: ConnectionCallback): (() => void) => {
+  connectionListeners.push(callback);
+  return () => {
+    const index = connectionListeners.indexOf(callback);
+    if (index !== -1) {
+      connectionListeners.splice(index, 1);
+    }
+  };
+};
+
 export const cleanupChannels = () => {
   if (auctionChannel) {
     auctionChannel.unsubscribe();
@@ -205,8 +326,18 @@ export const cleanupChannels = () => {
   }
   
   typingListeners.length = 0;
+  connectionListeners.length = 0;
   presenceListeners.length = 0;
   
   // Clear the seen connections set
   seenConnections.clear();
+};
+
+/**
+ * Debug method to simulate a connection event (for testing only)
+ */
+export const simulateConnection = (address: string) => {
+  connectionListeners.forEach(listener => {
+    listener(address, 'wallet-connected', 'debug');
+  });
 }; 
