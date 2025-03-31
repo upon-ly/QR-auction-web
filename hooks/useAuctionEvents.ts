@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { getFarcasterUser } from '@/utils/farcaster';
 import { getName } from '@coinbase/onchainkit/identity';
 import { base } from 'viem/chains';
+import { formatQRAmount } from "@/utils/formatters";
 
 // Define the events we want to monitor
 const AuctionBidEvent = parseAbiItem('event AuctionBid(uint256 tokenId, address bidder, uint256 amount, bool extended, uint256 endTime, string urlString)');
@@ -237,7 +238,15 @@ export function useAuctionEvents({
             if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
               // Get identity information and then show toast
               getBidderIdentity(bidder).then(displayName => {
-                toast(`New bid: ${Number(amount) / 1e18} ETH by ${displayName}`, { 
+                // Check if it's a legacy auction (1-22)
+                const isLegacyAuction = tokenId <= 22n;
+                const amount_num = Number(amount) / 1e18;
+                
+                const bidText = isLegacyAuction 
+                  ? `${amount_num.toFixed(3)} ETH` 
+                  : `${formatQRAmount(amount_num)} $QR`;
+                
+                toast(`New bid: ${bidText} by ${displayName}`, { 
                   id: eventId,
                   duration: 5000, // Longer display time on mobile
                   icon: "🔔"
