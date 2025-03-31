@@ -6,6 +6,7 @@ import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { FarcasterFrameProvider } from "./FrameProvider";
+import { SupabaseProvider } from "./SupabaseProvider";
 
 import { customconfig } from "../config/config";
 
@@ -16,7 +17,9 @@ export function Provider(props: { children: ReactNode }) {
     <WagmiProvider config={customconfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <FarcasterFrameProvider>{props.children}</FarcasterFrameProvider>
+          <SupabaseProvider>
+            <FarcasterFrameProvider>{props.children}</FarcasterFrameProvider>
+          </SupabaseProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

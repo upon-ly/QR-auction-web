@@ -29,6 +29,7 @@ import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
 import { formatURL } from "@/utils/helperFunctions";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 
 interface SettingsResponse {
   data: Array<{
@@ -218,12 +219,17 @@ export default function AuctionPage() {
           >
             Theme
           </Button>
-          <ConnectButton
-            accountStatus={{
-              smallScreen: "avatar",
-              largeScreen: "full",
-            }}
-          />
+          <div className="relative">
+            <ConnectButton
+              accountStatus={{
+                smallScreen: "avatar",
+                largeScreen: "full",
+              }}
+            />
+            <div className="absolute right-0 top-full mt-2 pr-1">
+              <ConnectionIndicator />
+            </div>
+          </div>
         </div>
       </nav>
 
