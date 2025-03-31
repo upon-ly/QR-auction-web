@@ -187,7 +187,8 @@ export default function AuctionPage() {
         21: "https://i.imgur.com/8qNqYIV.png",
         23: "https://i.imgur.com/21yjB2x.png",
         24: "https://i.imgur.com/5gCWL3S.png",
-        25: "https://i.imgur.com/Q5UspzS.png"
+        25: "https://i.imgur.com/Q5UspzS.png",
+        26: "https://i.imgur.com/no5pC8v.png"
     }),
     []
   );
