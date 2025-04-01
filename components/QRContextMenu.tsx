@@ -79,7 +79,7 @@ export function QRContextMenu({ children, className, isHeaderLogo = false }: QRC
   const handleDownloadQR = () => {
     const link = document.createElement("a");
     link.href = "/qrLogo.png";
-    link.download = "qrLogo.png";
+    link.download = "$QR.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
