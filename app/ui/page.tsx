@@ -13,6 +13,7 @@ import { Palette } from "lucide-react";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { useRouter } from "next/navigation";
 import { useFetchAuctions } from "@/hooks/useFetchAuctions";
+import { QRContextMenu } from "@/components/QRContextMenu";
 
 function UI() {
   const isBaseColors = useBaseColors();
@@ -288,15 +289,17 @@ function UI() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8">
+      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-4">
       <div className="flex items-center gap-3">
 
-        <h1
-          onClick={handleLogoClick}
-          className="text-xl md:text-2xl font-bold cursor-pointer"
-        >
-          $QR
-        </h1>
+        <QRContextMenu className="inline-block" isHeaderLogo>
+          <h1
+            onClick={handleLogoClick}
+            className="text-xl md:text-2xl font-bold cursor-pointer"
+          >
+            $QR
+          </h1>
+        </QRContextMenu>
         <div className="flex items-center space-x-2">
             <a href="https://www.basecolors.com" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2">
               <img
