@@ -30,6 +30,7 @@ import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
 import { formatURL } from "@/utils/helperFunctions";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
+import { QRContextMenu } from "@/components/QRContextMenu";
 
 interface SettingsResponse {
   data: Array<{
@@ -201,12 +202,14 @@ export default function AuctionPage() {
   return (
     <main className="min-h-screen p-4 md:p-8">
       <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
-        <h1
-          onClick={handleLogoClick}
-          className="text-2xl font-bold cursor-pointer"
-        >
-          $QR
-        </h1>
+        <QRContextMenu className="inline-block" isHeaderLogo>
+          <h1
+            onClick={handleLogoClick}
+            className="text-2xl font-bold cursor-pointer"
+          >
+            $QR
+          </h1>
+        </QRContextMenu>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
