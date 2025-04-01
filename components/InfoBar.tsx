@@ -233,23 +233,30 @@ export const InfoBar: React.FC = () => {
         {/* Higher Tooltip - Theme-aware */}
         <div 
           className={clsx(
-            'fixed p-3 rounded-md shadow-lg flex items-center gap-2 transition-opacity duration-200',
+            'fixed h-8 flex items-center gap-2 transition-opacity duration-200 px-3',
             showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none',
             {
               // Base Colors theme
-              'bg-background border border-primary/20 text-foreground': isBaseColors,
+              'bg-background border-l border-primary/20 text-foreground': isBaseColors,
               // Dark theme
-              'bg-zinc-800 border border-zinc-700 text-white': !isBaseColors && theme === 'dark',
+              'bg-zinc-800 border-l border-zinc-700 text-white': !isBaseColors && theme === 'dark',
               // Light theme (default)
-              'bg-white border border-gray-200 text-gray-900': !isBaseColors && theme !== 'dark'
+              'bg-white border-l border-gray-200 text-gray-900': !isBaseColors && theme !== 'dark'
             }
           )}
           style={{ 
-            top: '32px',
-            right: '10px',
+            top: '0',
+            right: '185px',
             zIndex: 99999
           }}
         >
+          <img 
+            src="https://basescan.org/token/images/higher_32.png" 
+            alt="Higher" 
+            width="20" 
+            height="20"
+            className="w-5 h-5 rounded-full" 
+          />
           <span className={clsx(
             'text-sm font-medium',
             {
@@ -258,13 +265,7 @@ export const InfoBar: React.FC = () => {
               'text-gray-900': !isBaseColors && theme !== 'dark'
             }
           )}>higher.</span>
-          <img 
-            src="https://basescan.org/token/images/higher_32.png" 
-            alt="Higher" 
-            width="20" 
-            height="20"
-            className="w-5 h-5 rounded-full" 
-          />
+          
         </div>
         
         {/* Market cap with hover functionality */}
