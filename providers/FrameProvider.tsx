@@ -46,6 +46,9 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
       // Frame added event - when a user adds the frame
       sdk.on("frameAdded", (event) => {
         console.log("Frame added event:", event);
+        if (event.notificationDetails) {
+          sendWelcomeNotification();
+        }
       });
       
       // Frame add rejected event - when a user declines to add the frame
