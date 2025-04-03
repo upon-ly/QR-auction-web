@@ -171,6 +171,28 @@ export function BidForm({
       // Register the transaction hash to prevent duplicate toasts
       registerTransaction(hash);
 
+      // Send notification to previous highest bidder if they exist and are different from current bidder
+      if (auctionDetail?.highestBidder && 
+          auctionDetail.highestBidder !== address &&
+          auctionDetail.highestBid > 0n) {
+        try {
+          // Call the API to send outbid notification
+          await fetch('/api/notifications/outbid', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              bidderAddress: auctionDetail.highestBidder,
+              auctionId: Number(auctionDetail.tokenId),
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to send outbid notification:', error);
+          // Don't block the main flow if notification fails
+        }
+      }
+
       const transactionReceiptPr = waitForTransactionReceipt(config, {
         hash: hash,
       });

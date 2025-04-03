@@ -14,14 +14,14 @@ const queryClient = new QueryClient();
 
 export function Provider(props: { children: ReactNode }) {
   return (
-    <WagmiProvider config={customconfig}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <SupabaseProvider>
-            <FarcasterFrameProvider>{props.children}</FarcasterFrameProvider>
-          </SupabaseProvider>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <FarcasterFrameProvider>
+      <WagmiProvider config={customconfig}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider>
+            <SupabaseProvider>{props.children}</SupabaseProvider>
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </FarcasterFrameProvider>
   );
 }
