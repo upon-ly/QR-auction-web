@@ -106,6 +106,8 @@ export function AuctionDetails({
   const isLastInContract = isLegacyAuction ? id === 22 : isLatest;
 
   const handleSettle = useCallback(async () => {
+    console.log(`[DEBUG] handleSettle called, isComplete: ${isComplete}, isWhitelisted: ${isWhitelisted}`);
+    
     if (!isComplete) {
       return;
     }
@@ -121,7 +123,9 @@ export function AuctionDetails({
     }
 
     try {
+      console.log(`[DEBUG] Calling settleTxn...`);
       const hash = await settleTxn();
+      console.log(`[DEBUG] Received transaction hash: ${hash}`);
       
       // Register the transaction hash to prevent duplicate toasts
       registerTransaction(hash);
@@ -132,17 +136,105 @@ export function AuctionDetails({
 
       toast.promise(transactionReceiptPr, {
         loading: "Executing Transaction...",
-        success: (data: any) => {
+        success: async (data: any) => {
+          console.log(`[DEBUG] Transaction successful, receipt:`, data);
+          // After successful transaction, send notifications
+          try {
+            if (auctionDetail?.highestBidder) {
+              console.log(`[DEBUG] Winner address: ${auctionDetail.highestBidder}`);
+              // Check if this is a zero address (auction with no bids)
+              const isZeroAddress = auctionDetail.highestBidder === '0x0000000000000000000000000000000000000000';
+              
+              if (isZeroAddress) {
+                console.log(`[Settle] Auction #${id} settled with no bids (zero address winner). Skipping notifications.`);
+                return "New Auction Created";
+              }
+            
+              // Get bidder name for notification
+              const winnerName = bidderNameInfo.displayName || auctionDetail.highestBidder;
+              
+              console.log(`[Settle] Sending notifications for auction #${id} won by ${winnerName}`);
+
+              // First, try to get the winner's FID so we can exclude them from the general notification
+              let winnerFid: number | null = null;
+              
+              try {
+                // Look up winner's FID first, so we can exclude them from the general notification
+                console.log(`[Settle] Looking up winner's FID for address ${auctionDetail.highestBidder}`);
+                const farcasterUser = await getFarcasterUser(auctionDetail.highestBidder);
+                
+                if (farcasterUser && farcasterUser.fid) {
+                  winnerFid = farcasterUser.fid;
+                  console.log(`[Settle] Found winner's FID: ${winnerFid}, will prioritize winner notification`);
+                  
+                  // Step 1: Send the winner-specific notification first
+                  console.log(`[Settle] Sending auction-won notification to winner (FID: ${winnerFid})`);
+                  
+                  try {
+                    const wonResponse = await fetch('/api/notifications/auction-won', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        fid: winnerFid,
+                        auctionId: id,
+                      }),
+                    });
+                    
+                    if (wonResponse.ok) {
+                      console.log(`[Settle] ✅ Successfully sent auction-won notification to winner (FID: ${winnerFid})`);
+                    } else {
+                      const responseText = await wonResponse.text().catch(() => 'Could not read error response');
+                      console.error(`[Settle] ❌ Failed to send auction-won notification: ${wonResponse.status}`, responseText);
+                    }
+                  } catch (wonError) {
+                    console.error(`[Settle] ❌ Error sending auction-won notification:`, wonError);
+                  }
+                } else {
+                  console.log(`[Settle] ℹ️ No Farcaster account found for winner address ${auctionDetail.highestBidder}, proceeding with broadcast only`);
+                }
+              } catch (fidLookupError) {
+                console.error(`[Settle] ❌ Error looking up winner's FID:`, fidLookupError);
+              }
+              
+              // Step 2: Send the broadcast notification to all users EXCEPT the winner (if we have their FID)
+              console.log(`[Settle] Sending auction-settled notification to all users${winnerFid ? ` (excluding winner FID: ${winnerFid})` : ''}`);
+              const settledResponse = await fetch('/api/notifications/auction-settled', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  auctionId: id,
+                  winnerAddress: auctionDetail.highestBidder,
+                  winnerName: winnerName,
+                  excludeFid: winnerFid, // Pass the winner's FID to exclude them from broadcast
+                }),
+              });
+              
+              if (settledResponse.ok) {
+                console.log(`[Settle] ✅ Successfully sent auction-settled notification to all users`);
+              } else {
+                const settledErrorData = await settledResponse.text().catch(() => 'Unknown error');
+                console.error(`[Settle] ❌ Failed to send auction-settled notification: ${settledResponse.status}`, settledErrorData);
+              }
+            }
+          } catch (notifError) {
+            console.error(`[Settle] ❌ Error sending notifications:`, notifError);
+          }
+          
           return "New Auction Created";
         },
         error: (data: any) => {
+          console.error(`[DEBUG] Transaction failed:`, data);
           return "Failed to settle and create new auction";
         },
       });
     } catch (error) {
-      console.error(error);
+      console.error(`[DEBUG] Settlement error:`, error);
     }
-  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, settleTxn]);
+  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, settleTxn, bidderNameInfo]);
 
   const updateDetails = async () => {
     await refetch();

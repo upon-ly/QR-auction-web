@@ -1,86 +1,27 @@
-import {
-  ParseWebhookEvent,
-  parseWebhookEvent,
-  verifyAppKeyWithNeynar,
-} from "@farcaster/frame-node";
 import { NextRequest } from "next/server";
-import {
-  deleteUserNotificationDetails,
-  setUserNotificationDetails,
-} from "@/lib/kv";
-import { sendFrameNotification } from "@/lib/notifs";
 
+/**
+ * Webhook handler for frame events from Neynar
+ * 
+ * When using Neynar with API key and client ID, Neynar handles all frame events
+ * automatically. This endpoint exists only to satisfy the webhook requirement.
+ */
 export async function POST(request: NextRequest) {
-  const requestJson = await request.json();
-
-  let data;
   try {
-    data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
-
-    console.log(data);
-  } catch (e: unknown) {
-    const error = e as ParseWebhookEvent.ErrorType;
-
-    console.log(error);
-
-    switch (error.name) {
-      case "VerifyJsonFarcasterSignature.InvalidDataError":
-      case "VerifyJsonFarcasterSignature.InvalidEventDataError":
-        // The request data is invalid
-        return Response.json(
-          { success: false, error: error.message },
-          { status: 400 }
-        );
-      case "VerifyJsonFarcasterSignature.InvalidAppKeyError":
-        // The app key is invalid
-        return Response.json(
-          { success: false, error: error.message },
-          { status: 401 }
-        );
-      case "VerifyJsonFarcasterSignature.VerifyAppKeyError":
-        // Internal error verifying the app key (caller may want to try again)
-        return Response.json(
-          { success: false, error: error.message },
-          { status: 500 }
-        );
-    }
+    // Log that we received a webhook request
+    console.log("Received webhook request from Neynar", { 
+      url: request.url,
+      method: request.method 
+    });
+    
+    // When using Neynar (which we are), we don't need to handle frame events
+    // here as they are handled automatically by Neynar's system
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Error in webhook handler:", error);
+    return Response.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const fid = data.fid;
-  const event = data.event;
-
-  switch (event.event) {
-    case "frame_added":
-      if (event.notificationDetails) {
-        await setUserNotificationDetails(fid, event.notificationDetails);
-        await sendFrameNotification({
-          fid,
-          title: "Welcome to $QR",
-          body: "Bid for the QR to point to your site next!",
-        });
-      } else {
-        await deleteUserNotificationDetails(fid);
-      }
-
-      break;
-    case "frame_removed":
-      await deleteUserNotificationDetails(fid);
-
-      break;
-    case "notifications_enabled":
-      await setUserNotificationDetails(fid, event.notificationDetails);
-      await sendFrameNotification({
-        fid,
-        title: "Ding ding ding",
-        body: "Notifications are now enabled",
-      });
-
-      break;
-    case "notifications_disabled":
-      await deleteUserNotificationDetails(fid);
-
-      break;
-  }
-
-  return Response.json({ success: true });
 }

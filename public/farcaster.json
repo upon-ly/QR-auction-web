@@ -13,6 +13,6 @@
     "buttonTitle": "Launch App",
     "splashImageUrl": "https://qrcoin.fun/qrLogo.png",
     "splashBackgroundColor": "#FFFFFF",
-    "webhookUrl": "https://qrcoin.fun/api/webhook"
+    "webhookUrl": "https://api.neynar.com/f/app/4f7bd8af-5835-4732-b8f5-18932ffd4233/event"
   }
 }
