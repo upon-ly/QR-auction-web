@@ -192,7 +192,8 @@ export default function AuctionPage() {
         25: "https://i.imgur.com/Q5UspzS.png",
         26: "https://i.imgur.com/no5pC8v.png",
         28: "https://i.postimg.cc/2SgbbqFr/qr-27-winner.png",
-        30: "https://i.postimg.cc/zDg3CxBW/elon5050.png"
+        30: "https://i.postimg.cc/zDg3CxBW/elon5050.png",
+        31: "https://i.postimg.cc/tRkFGkKL/Group-424.png"
     }),
     []
   );
