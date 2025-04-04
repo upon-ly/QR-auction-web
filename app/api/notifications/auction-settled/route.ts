@@ -18,7 +18,7 @@ const requestSchema = z.object({
   auctionId: z.number(),
   winnerAddress: z.string(),
   winnerName: z.string(),
-  excludeFid: z.number().optional(),
+  excludeFid: z.number().nullable().optional(),
 });
 
 /**
