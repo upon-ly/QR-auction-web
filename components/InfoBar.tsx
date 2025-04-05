@@ -172,10 +172,74 @@ export const InfoBar: React.FC = () => {
     marqueeRef.current.style.animationDuration = `${adjustedDuration}s`;
     marqueeCloneRef.current.style.animationDuration = `${adjustedDuration}s`;
   }, [updates.length]);
+
+  // Always render the market cap section, even with no updates
+  const marketCapSection = (
+    <div className="absolute right-0 top-0 h-full flex items-center" style={{ zIndex: 9999 }}>
+      {/* Higher Tooltip - Theme-aware */}
+      <div 
+        className={clsx(
+          'fixed h-8 flex items-center gap-2 transition-opacity duration-200 px-3',
+          showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          {
+            // Base Colors theme
+            'bg-background border-l border-primary/20 text-foreground': isBaseColors,
+            // Dark theme
+            'bg-zinc-800 border-l border-zinc-700 text-white': !isBaseColors && theme === 'dark',
+            // Light theme (default)
+            'bg-white border-l border-gray-200 text-gray-900': !isBaseColors && theme !== 'dark'
+          }
+        )}
+        style={{ 
+          top: '0',
+          right: '185px',
+          zIndex: 99999
+        }}
+      >
+        <img 
+          src="https://basescan.org/token/images/higher_32.png" 
+          alt="Higher" 
+          width="20" 
+          height="20"
+          className="w-5 h-5 rounded-full" 
+        />
+        <span className={clsx(
+          'text-sm font-medium',
+          {
+            'text-foreground': isBaseColors,
+            'text-white': !isBaseColors && theme === 'dark',
+            'text-gray-900': !isBaseColors && theme !== 'dark'
+          }
+        )}>higher.</span>
+      </div>
+      
+      {/* Market cap with hover functionality */}
+      <a 
+        href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="h-full flex items-center bg-black px-4 border-l border-gray-700 hover:bg-black/80 transition-colors"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        <div className="flex items-center text-white">
+          {formatMarketCap()}
+          <ExternalLink className="ml-1.5 h-3 w-3 opacity-50 hover:opacity-100 transition-opacity" />
+        </div>
+      </a>
+    </div>
+  );
   
-  // Only render content if we have updates
+  // If no updates, still render market cap but with a fallback message
   if (updates.length === 0) {
-    return <div className={baseStyles} />;
+    return (
+      <div className={baseStyles}>
+        <div className="flex w-full h-full items-center justify-start pl-4">
+          <span className="text-gray-400 text-sm">Loading trade activity...</span>
+        </div>
+        {marketCapSection}
+      </div>
+    );
   }
   
   return (
@@ -228,61 +292,7 @@ export const InfoBar: React.FC = () => {
         </div>
       </div>
       
-      {/* Market Cap Display with Higher Tooltip */}
-      <div className="absolute right-0 top-0 h-full flex items-center" style={{ zIndex: 9999 }}>
-        {/* Higher Tooltip - Theme-aware */}
-        <div 
-          className={clsx(
-            'fixed h-8 flex items-center gap-2 transition-opacity duration-200 px-3',
-            showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none',
-            {
-              // Base Colors theme
-              'bg-background border-l border-primary/20 text-foreground': isBaseColors,
-              // Dark theme
-              'bg-zinc-800 border-l border-zinc-700 text-white': !isBaseColors && theme === 'dark',
-              // Light theme (default)
-              'bg-white border-l border-gray-200 text-gray-900': !isBaseColors && theme !== 'dark'
-            }
-          )}
-          style={{ 
-            top: '0',
-            right: '185px',
-            zIndex: 99999
-          }}
-        >
-          <img 
-            src="https://basescan.org/token/images/higher_32.png" 
-            alt="Higher" 
-            width="20" 
-            height="20"
-            className="w-5 h-5 rounded-full" 
-          />
-          <span className={clsx(
-            'text-sm font-medium',
-            {
-              'text-foreground': isBaseColors,
-              'text-white': !isBaseColors && theme === 'dark',
-              'text-gray-900': !isBaseColors && theme !== 'dark'
-            }
-          )}>higher.</span>
-          
-        </div>
-        
-        {/* Market cap with hover functionality */}
-        <a 
-          href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="h-full flex items-center bg-black px-4 border-l border-gray-700 hover:bg-black/80 transition-colors"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          <div className="flex items-center text-white">
-            {formatMarketCap()}
-            <ExternalLink className="ml-1.5 h-3 w-3 opacity-50 hover:opacity-100 transition-opacity" />
-          </div>
-        </a>
-      </div>
+      {marketCapSection}
     </div>
   );
 }; 

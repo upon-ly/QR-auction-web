@@ -15,13 +15,39 @@ const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 // Maximum number of buy events to display
 const MAX_BUY_EVENTS = 5;
 
+// Alchemy RPC URL for Base
+const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
+const ALCHEMY_API_KEY = typeof window !== 'undefined' ? 
+  process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || '' : '';
+const RPC_URL = ALCHEMY_API_KEY ? 
+  `${ALCHEMY_RPC_URL}${ALCHEMY_API_KEY}` : 
+  'https://mainnet.base.org';
+
+// Let users know we're using a fallback if Alchemy key is missing
+if (!ALCHEMY_API_KEY && typeof window !== 'undefined') {
+  console.warn('No Alchemy API key found in environment variables. Using public RPC endpoint.');
+}
+
+// Fallback to public RPC if Alchemy key is missing
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(RPC_URL),
+});
+
+// Fetch interval in milliseconds - 30 seconds instead of 15 to reduce API calls
+const FETCH_INTERVAL = 30000;
+
+// Historical blocks to fetch on first load - ~24 hours (about 43200 blocks at 2s block time)
+const INITIAL_HISTORICAL_BLOCKS = BigInt(43200);
+
 // Known router/aggregator addresses that might appear as recipients
 const KNOWN_ROUTERS = new Set([
   '0x6ff5693b99212da76ad316178a184ab56d299b43', // Uniswap V4 Universal Router
   '0x6b2c0c7be2048daa9b5527982c29f48062b34d58', // OKX: DEX Router 7
   '0x6a000f20005980200259b80c5102003040001068', // ParaSwap: Augustus V6.2
   '0x111111125421ca6dc452d289314280a0f8842a65', // 1inch Aggregation Router V6
-  '0x1111111254eeb25477b68fb85ed929f73a960582' // 1inch Aggregation Router V5
+  '0x1111111254eeb25477b68fb85ed929f73a960582', // 1inch Aggregation Router V5
+  '0x5C9bdC801a600c006c388FC032dCb27355154cC9' // 0x Settler V1.10
 ]);
 
 // ABI for the Swap event
@@ -282,14 +308,8 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         console.log(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
         debugLog(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
         try {
-          // Create a client to query transaction details
-          const client = createPublicClient({
-            chain: base,
-            transport: http('https://mainnet.base.org'),
-          });
-          
-          // Get the transaction receipt to find token transfers
-          const receipt = await client.getTransactionReceipt({
+          // Use the global publicClient instead of creating a new one
+          const receipt = await publicClient.getTransactionReceipt({
             hash: log.transactionHash as `0x${string}`
           });
           
@@ -505,14 +525,8 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
     try {
       debugLog('Fetching trade activity for $QR Uniswap V3 pool');
       
-      // Create public client for Base mainnet
-      const client = createPublicClient({
-        chain: base,
-        transport: http('https://mainnet.base.org'),
-      });
-
-      // Get current block
-      const currentBlock = await client.getBlockNumber();
+      // Get current block - reuse the global client
+      const currentBlock = await publicClient.getBlockNumber();
       
       // Only get events since the last check, or get more historical events if this is first load
       let fromBlock: bigint;
@@ -521,9 +535,8 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         // Normal update - get events since last check
         fromBlock = lastCheck + 1n;
       } else {
-        // First load - get more historical events to ensure we have some events to display
-        const minHistoricalBlocks = BigInt(6000); // Approx ~4-6 hours of blocks
-        fromBlock = currentBlock > minHistoricalBlocks ? currentBlock - minHistoricalBlocks : 0n;
+        // First load - get more historical events (24 hours) to ensure we always have events
+        fromBlock = currentBlock > INITIAL_HISTORICAL_BLOCKS ? currentBlock - INITIAL_HISTORICAL_BLOCKS : 0n;
         debugLog(`First load - fetching more historical events from block ${fromBlock}`);
       }
       
@@ -534,27 +547,47 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       
       debugLog(`Checking events from block ${fromBlock} to ${currentBlock}`);
       
-      const events = await client.getLogs({
-        address: QR_UNISWAP_POOL_ADDRESS,
-        event: swapEventAbi,
-        fromBlock,
-        toBlock: currentBlock
-      });
-      
-      // Fetch more events initially to ensure we have enough buys
-      debugLog(`Found ${events.length} events`);
-      
-      // Start processing from the most recent events to find buy events
+      // Fetch in smaller chunks to avoid RPC timeouts on large ranges
+      const MAX_BLOCK_RANGE = BigInt(10000);
+      let processedEvents = 0;
       let buyEventCount = 0;
-      const maxBuyEvents = lastCheck === 0n ? 5 : MAX_BUY_EVENTS; // Get at least 5 events on first load
+      const maxBuyEvents = lastCheck === 0n ? 10 : MAX_BUY_EVENTS; // Get at least 10 events on first load
       
-      // Process events in reverse chronological order (newest first)
-      for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
-        const isProcessed = await processSwapEvent(events[i] as SwapLog);
-        if (isProcessed) buyEventCount++;
+      // Process in chunks from newest to oldest
+      for (let toBlock = currentBlock; toBlock >= fromBlock && buyEventCount < maxBuyEvents; toBlock = toBlock - MAX_BLOCK_RANGE) {
+        const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock ? fromBlock : toBlock - MAX_BLOCK_RANGE + 1n;
+        
+        debugLog(`Fetching chunk from ${chunkFromBlock} to ${toBlock}`);
+        
+        try {
+          const events = await publicClient.getLogs({
+            address: QR_UNISWAP_POOL_ADDRESS,
+            event: swapEventAbi,
+            fromBlock: chunkFromBlock,
+            toBlock
+          });
+          
+          debugLog(`Found ${events.length} events in chunk`);
+          processedEvents += events.length;
+          
+          // Process events in reverse chronological order (newest first)
+          for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
+            const isProcessed = await processSwapEvent(events[i] as SwapLog);
+            if (isProcessed) buyEventCount++;
+          }
+          
+          // If we have enough buy events, stop fetching more chunks
+          if (buyEventCount >= maxBuyEvents) {
+            debugLog(`Found enough buy events (${buyEventCount}), stopping chunk processing`);
+            break;
+          }
+        } catch (chunkError) {
+          console.error(`Error fetching chunk from ${chunkFromBlock} to ${toBlock}:`, chunkError);
+          // Continue with next chunk
+        }
       }
       
-      debugLog(`Processed ${buyEventCount} buy events`);
+      debugLog(`Total events processed: ${processedEvents}, buy events: ${buyEventCount}`);
       
       // Update the last check block
       setLastCheck(currentBlock);
@@ -567,11 +600,11 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
     // Initial fetch
     fetchTradeActivity();
     
-    // Set up interval to fetch every 15 seconds
-    const intervalId = setInterval(fetchTradeActivity, 15000);
+    // Set up interval with longer interval to reduce API usage
+    const intervalId = setInterval(fetchTradeActivity, FETCH_INTERVAL);
     
     setIsListening(true);
-    console.log('Trade activity listener set up with 15-second interval');
+    console.log(`Trade activity listener set up with ${FETCH_INTERVAL/1000}-second interval`);
     
     return () => {
       clearInterval(intervalId);
