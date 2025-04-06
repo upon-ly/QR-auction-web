@@ -32,7 +32,7 @@ const ADMIN_ADDRESSES = [
 ];
 
 // Dune API key
-const DUNE_API_KEY = "adkLa7XexAJrd60VzuvWaG2vpj3EKvAh";
+const DUNE_API_KEY = process.env.NEXT_PUBLIC_DUNE_API_KEY;
 
 // Dune query IDs
 const DUNE_QUERY_IDS = {
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
           `https://api.dune.com/api/v1/query/${queryId}/results?limit=1000`,
           {
             headers: {
-              "X-Dune-API-Key": DUNE_API_KEY,
+              "X-Dune-API-Key": DUNE_API_KEY || "",
             },
           }
         );
