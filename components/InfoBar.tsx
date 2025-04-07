@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccount } from 'wagmi'; 
 // import { initializeChannels } from '@/lib/channelManager';
-import { useTradeActivity } from '@/hooks/useTradeActivity';
+import { useTradeActivityApi } from '@/hooks/useTradeActivityApi';
 import { useTokenPrice } from '@/hooks/useTokenPrice';
 import { ExternalLink, ArrowRightLeft } from 'lucide-react';
 import { useBaseColors } from '@/hooks/useBaseColors';
@@ -135,7 +135,7 @@ export const useInfoBarUpdates = () => {
   }, [isConnected, address, cleanupOldUpdates]);
   
   // Add trade activity updates
-  useTradeActivity(addUpdate);
+  useTradeActivityApi(addUpdate);
   
   return { updates };
 };
