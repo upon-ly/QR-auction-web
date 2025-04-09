@@ -57,27 +57,18 @@ export async function POST(request: NextRequest) {
     
     console.log(`[AuctionSettled] Processing broadcast notification for auction #${auctionId} won by ${winnerName}`);
     
-    // 1. Get notification tokens
+    // 1. Get all notification tokens (now using improved pagination)
     console.log(`[AuctionSettled] Fetching notification tokens from Neynar...`);
     const tokensResponse = await getNotificationTokens();
     
     // Log token information
-    console.log(`[AuctionSettled] Got notification tokens: ${tokensResponse?.notification_tokens?.length || 0} tokens found`);
-    
-    // Log the enabled tokens and their FIDs for debugging
-    if (tokensResponse?.notification_tokens) {
-      const enabledTokens = tokensResponse.notification_tokens.filter((token: NotificationToken) => token.status === "enabled");
-      console.log(`[AuctionSettled] Enabled tokens (${enabledTokens.length}):`);
-      enabledTokens.forEach((token: NotificationToken) => {
-        console.log(`[AuctionSettled] - FID: ${token.fid}, Status: ${token.status}, Created: ${token.created_at}`);
-      });
-    }
+    console.log(`[AuctionSettled] Got notification tokens: ${tokensResponse?.notification_tokens?.length || 0} tokens found through pagination`);
     
     // 2. Send auction settled notification to all users
     if (tokensResponse && tokensResponse.notification_tokens && tokensResponse.notification_tokens.length > 0) {
       // Extract all FIDs, filter out undefined values, ensure uniqueness, and only use enabled tokens
       const enabledTokens = tokensResponse.notification_tokens.filter((token: NotificationToken) => token.status === "enabled");
-      console.log(`[AuctionSettled] Found ${enabledTokens.length} enabled tokens out of ${tokensResponse.notification_tokens.length} total`);
+      console.log(`[AuctionSettled] Found ${enabledTokens.length} enabled tokens out of ${tokensResponse.notification_tokens.length} total tokens`);
       
       const fids = [...new Set(
         enabledTokens
@@ -85,7 +76,7 @@ export async function POST(request: NextRequest) {
           .filter((fid: number): fid is number => Number.isInteger(fid) && fid > 0)
       )];
       
-      console.log(`[AuctionSettled] Unique FIDs from enabled tokens: [${fids.join(', ')}]`);
+      console.log(`[AuctionSettled] Found ${fids.length} unique FIDs from enabled tokens`);
       
       if (fids.length > 0) {
         // If we have a FID to exclude (usually the winner), filter it out
@@ -94,7 +85,7 @@ export async function POST(request: NextRequest) {
           const excludeFid = requestBody.data.excludeFid;
           filteredFids = fids.filter(fid => fid !== excludeFid);
           console.log(`[AuctionSettled] Excluding FID ${excludeFid} from broadcast notification`);
-          console.log(`[AuctionSettled] Remaining FIDs after exclusion: [${filteredFids.join(', ')}]`);
+          console.log(`[AuctionSettled] Will notify ${filteredFids.length} users after exclusion`);
         }
         
         console.log(`[AuctionSettled] Sending auction settled notification to ${filteredFids.length} unique users with valid FIDs`);

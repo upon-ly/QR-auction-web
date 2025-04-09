@@ -374,7 +374,7 @@ export async function getNotificationTokens(options?: {
   };
   
   try {
-    console.log(`[GetTokens] Fetching notification tokens...`);
+    console.log(`[GetTokens] Fetching all notification tokens with pagination...`);
     
     // Get API key
     const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY || process.env.NEYNAR_API_KEY;
@@ -382,41 +382,82 @@ export async function getNotificationTokens(options?: {
       throw new Error('Neynar API key not configured');
     }
     
-    // Build URL with query parameters
-    let url = 'https://api.neynar.com/v2/farcaster/frame/notification_tokens?limit=100';
+    // Initialize variables for pagination
+    let cursor: string | null = options?.cursor || null;
+    let hasMore = true;
+    let pageCount = 0;
+    let allTokens: NotificationToken[] = [];
     
-    if (options?.cursor) {
-      url += `&cursor=${encodeURIComponent(options.cursor)}`;
-    }
-    
-    if (options?.fids && options.fids.length > 0) {
-      url += `&fids=${options.fids.join(',')}`;
-    }
-    
-    // Make direct API call instead of using SDK
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': apiKey
+    // Fetch all pages of tokens
+    while (hasMore) {
+      pageCount++;
+      console.log(`[GetTokens] Fetching page ${pageCount} of notification tokens${cursor ? ' with cursor: ' + cursor : ''}`);
+      
+      // Build URL with query parameters
+      let url = 'https://api.neynar.com/v2/farcaster/frame/notification_tokens?limit=100';
+      
+      if (cursor) {
+        url += `&cursor=${encodeURIComponent(cursor)}`;
       }
-    });
-    
-    // Check if response is ok
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      
+      if (options?.fids && options.fids.length > 0) {
+        url += `&fids=${options.fids.join(',')}`;
+      }
+      
+      // Make direct API call instead of using SDK
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'x-api-key': apiKey
+        }
+      });
+      
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      // Parse response
+      const result = await response.json();
+      
+      // Process the tokens from this page
+      if (result && result.notification_tokens && result.notification_tokens.length > 0) {
+        console.log(`[GetTokens] Page ${pageCount}: Found ${result.notification_tokens.length} tokens`);
+        
+        // Add tokens from this page to our collection
+        allTokens = [...allTokens, ...result.notification_tokens];
+        
+        // Update cursor for next page
+        if (result.next_cursor) {
+          cursor = result.next_cursor;
+          console.log(`[GetTokens] Next cursor found: ${cursor}`);
+          
+          // Sleep briefly to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.log(`[GetTokens] No next cursor, reached end of results`);
+          hasMore = false;
+        }
+      } else {
+        console.log(`[GetTokens] No tokens found in current page, stopping pagination`);
+        hasMore = false;
+      }
     }
     
-    // Parse response
-    const result = await response.json();
+    // Generate final result with the combined tokens
+    const finalResult = {
+      notification_tokens: allTokens,
+      next_cursor: null
+    };
     
     // Clean, focused logging
-    if (result && result.notification_tokens) {
+    if (finalResult && finalResult.notification_tokens) {
       // Count tokens by status
       const statusCounts: Record<string, number> = {};
       const enabledFids = new Set<number>();
       
-      result.notification_tokens.forEach((token: NotificationToken) => {
+      finalResult.notification_tokens.forEach((token: NotificationToken) => {
         if (token.status) {
           statusCounts[token.status] = (statusCounts[token.status] || 0) + 1;
           
@@ -426,13 +467,14 @@ export async function getNotificationTokens(options?: {
         }
       });
       
-      console.log(`[GetTokens] Found ${result.notification_tokens.length} tokens (${Object.entries(statusCounts).map(([status, count]) => `${status}: ${count}`).join(', ')})`);
-      console.log(`[GetTokens] Found ${enabledFids.size} unique FIDs with enabled tokens: [${Array.from(enabledFids).join(', ')}]`);
+      console.log(`[GetTokens] Completed pagination, fetched ${finalResult.notification_tokens.length} total tokens from ${pageCount} pages`);
+      console.log(`[GetTokens] Token status counts: ${Object.entries(statusCounts).map(([status, count]) => `${status}: ${count}`).join(', ')}`);
+      console.log(`[GetTokens] Found ${enabledFids.size} unique FIDs with enabled tokens`);
     } else {
       console.log(`[GetTokens] No notification tokens received from API`);
     }
     
-    return result;
+    return finalResult;
   } catch (error) {
     console.error("[GetTokens] Error fetching notification tokens:", error);
     if (error instanceof Error) {
