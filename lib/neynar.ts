@@ -429,8 +429,8 @@ export async function getNotificationTokens(options?: {
         allTokens = [...allTokens, ...result.notification_tokens];
         
         // Update cursor for next page
-        if (result.next_cursor) {
-          cursor = result.next_cursor;
+        if (result.next && result.next.cursor) {
+          cursor = result.next.cursor;
           console.log(`[GetTokens] Next cursor found: ${cursor}`);
           
           // Sleep briefly to avoid rate limits
