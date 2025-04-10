@@ -254,11 +254,6 @@ export function BidForm({
               placeholder="https://"
               className="pr-16 border p-2 w-full"
               {...register("url")}
-              onFocus={(e: any) => {
-                if (!e.target.value) {
-                  e.target.value = "https://";
-                }
-              }}
               onKeyDown={handleKeyDown}
               onInput={handleInputChange}
             />
