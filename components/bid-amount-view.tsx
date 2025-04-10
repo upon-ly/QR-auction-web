@@ -22,7 +22,8 @@ import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { MIN_QR_BID } from "@/config/tokens";
 import { formatQRAmount } from "@/utils/formatters";
 import { UniswapModal } from "./ui/uniswap-modal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useFetchBids } from "@/hooks/useFetchBids";
 
 export function BidForm({
   auctionDetail,
@@ -39,6 +40,7 @@ export function BidForm({
   const isBaseColors = useBaseColors();
   const { isConnected, address } = useAccount();
   const { handleTypingStart } = useTypingStatus();
+  const { fetchHistoricalAuctions } = useFetchBids();
   
   // Get user's QR token balance
   const qrTokenAddress = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"; // QR token address
@@ -121,11 +123,54 @@ export function BidForm({
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isValid },
   } = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
     mode: "onChange", // Validate as the user types
   });
+
+  // Auto-populate the URL field with the user's previous bid URL
+  useEffect(() => {
+    if (auctionDetail?.tokenId && address) {
+      const fetchPreviousBid = async () => {
+        try {
+          const bids = await fetchHistoricalAuctions();
+          if (bids) {
+            // Filter bids by current auction and user address
+            const userBidsForThisAuction = bids.filter(
+              bid => 
+                bid.tokenId === auctionDetail.tokenId && 
+                bid.bidder.toLowerCase() === address.toLowerCase()
+            );
+            
+            // Sort by timestamp/amount to get the most recent bid
+            // Assuming higher amount means more recent bid
+            userBidsForThisAuction.sort((a, b) => 
+              Number(b.amount) - Number(a.amount)
+            );
+            
+            // Get the user's most recent bid URL
+            if (userBidsForThisAuction.length > 0 && userBidsForThisAuction[0].url) {
+              // Pre-populate the URL field with the user's last bid URL
+              setValue("url", userBidsForThisAuction[0].url);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching previous bids:", error);
+        }
+      };
+      
+      fetchPreviousBid();
+    }
+  }, [auctionDetail?.tokenId, address, fetchHistoricalAuctions, setValue]);
+
+  // Clear URL field when wallet is disconnected
+  useEffect(() => {
+    if (!isConnected) {
+      setValue("url", "");
+    }
+  }, [isConnected, setValue]);
 
   // Handle typing event separately from form validation
   const handleKeyDown = () => {
