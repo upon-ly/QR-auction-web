@@ -276,11 +276,6 @@ export function BidForm({
             placeholder={`${formattedMinBid} or more`}
             className="pr-16 border p-2 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             {...register("bid")}
-            onFocus={(e: any) => {
-              if (!e.target.value) {
-                e.target.value = formattedMinBid;
-              }
-            }}
             onKeyDown={handleKeyDown}
             onInput={handleInputChange}
           />
