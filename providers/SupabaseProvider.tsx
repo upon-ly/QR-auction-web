@@ -5,33 +5,19 @@ import { useAccount } from 'wagmi';
 import { initializeChannels, cleanupChannels, broadcastConnection, forceReconnect } from '@/lib/channelManager';
 import { v4 as uuidv4 } from 'uuid';
 
-// Helper function to detect if we're in a Farcaster frame
-const isInFarcasterFrame = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
-  // Check if we're in an iframe
-  const isIframe = window.self !== window.top;
-  
-  // Check for Farcaster frame SDK presence (rough detection)
-  const hasFarcasterContext = 
-    typeof window !== 'undefined' && 
-    (window as Window & { __FARCASTER_FRAME_SDK__?: unknown }).__FARCASTER_FRAME_SDK__ !== undefined;
-  
-  return isIframe || hasFarcasterContext;
-};
-
 export function SupabaseProvider({ children }: { children: ReactNode }) {
   const { address, isConnected } = useAccount();
   const browserInstanceIdRef = useRef<string>('');
   const initialized = useRef(false);
   const wasConnectedRef = useRef(false);
-  const initialLoadRef = useRef(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
   
   // Detect mobile and Safari
   const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator?.userAgent || '');
   const isSafari = typeof window !== 'undefined' && /Safari/i.test(navigator?.userAgent || '') && !/Chrome/i.test(navigator?.userAgent || '');
-  const isFarcasterFrame = isInFarcasterFrame();
+  
+  // Simple check for Farcaster frames
+  const isFarcasterFrame = typeof window !== 'undefined' && window.self !== window.top;
 
   // Initialize channels on component mount, even if user isn't connected
   useEffect(() => {
@@ -121,34 +107,28 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     };
   }, [isMobile, isSafari, isConnected, address, isReconnecting]);
   
-  // Special handling for Farcaster frames - broadcast connection on initial load
-  // if wallet is already connected
-  useEffect(() => {
-    if (isFarcasterFrame && isConnected && address && initialLoadRef.current) {
-      console.log('SupabaseProvider: Detected pre-connected wallet in Farcaster frame:', address);
-      
-      // Wait a moment for everything to initialize
-      setTimeout(() => {
-        console.log('SupabaseProvider: Broadcasting initial Farcaster wallet connection for', address);
-        broadcastConnection(address, browserInstanceIdRef.current);
-      }, 500);
-      
-      initialLoadRef.current = false;
-    }
-  }, [isFarcasterFrame, isConnected, address]);
-  
   // Broadcast wallet connection event when a user connects
+  // AND also broadcast immediately on first render if already connected in Farcaster
   useEffect(() => {
-    // Only broadcast if the wallet was just connected (not on initial render)
-    // Unless we're in a Farcaster frame, which has special handling above
-    if (isConnected && address && initialized.current && !wasConnectedRef.current && !isFarcasterFrame) {
-      console.log('SupabaseProvider: Broadcasting wallet connection for', address);
+    // First render with an already connected wallet in a frame
+    const isFirstRender = !wasConnectedRef.current && isConnected;
+    const needsBroadcast = 
+      // Either it's a normal connection (just connected, not first render)
+      (isConnected && address && initialized.current && !wasConnectedRef.current) ||
+      // OR it's a Farcaster frame with an already connected wallet on first render
+      (isFarcasterFrame && isConnected && address && isFirstRender && initialized.current);
+    
+    if (needsBroadcast) {
+      console.log('SupabaseProvider: Broadcasting wallet connection for', address, 
+        isFarcasterFrame ? '(in Farcaster frame)' : '');
+      
+      // Broadcast the connection immediately
       broadcastConnection(address, browserInstanceIdRef.current);
       
-      // For mobile/Safari, try once more after a delay to ensure it gets through
-      if (isMobile || isSafari) {
+      // For mobile/Safari, try once more after a delay
+      if (isMobile || isSafari || isFarcasterFrame) {
         setTimeout(() => {
-          console.log('SupabaseProvider: Sending follow-up mobile wallet connection for', address);
+          console.log('SupabaseProvider: Sending follow-up wallet connection for', address);
           broadcastConnection(address, browserInstanceIdRef.current);
         }, 1000);
       }
