@@ -4,17 +4,22 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { initializeChannels, cleanupChannels, broadcastConnection, forceReconnect } from '@/lib/channelManager';
 import { v4 as uuidv4 } from 'uuid';
+import { frameSdk } from '@/lib/frame-sdk';
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
   const { address, isConnected } = useAccount();
   const browserInstanceIdRef = useRef<string>('');
   const initialized = useRef(false);
   const wasConnectedRef = useRef(false);
+  const wasFrameConnectedRef = useRef(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   
   // Detect mobile and Safari
   const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator?.userAgent || '');
   const isSafari = typeof window !== 'undefined' && /Safari/i.test(navigator?.userAgent || '') && !/Chrome/i.test(navigator?.userAgent || '');
+  
+  // Detect Farcaster frame environment
+  const isFrame = typeof window !== 'undefined' && window.parent !== window;
 
   // Initialize channels on component mount, even if user isn't connected
   useEffect(() => {
@@ -123,6 +128,44 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     // Update the connection state reference
     wasConnectedRef.current = isConnected && !!address;
   }, [isConnected, address, isMobile, isSafari]);
+  
+  // Special handling for Farcaster frames
+  useEffect(() => {
+    // Only apply this logic in Farcaster frame environments
+    if (!isFrame) return;
+    
+    const checkFrameWalletConnection = async () => {
+      try {
+        // Check if wallet is already connected when the frame loads
+        const isWalletConnected = await frameSdk.isWalletConnected();
+        console.log('Frame wallet connection check:', isWalletConnected);
+        
+        // If wallet is connected but we haven't broadcasted the connection yet
+        if (isWalletConnected && address && !wasFrameConnectedRef.current) {
+          console.log('SupabaseProvider: Broadcasting frame wallet connection for', address);
+          // Broadcast the connection with a slight delay to ensure channels are initialized
+          setTimeout(() => {
+            broadcastConnection(address, browserInstanceIdRef.current);
+          }, 500);
+          
+          wasFrameConnectedRef.current = true;
+        }
+      } catch (error) {
+        console.error('Error checking frame wallet connection:', error);
+      }
+    };
+    
+    // Check initial frame wallet state
+    if (initialized.current) {
+      checkFrameWalletConnection();
+    }
+    
+    // Also check when address or connection state changes in frame context
+    if (isConnected && address && initialized.current) {
+      checkFrameWalletConnection();
+    }
+    
+  }, [isFrame, address, isConnected]);
   
   return <>{children}</>;
 } 
