@@ -53,6 +53,22 @@ let lastUserInfo: { user: string; browserInstanceId: string } | null = null;
 // Heartbeat interval to keep connection alive
 let heartbeatInterval: NodeJS.Timeout | null = null;
 
+// Reconnection timer
+let reconnectionTimeout: NodeJS.Timeout | null = null;
+
+// Track connection state
+let isReconnecting = false;
+let lastNetworkStatus: boolean = true;
+
+// Add this type definition at the top of the file, after the other interface definitions
+export interface NetworkInformation extends EventTarget {
+  effectiveType: string;
+  downlink: number;
+  rtt: number;
+  saveData: boolean;
+  onchange: (event: Event) => void;
+}
+
 /**
  * Check if Supabase channels are healthy and reconnect if needed
  */
@@ -77,8 +93,29 @@ const checkChannelHealth = () => {
     presenceChannelState === 'errored'
   ) {
     console.log('Channels need reconnection, reinitializing...');
-    initializeChannels(user, browserInstanceId);
+    if (!isReconnecting) {
+      isReconnecting = true;
+      safeReconnect(user, browserInstanceId);
+    }
+  } else {
+    isReconnecting = false;
   }
+};
+
+/**
+ * Safe reconnection with backoff strategy for mobile
+ */
+const safeReconnect = (user: string, browserInstanceId: string) => {
+  if (reconnectionTimeout) {
+    clearTimeout(reconnectionTimeout);
+  }
+  
+  // Try reconnecting with a small delay
+  reconnectionTimeout = setTimeout(() => {
+    console.log('Attempting to reconnect channels...');
+    initializeChannels(user, browserInstanceId);
+    isReconnecting = false;
+  }, 1000);
 };
 
 /**
@@ -89,8 +126,17 @@ const startHeartbeat = () => {
     clearInterval(heartbeatInterval);
   }
   
-  // Check channel health every 30 seconds
-  heartbeatInterval = setInterval(checkChannelHealth, 30000);
+  // Shorter interval for mobile browsers (15 seconds)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator?.userAgent || '');
+  const isSafari = /Safari/i.test(navigator?.userAgent || '') && !/Chrome/i.test(navigator?.userAgent || '');
+  
+  // Use a shorter interval for Safari and mobile devices
+  const interval = (isMobile || isSafari) ? 15000 : 30000;
+  
+  console.log(`Starting heartbeat with interval: ${interval}ms (${isMobile ? 'mobile' : 'desktop'}, ${isSafari ? 'Safari' : 'not Safari'})`);
+  
+  // Check channel health regularly
+  heartbeatInterval = setInterval(checkChannelHealth, interval);
 };
 
 /**
@@ -133,6 +179,10 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
       // Add extra monitoring for connection state using subscription callback
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
         console.log('Auction channel closed or errored, will check health soon');
+        if (!isReconnecting && lastUserInfo) {
+          isReconnecting = true;
+          safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
+        }
       }
     });
 
@@ -198,13 +248,119 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
         
         // Broadcast a join event to the auction channel to ensure it's seen
         broadcastJoin(user, browserInstanceId);
+        
+        // Reset reconnecting flag
+        isReconnecting = false;
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
         console.log('Presence channel closed or errored, will check health soon');
+        if (!isReconnecting && lastUserInfo) {
+          isReconnecting = true;
+          safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
+        }
       }
     });
 
   // Start heartbeat to ensure channels stay connected
   startHeartbeat();
+  
+  // Set up network and page lifecycle event listeners (outside of React)
+  setupEventListeners();
+};
+
+/**
+ * Set up global event listeners for better mobile support
+ */
+const setupEventListeners = () => {
+  // Define window with custom property type
+  type WindowWithSetup = Window & typeof globalThis & {
+    __channelListenersSetup?: boolean;
+  };
+  
+  // Only set up once
+  if (typeof window === 'undefined' || (window as WindowWithSetup).__channelListenersSetup) {
+    return;
+  }
+  
+  // Mark as set up
+  (window as WindowWithSetup).__channelListenersSetup = true;
+  
+  // Handle page lifecycle events
+  window.addEventListener('pageshow', handlePageVisibilityChange);
+  window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('beforeunload', handlePageHide);
+  window.addEventListener('focus', handlePageVisibilityChange);
+  window.addEventListener('blur', () => {
+    console.log('Window blurred, marking for potential reconnection on focus');
+  });
+  
+  // Handle network changes
+  if ('connection' in navigator) {
+    const connection = navigator.connection as NetworkInformation || undefined;
+    if (connection) {
+      connection.addEventListener('change', () => handleNetworkChange());
+    }
+  }
+  
+  window.addEventListener('online', () => handleNetworkChange(true));
+  window.addEventListener('offline', () => handleNetworkChange(false));
+  
+  console.log('Global event listeners set up for channel manager');
+};
+
+/**
+ * Handle page visibility changes
+ */
+const handlePageVisibilityChange = () => {
+  console.log('Page became visible or active');
+  
+  if (lastUserInfo && (!auctionChannel || !presenceChannel || document.visibilityState === 'visible')) {
+    console.log('Reinitializing channels on page visibility/show');
+    // Don't reconnect if already reconnecting
+    if (!isReconnecting) {
+      isReconnecting = true;
+      safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
+    }
+  }
+};
+
+/**
+ * Handle page hiding (user navigating away or closing tab)
+ */
+const handlePageHide = () => {
+  console.log('Page hidden or being unloaded');
+  
+  // Clean up gracefully
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
+  if (reconnectionTimeout) {
+    clearTimeout(reconnectionTimeout);
+    reconnectionTimeout = null;
+  }
+};
+
+/**
+ * Handle network state changes
+ */
+const handleNetworkChange = (isOnline?: boolean) => {
+  const networkStatus = isOnline !== undefined ? isOnline : navigator.onLine;
+  console.log('Network status changed:', networkStatus);
+  
+  // Only handle transitions to online from offline
+  if (networkStatus && !lastNetworkStatus && lastUserInfo) {
+    console.log('Network restored, reconnecting channels');
+    if (!isReconnecting) {
+      isReconnecting = true;
+      // Add a slight delay to ensure network is stable
+      setTimeout(() => {
+        safeReconnect(lastUserInfo!.user, lastUserInfo!.browserInstanceId);
+      }, 2000);
+    }
+  }
+  
+  lastNetworkStatus = networkStatus;
 };
 
 /**
@@ -282,23 +438,42 @@ export const onUserJoin = (callback: PresenceCallback): (() => void) => {
 export const broadcastConnection = (user: string, browserInstanceId: string = 'unknown') => {
   if (!auctionChannel) {
     console.warn('Auction channel not initialized');
-    return;
+    initializeChannels(user, browserInstanceId);
   }
 
   console.log('Broadcasting connection event:', { user, action: 'wallet-connected', source: browserInstanceId });
   
-  // Include browser instance ID to identify the source
-  auctionChannel.send({
-    type: 'broadcast',
-    event: 'connection',
-    payload: { user, action: 'wallet-connected', source: browserInstanceId }
-  })
-  .then(() => {
-    console.log('Connection event broadcast successfully');
-  })
-  .catch((error) => {
-    console.error('Error broadcasting connection event:', error);
-  });
+  // Add retry logic for mobile environments where the channel might be in a bad state
+  const attemptBroadcast = (retries = 3) => {
+    if (!auctionChannel) {
+      if (retries > 0) {
+        console.log(`Channel not ready, retrying broadcast in 1s (${retries} retries left)`);
+        setTimeout(() => attemptBroadcast(retries - 1), 1000);
+      }
+      return;
+    }
+    
+    // Include browser instance ID to identify the source
+    auctionChannel.send({
+      type: 'broadcast',
+      event: 'connection',
+      payload: { user, action: 'wallet-connected', source: browserInstanceId }
+    })
+    .then(() => {
+      console.log('Connection event broadcast successfully');
+    })
+    .catch((error) => {
+      console.error('Error broadcasting connection event:', error);
+      
+      // Retry on failure if we have retries left
+      if (retries > 0) {
+        console.log(`Broadcast failed, retrying in 1s (${retries} retries left)`);
+        setTimeout(() => attemptBroadcast(retries - 1), 1000);
+      }
+    });
+  };
+  
+  attemptBroadcast();
 };
 
 /**
@@ -325,12 +500,35 @@ export const cleanupChannels = () => {
     presenceChannel = null;
   }
   
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
+  if (reconnectionTimeout) {
+    clearTimeout(reconnectionTimeout);
+    reconnectionTimeout = null;
+  }
+  
   typingListeners.length = 0;
   connectionListeners.length = 0;
   presenceListeners.length = 0;
   
   // Clear the seen connections set
   seenConnections.clear();
+  
+  // Reset state
+  isReconnecting = false;
+};
+
+/**
+ * Force reconnection - useful for mobile scenarios
+ */
+export const forceReconnect = () => {
+  if (lastUserInfo) {
+    console.log('Forcing reconnection of channels');
+    safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
+  }
 };
 
 /**

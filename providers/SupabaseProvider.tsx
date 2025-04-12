@@ -1,8 +1,8 @@
 'use client';
 
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { initializeChannels, cleanupChannels, broadcastConnection } from '@/lib/channelManager';
+import { initializeChannels, cleanupChannels, broadcastConnection, forceReconnect } from '@/lib/channelManager';
 import { v4 as uuidv4 } from 'uuid';
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
@@ -10,12 +10,27 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const browserInstanceIdRef = useRef<string>('');
   const initialized = useRef(false);
   const wasConnectedRef = useRef(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  
+  // Detect mobile and Safari
+  const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator?.userAgent || '');
+  const isSafari = typeof window !== 'undefined' && /Safari/i.test(navigator?.userAgent || '') && !/Chrome/i.test(navigator?.userAgent || '');
 
   // Initialize channels on component mount, even if user isn't connected
   useEffect(() => {
     // Create a unique ID for this browser instance if not already created
     if (!browserInstanceIdRef.current) {
-      browserInstanceIdRef.current = uuidv4();
+      // Try to get from localStorage to maintain consistency in Safari
+      const storedId = typeof window !== 'undefined' ? localStorage.getItem('qrcoin_browser_id') : null;
+      if (storedId) {
+        browserInstanceIdRef.current = storedId;
+      } else {
+        browserInstanceIdRef.current = uuidv4();
+        // Store it for future use, especially important in mobile Safari
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('qrcoin_browser_id', browserInstanceIdRef.current);
+        }
+      }
     }
     
     const userId = isConnected && address ? address : `anonymous-${browserInstanceIdRef.current.slice(0, 8)}`;
@@ -42,24 +57,52 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
   }, [isConnected, address]);
   
-  // Handle visibility changes to ensure connection is maintained
+  // Add specific event handlers for mobile and Safari
   useEffect(() => {
+    if (!isMobile && !isSafari) return;
+    
+    // For mobile and Safari: add extra reconnection on page focus
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && initialized.current) {
-        // Re-initialize channels when tab becomes visible after being hidden
-        const userId = isConnected && address ? address : `anonymous-${browserInstanceIdRef.current.slice(0, 8)}`;
-        console.log('SupabaseProvider: Tab became visible, re-initializing channels for', userId);
-        initializeChannels(userId, browserInstanceIdRef.current);
+        // Avoid multiple rapid reconnections
+        if (!isReconnecting) {
+          setIsReconnecting(true);
+          
+          const userId = isConnected && address ? address : `anonymous-${browserInstanceIdRef.current.slice(0, 8)}`;
+          console.log('SupabaseProvider: Mobile/Safari visibility change, reconnecting for', userId);
+          
+          // Force reconnect with a slight delay to let the browser settle
+          setTimeout(() => {
+            forceReconnect();
+            setIsReconnecting(false);
+          }, 300);
+        }
       }
     };
     
-    // Listen for visibility changes
+    // Safari-specific page show handler
+    const handlePageShow = (e: PageTransitionEvent) => {
+      // Only react on page restore (when navigating back)
+      if (e.persisted && initialized.current) {
+        const userId = isConnected && address ? address : `anonymous-${browserInstanceIdRef.current.slice(0, 8)}`;
+        console.log('SupabaseProvider: Page was restored from cache, reconnecting for', userId);
+        
+        setIsReconnecting(true);
+        setTimeout(() => {
+          forceReconnect();
+          setIsReconnecting(false);
+        }, 300);
+      }
+    };
+    
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
     };
-  }, [address, isConnected]);
+  }, [isMobile, isSafari, isConnected, address, isReconnecting]);
   
   // Broadcast wallet connection event when a user connects
   useEffect(() => {
@@ -67,11 +110,19 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     if (isConnected && address && initialized.current && !wasConnectedRef.current) {
       console.log('SupabaseProvider: Broadcasting wallet connection for', address);
       broadcastConnection(address, browserInstanceIdRef.current);
+      
+      // For mobile/Safari, try once more after a delay to ensure it gets through
+      if (isMobile || isSafari) {
+        setTimeout(() => {
+          console.log('SupabaseProvider: Sending follow-up mobile wallet connection for', address);
+          broadcastConnection(address, browserInstanceIdRef.current);
+        }, 1000);
+      }
     }
     
     // Update the connection state reference
     wasConnectedRef.current = isConnected && !!address;
-  }, [isConnected, address]);
+  }, [isConnected, address, isMobile, isSafari]);
   
   return <>{children}</>;
 } 
