@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-export function RandomColorAvatar() {
+interface RandomColorAvatarProps {
+  size?: number | { mobile: number; desktop: number };
+}
+
+export function RandomColorAvatar({ size }: RandomColorAvatarProps) {
   const [color, setColor] = useState<string>("#cccccc");
 
   // Generate a random color on component mount
@@ -20,9 +24,23 @@ export function RandomColorAvatar() {
     setColor(randomColor);
   };
 
+  // Get appropriate class name based on size prop
+  const getSizeClass = () => {
+    if (!size) {
+      return "w-7 h-7"; // Default size
+    }
+    
+    if (typeof size === 'number') {
+      return `w-${size} h-${size}`;
+    }
+    
+    // Handle responsive sizing
+    return `w-${size.mobile} h-${size.mobile} md:w-${size.desktop} md:h-${size.desktop}`;
+  };
+
   return (
     <div
-      className="w-7 h-7 rounded-full"
+      className={`${getSizeClass()} rounded-full`}
       style={{
         background: color,
       }}

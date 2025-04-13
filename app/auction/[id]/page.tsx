@@ -31,6 +31,7 @@ import Link from "next/link";
 import { formatURL } from "@/utils/helperFunctions";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { QRContextMenu } from "@/components/QRContextMenu";
+import { useAccount } from 'wagmi';
 
 interface SettingsResponse {
   data: Array<{
@@ -44,6 +45,7 @@ export default function AuctionPage() {
   const params = useParams();
   const router = useRouter();
   const currentAuctionId = Number(params.id);
+  const { isConnected } = useAccount();
 
   const [mounted, setMounted] = useState(false);
   const [ogImage, setOgImage] = useState<string | null>(null);
@@ -217,24 +219,75 @@ export default function AuctionPage() {
             $QR
           </h1>
         </QRContextMenu>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 md:gap-3">
+          <Link href="/about">
+            <Button
+              variant="outline"
+              className={isConnected ? "h-10 px-3 text-sm font-medium" : "h-10 w-10 md:w-auto md:px-3 md:text-sm md:font-medium"}
+            >
+              <span className="md:hidden text-lg">{isConnected ? "What is this?" : "?"}</span>
+              <span className="hidden md:inline">What is this?</span>
+            </Button>
+          </Link>
+          
+          <Link href="/winners">
+            <Button
+              variant="outline"
+              size="icon"
+              className={
+                isBaseColors
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
+                  : "h-10 w-10"
+              }
+            >
+              <div className="h-5 w-5 flex items-center justify-center">
+                🏆
+              </div>
+            </Button>
+          </Link>
+
           <Button
             variant="outline"
+            size="icon"
             className={
               isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
-                : ""
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
+                : "h-10 w-10"
             }
             onClick={() => setThemeDialogOpen(true)}
           >
-            Theme
+            <svg 
+              width="20" 
+              height="20" 
+              viewBox="0 0 20 20" 
+              fill="none" 
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+            >
+              <circle 
+                cx="10" 
+                cy="10" 
+                r="9" 
+                stroke="currentColor" 
+                strokeWidth="1.5" 
+                fill="none"
+              />
+              <path 
+                d="M10 1.5C5.3 1.5 1.5 5.3 1.5 10C1.5 14.7 5.3 18.5 10 18.5L10 1.5Z" 
+                fill="currentColor" 
+              />
+            </svg>
           </Button>
+
           <div className="relative">
             <ConnectButton
               accountStatus={{
                 smallScreen: "avatar",
                 largeScreen: "full",
               }}
+              chainStatus="none"
+              showBalance={false}
+              label="Connect Wallet"
             />
             <div className="absolute right-0 top-full mt-2 pr-1">
               <ConnectionIndicator />
