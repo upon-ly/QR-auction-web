@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, createContext, useContext } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useFetchSettledAuc } from "@/hooks/useFetchSettledAuc";
@@ -46,22 +46,8 @@ type WinnerData = {
 type SortColumn = 'auction' | 'winner' | 'bid' | 'link';
 type SortDirection = 'asc' | 'desc';
 
-// Cache context to store winners data
-const WinnersCache = createContext<{
-  cachedWinners: WinnerData[] | null;
-  setCachedWinners: (data: WinnerData[]) => void;
-}>({
-  cachedWinners: null,
-  setCachedWinners: () => {},
-});
-
 // Global cache
 let globalCachedWinners: WinnerData[] | null = null;
-
-// Hook to access winners cache
-export function useWinnersCache() {
-  return useContext(WinnersCache);
-}
 
 export default function WinnersPage() {
   const [winners, setWinners] = useState<WinnerData[]>([]);
