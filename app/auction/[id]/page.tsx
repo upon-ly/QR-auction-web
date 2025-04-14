@@ -335,17 +335,63 @@ export default function AuctionPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full">
+              {/* Mobile Winner Display - displayed as block on mobile, hidden on desktop */}
               {isLatestAuction && ogImage && !isAuction22 && (
-                <div className="flex flex-col justify-center items-center gap-1">
-                  {/* Remove separate top row of trophies */}
-                  
+                <div className="block md:hidden">
+                  <div className="flex flex-col justify-center items-center w-[calc(100vw-32px)] max-w-[376px] mx-auto gap-1">
+                    <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
+                      <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
+                      <span className="mx-2">Today&apos;s Winner</span>
+                      <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
+                    </label>
+                    <div className={clsx(
+                      "border rounded-lg shadow-none flex flex-col w-full overflow-hidden",
+                      isBaseColors ? "bg-primary/5" : "bg-white dark:bg-black"
+                    )}
+                    style={{ boxShadow: 'none' }}>
+                      {/* Image with no padding */}
+                      <div className="w-full bg-white aspect-[2/1] overflow-hidden">
+                        <img
+                          src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
+                          alt="Open Graph"
+                          className="object-cover w-full h-full cursor-pointer"
+                          onClick={() => {
+                            if (ogUrl) window.open(ogUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                        />
+                      </div>
+                      {/* Text content with padding */}
+                      <div className="flex flex-col items-center p-4">
+                        <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
+                          The QR now points to:
+                        </span>
+                        <div className="w-full overflow-hidden truncate">
+                          <a
+                            href={ogUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex font-medium hover:opacity-80 transition-opacity"
+                            title={ogUrl}
+                            aria-label="redirect"
+                          >
+                            {formatURL(ogUrl, true)}
+                            <ExternalLink className="ml-1 h-6 w-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Desktop Winner Display - hidden on mobile, displayed on desktop */}
+              {isLatestAuction && ogImage && !isAuction22 && (
+                <div className="hidden md:flex flex-col justify-center items-center gap-1 w-full max-w-[376px] mx-auto">
                   <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
-                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
                     <span className="hidden md:inline">🏆</span>
                     <span className="mx-2">Today&apos;s Winner</span>
                     <span className="hidden md:inline">🏆</span>
-                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
                   </label>
                   <div className={clsx(
                     "border rounded-lg shadow-none flex flex-col w-full overflow-hidden",
@@ -355,7 +401,7 @@ export default function AuctionPage() {
                     {/* Image with no padding */}
                     <div className="w-full bg-white aspect-[2/1] overflow-hidden">
                       <img
-                        src={auctionImageOverrides[currentAuctionId] || ogImage}
+                        src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
                         alt="Open Graph"
                         className="object-cover w-full h-full cursor-pointer"
                         onClick={() => {
@@ -385,7 +431,7 @@ export default function AuctionPage() {
                   </div>
                   
                   {/* BidStats for desktop - under Today's Winner */}
-                  <div className="hidden md:block mt-4 w-full max-w-[376px]">
+                  <div className="mt-4 w-full max-w-[376px]">
                     <h2 className="font-semibold text-xl md:text-2xl text-center mb-1">
                       <span className="">Bid Counter</span>
                     </h2>
