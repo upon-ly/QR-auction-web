@@ -341,11 +341,11 @@ export default function AuctionPage() {
                   {/* Remove separate top row of trophies */}
                   
                   <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
-                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
+                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆</span>
                     <span className="hidden md:inline">🏆</span>
                     <span className="mx-2">Today&apos;s Winner</span>
                     <span className="hidden md:inline">🏆</span>
-                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
+                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆</span>
                   </label>
                   <div className={clsx(
                     "border rounded-lg shadow-none flex flex-col w-full overflow-hidden",
