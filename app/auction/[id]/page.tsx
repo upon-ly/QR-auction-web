@@ -421,7 +421,7 @@ export default function AuctionPage() {
               <h2 className="font-semibold text-xl text-center mb-1">
                 <span className="">Buy $QR</span>
               </h2>
-              <div style={{ height: "560px" }}>
+              <div style={{ height: "570px" }}>
                 <UniswapWidget />
               </div>
             </div>
