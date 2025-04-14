@@ -4,7 +4,7 @@ import { useTokenPrice } from './useTokenPrice';
 import useEthPrice from './useEthPrice';
 
 const SUBGRAPH_URL = 'https://gateway.thegraph.com/api/subgraphs/id/9BQvuZLRAHVaMomrczg5e66mfdcDmzLqZionmyAJ6f13';
-const API_KEY = 'f735eebfd7149ebd7c61f5d3d6074bfd';
+const API_KEY = process.env.NEXT_PUBLIC_GRAPH_API_KEY;
 const HEADERS = { Authorization: `Bearer ${API_KEY}` };
 
 interface AuctionMetrics {
