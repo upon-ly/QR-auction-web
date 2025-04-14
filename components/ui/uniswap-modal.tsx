@@ -21,7 +21,7 @@ export function UniswapModal({
         <DialogHeader className="flex flex-row justify-between items-center">
           <DialogTitle>Buy $QR</DialogTitle>
         </DialogHeader>
-        <div className="h-[450px] md:h-[500px]">
+        <div className="h-[500px] md:h-[500px]">
           <UniswapWidget 
             className="!border-none"
             inputCurrency={inputCurrency} 

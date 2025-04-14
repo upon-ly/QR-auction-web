@@ -40,7 +40,7 @@ export default function AboutPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
+      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
         <QRContextMenu className="inline-block" isHeaderLogo>
           <h1
             onClick={handleLogoClick}
@@ -84,27 +84,21 @@ export default function AboutPage() {
             }
             onClick={() => setThemeDialogOpen(true)}
           >
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 20 20" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-            >
-              <circle 
-                cx="10" 
-                cy="10" 
-                r="9" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                fill="none"
-              />
-              <path 
-                d="M10 1.5C5.3 1.5 1.5 5.3 1.5 10C1.5 14.7 5.3 18.5 10 18.5L10 1.5Z" 
-                fill="currentColor" 
-              />
-            </svg>
+            <div className="h-5 w-5 flex items-center justify-center">
+              {isBaseColors ? (
+                <img 
+                  src="/basecolors2.jpeg" 
+                  alt="Theme toggle - base colors"
+                  className="h-5 w-5 object-cover"
+                />
+              ) : (
+                <img 
+                  src="/basecolors.jpeg" 
+                  alt="Theme toggle - light/dark" 
+                  className="h-5 w-5 object-cover border"
+                />
+              )}
+            </div>
           </Button>
           
           <div className="relative">
@@ -124,26 +118,11 @@ export default function AboutPage() {
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto rounded-lg  p-6 md:p-8">
-        <div className="flex justify-center mb-6">
-          <img 
-            src="/qrLogo.png" 
-            alt="QR Coin Logo" 
-            className="w-20 h-20"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.onerror = null;
-              target.src = "https://qrcoin.fun/qr-logo.png"; 
-            }}
-          />
-        </div>
-        
-        <h1 className="text-3xl font-bold text-center mb-8">QRCOIN.FUN</h1>
-        
+      <div className="max-w-3xl mx-auto">
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold mb-2">What is it?</h2>
-            <p className="mb-2"><Link href="https://qrcoin.fun" className="text-blue-600 dark:text-blue-400 hover:underline">qrcoin.fun</Link> is a website with a daily auction.</p>
+            <h2 className="text-xl font-bold mb-2">What is this?</h2>
+            <p className="mb-2"><Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link> is a website with a daily auction.</p>
           </div>
           
           <div>
@@ -170,7 +149,7 @@ export default function AboutPage() {
           
           <div>
             <h2 className="text-xl font-bold mb-2">How do I bid on the auction?</h2>
-            <p>Buy $QR on base and enter a bid amount and url in the bidding widget on <Link href="https://qrcoin.fun" className="text-blue-600 dark:text-blue-400 hover:underline">qrcoin.fun</Link> to place your bid.</p>
+            <p>Buy $QR on base and enter a bid amount and url in the bidding widget on <Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link> to place your bid.</p>
           </div>
           
           <div>

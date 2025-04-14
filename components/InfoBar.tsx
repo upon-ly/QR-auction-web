@@ -248,7 +248,7 @@ export const InfoBar: React.FC = () => {
         <div ref={marqueeRef} className="animate-marquee whitespace-nowrap h-full flex items-center">
           {updates.map((update) => (
             <React.Fragment key={update.id}>
-              <span className="mx-4 font-medium inline-flex items-center text-green-400">
+              <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
                 <ArrowRightLeft className="mr-1" size={14} />
                 {update.message}
                 {update.txHash && (
@@ -271,7 +271,7 @@ export const InfoBar: React.FC = () => {
         <div ref={marqueeCloneRef} className="absolute top-0 animate-marquee2 whitespace-nowrap h-full flex items-center">
           {updates.map((update) => (
             <React.Fragment key={`clone-${update.id}`}>
-              <span className="mx-4 font-medium inline-flex items-center text-green-400">
+              <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
                 <ArrowRightLeft className="mr-1" size={14} />
                 {update.message}
                 {update.txHash && (

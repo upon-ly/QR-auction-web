@@ -26,7 +26,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
         </DialogHeader>
         <div className="space-y-6 mt-6">
           <p className="text-lg">
-            Bid for the QR coin to point to your website next!
+            Bid for the QR to point to your website next!
           </p>
 
           <div className="flex gap-4 items-start">
@@ -68,9 +68,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens with the funds?
               </h3>
               <p className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                Funds from the winning bids will be used to support the project
-                in a variety of ways including, but not limited to, buying $QR
-                on the open market.
+                Funds from the winning bids will be sent to the project&apos;s treasury in $QR at the conclusion of each auction.
               </p>
             </div>
           </div>

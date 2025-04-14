@@ -417,7 +417,7 @@ export function AuctionDetails({
               size="icon"
               className={`rounded-full border-none transition-colors ${
                 isLatest
-                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-800/50" 
+                  ? "bg-blue-100 hover:bg-blue-200 dark:bg-[#131313] dark:hover:bg-[#1F1F1F]" 
                   : "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30"
               } ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`}
               onClick={onPrevious}

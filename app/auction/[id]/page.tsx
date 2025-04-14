@@ -32,6 +32,7 @@ import { formatURL } from "@/utils/helperFunctions";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { QRContextMenu } from "@/components/QRContextMenu";
 import { useAccount } from 'wagmi';
+import BidStats from "@/components/BidStats";
 
 interface SettingsResponse {
   data: Array<{
@@ -211,7 +212,7 @@ export default function AuctionPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
+      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
         <QRContextMenu className="inline-block" isHeaderLogo>
           <h1
             onClick={handleLogoClick}
@@ -257,27 +258,21 @@ export default function AuctionPage() {
             }
             onClick={() => setThemeDialogOpen(true)}
           >
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 20 20" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-            >
-              <circle 
-                cx="10" 
-                cy="10" 
-                r="9" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                fill="none"
-              />
-              <path 
-                d="M10 1.5C5.3 1.5 1.5 5.3 1.5 10C1.5 14.7 5.3 18.5 10 18.5L10 1.5Z" 
-                fill="currentColor" 
-              />
-            </svg>
+            <div className="h-5 w-5 flex items-center justify-center">
+              {isBaseColors ? (
+                <img 
+                  src="/basecolors2.jpeg" 
+                  alt="Theme toggle - base colors"
+                  className="h-5 w-5 object-cover "
+                />
+              ) : (
+                <img 
+                  src="/basecolors.jpeg" 
+                  alt="Theme toggle - light/dark" 
+                  className="h-5 w-5 object-cover  border"
+                />
+              )}
+            </div>
           </Button>
 
           <div className="relative">
@@ -301,11 +296,12 @@ export default function AuctionPage() {
         <div className="flex flex-col justify-center items-center gap-9">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div
-              className={`${
-                isBaseColors ? "bg-primary" : "bg-white"
-              } flex flex-col justify-center p-8 h-[280px] md:h-[368px] rounded-lg`}
+              className={clsx(
+                "flex flex-col justify-center px-8 pb-6 pt-6 md:p-8 lg:p-8 h-[270px] md:h-[345px] rounded-lg",
+                isBaseColors ? "bg-primary" : "bg-white border"
+              )}
             >
-              <div className="inline-flex flex-col items-center mt-6">
+              <div className="inline-flex flex-col items-center mt-2">
                 <QRPage />
                 <div className="mt-1">
                   <SafeExternalLink
@@ -342,34 +338,59 @@ export default function AuctionPage() {
             <div className="flex flex-col">
               {isLatestAuction && ogImage && !isAuction22 && (
                 <div className="flex flex-col justify-center items-center gap-1">
-                  <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
-                    🏆<span className="underline">Today&apos;s Winner</span>🏆
+                  {/* Remove separate top row of trophies */}
+                  
+                  <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
+                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
+                    <span className="hidden md:inline">🏆</span>
+                    <span className="mx-2">Today&apos;s Winner</span>
+                    <span className="hidden md:inline">🏆</span>
+                    <span className="md:hidden whitespace-nowrap">🏆🏆🏆🏆</span>
                   </label>
-                  <div className="flex flex-col rounded-md justify-center items-center h-full md:h-[200px] w-full md:w-[376px] mt-1 overflow-hidden bg-white aspect-[2/1]">
-                    <img
-                      src={auctionImageOverrides[currentAuctionId] || ogImage}
-                      alt="Open Graph"
-                      className="object-cover w-full h-full cursor-pointer"
-                      onClick={() => {
-                        if (ogUrl) window.open(ogUrl, '_blank', 'noopener,noreferrer');
-                      }}
-                    />
+                  <div className={clsx(
+                    "border rounded-lg shadow-none flex flex-col w-full overflow-hidden",
+                    isBaseColors ? "bg-primary/5" : "bg-white dark:bg-black"
+                  )}
+                  style={{ boxShadow: 'none' }}>
+                    {/* Image with no padding */}
+                    <div className="w-full bg-white aspect-[2/1] overflow-hidden">
+                      <img
+                        src={auctionImageOverrides[currentAuctionId] || ogImage}
+                        alt="Open Graph"
+                        className="object-cover w-full h-full cursor-pointer"
+                        onClick={() => {
+                          if (ogUrl) window.open(ogUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      />
+                    </div>
+                    {/* Text content with padding */}
+                    <div className="flex flex-col items-center p-4">
+                      <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
+                        The QR now points to:
+                      </span>
+                      <div className="w-full overflow-hidden truncate">
+                        <a
+                          href={ogUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex font-medium hover:opacity-80 transition-opacity"
+                          title={ogUrl}
+                          aria-label="redirect"
+                        >
+                          {formatURL(ogUrl, true)}
+                          <ExternalLink className="ml-1 h-6 w-3.5" />
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center italic">
-                    <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
-                      The QR coin currently points to:
-                    </span>
-                    <div className="w-full overflow-hidden truncate">
-                      <a
-                        href={ogUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium underline hover:opacity-80 transition-opacity"
-                        title={ogUrl}
-                        aria-label="redirect"
-                      >
-                        {formatURL(ogUrl, true)}
-                      </a>
+                  
+                  {/* BidStats for desktop - under Today's Winner */}
+                  <div className="hidden md:block mt-4 w-full max-w-[376px]">
+                    <h2 className="font-semibold text-xl md:text-2xl text-center mb-1">
+                      <span className="">Bid Counter</span>
+                    </h2>
+                    <div className="h-[190px]">
+                      <BidStats />
                     </div>
                   </div>
                 </div>
@@ -380,7 +401,7 @@ export default function AuctionPage() {
               {isLatestAuction && !isAuction22 && (
                 <>
                   <h2 className="font-semibold text-xl md:text-2xl text-center">
-                    <span className="underline">Buy $QR</span>
+                    <span className="">Buy $QR</span>
                   </h2>
                   <div style={{ height: "510px" }}>
                     <UniswapWidget />
@@ -396,15 +417,23 @@ export default function AuctionPage() {
           
           {/* Mobile Uniswap Widget */}
           {isLatestAuction && !isAuction22 && (
-            <div className="md:hidden w-full mt-4 mb-8">
-              <h2 className="font-semibold text-xl text-center mb-4">
-                <span className="underline">Buy $QR</span>
+            <div className="md:hidden w-full">
+              <h2 className="font-semibold text-xl text-center mb-1">
+                <span className="">Buy $QR</span>
               </h2>
-              <div style={{ height: "510px" }}>
+              <div style={{ height: "560px" }}>
                 <UniswapWidget />
               </div>
             </div>
           )}
+          
+          {/* BidStats for mobile - centered */}
+          <div className="md:hidden mx-auto w-full">
+            <h2 className="font-semibold text-xl text-center mb-1">
+              <span className="">Bid Counter</span>
+            </h2>
+            <BidStats />
+          </div>
         </div>
       </div>
 

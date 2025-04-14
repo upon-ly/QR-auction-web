@@ -355,7 +355,7 @@ export default function WinnersPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4">
+      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
         <QRContextMenu className="inline-block" isHeaderLogo>
           <h1
             onClick={handleLogoClick}
@@ -399,27 +399,21 @@ export default function WinnersPage() {
             }
             onClick={() => setThemeDialogOpen(true)}
           >
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 20 20" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-            >
-              <circle 
-                cx="10" 
-                cy="10" 
-                r="9" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                fill="none"
-              />
-              <path 
-                d="M10 1.5C5.3 1.5 1.5 5.3 1.5 10C1.5 14.7 5.3 18.5 10 18.5L10 1.5Z" 
-                fill="currentColor" 
-              />
-            </svg>
+            <div className="h-5 w-5 flex items-center justify-center">
+              {isBaseColors ? (
+                <img 
+                  src="/basecolors2.jpeg" 
+                  alt="Theme toggle - base colors"
+                  className="h-5 w-5 object-cover"
+                />
+              ) : (
+                <img 
+                  src="/basecolors.jpeg" 
+                  alt="Theme toggle - light/dark" 
+                  className="h-5 w-5 object-cover border"
+                />
+              )}
+            </div>
           </Button>
           
           <div className="relative">
@@ -439,7 +433,7 @@ export default function WinnersPage() {
         </div>
       </nav>
 
-      <div className="max-w-[95vw] md:max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="flex flex-col mb-6 md:mb-8">
           <div className="flex items-center mb-1 md:mb-2">
             <h1 className="text-2xl md:text-3xl font-bold">🏆 All-Time Winners</h1>
@@ -449,10 +443,10 @@ export default function WinnersPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="bg-white dark:bg-[#131313] rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
+              <thead className="bg-gray-50 dark:bg-[#131313]">
                 <tr>
                   <th 
                     scope="col" 
@@ -485,7 +479,7 @@ export default function WinnersPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-white dark:bg-[#131313] divide-y divide-gray-200 dark:divide-gray-700">
                 {showLoading ? (
                   Array.from({ length: 10 }).map((_, i) => (
                     <tr key={`skeleton-${i}`} className="border-b border-gray-200 dark:border-gray-700">
@@ -535,7 +529,7 @@ export default function WinnersPage() {
                               {getDisplayName(winner)}
                             </span>
                             {winner.farcasterUsername && (
-                              <div className="hidden md:block flex-shrink-0">
+                              <div className="hidden md:block flex-shrink-0 mt-1">
                                 <WarpcastLogo 
                                   size="sm" 
                                   username={winner.farcasterUsername} 
@@ -557,9 +551,9 @@ export default function WinnersPage() {
                             href={winner.url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center hover:underline text-[#0000FF] dark:text-[#00FF00] max-w-[100px] md:max-w-[400px] truncate"
+                            className="flex items-center hover:underline text-[#0000FF] dark:text-[#00FF00] max-w-[100px] md:max-w-[300px] truncate"
                           >
-                            <span className="truncate">{winner.url.replace(/^https?:\/\/(www\.)?/, '')}</span>
+                            <span className="truncate">{winner.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 ml-1 flex-shrink-0 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>

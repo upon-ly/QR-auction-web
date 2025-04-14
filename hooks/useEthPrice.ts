@@ -2,8 +2,14 @@ import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+interface EthPriceResponse {
+  ethereum: {
+    usd: number;
+  };
+}
+
 export default function useEthPrice() {
-  const { data, error } = useSWR(
+  const { data, error } = useSWR<EthPriceResponse>(
     "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
     fetcher,
     {
