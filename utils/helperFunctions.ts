@@ -12,7 +12,7 @@ export const getDisplayUrl = (url: string) => {
   }
 };
 
-export function formatURL(url: string, today = false) {
+export function formatURL(url: string, today = false, mobile = false) {
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.replace("www.", "");
@@ -24,7 +24,7 @@ export function formatURL(url: string, today = false) {
     }
     
     // Determine maximum path length based on today parameter
-    const maxPathLength = today ? 32 : 18;
+    const maxPathLength = today ? mobile ? 30 : 32 : 18;
     
     // If the path is short enough to display fully, don't add ellipsis
     if (path.length <= maxPathLength) {

@@ -196,7 +196,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
                 className={`${isBaseColors ? "text-foreground" : "text-gray-700 hover:text-gray-900"} transition-colors inline-flex items-center`}
                 onBeforeNavigate={() => false}
               >
-                {formatURL(winnerdata.url, true)}
+                {formatURL(winnerdata.url, true, true)}
                 <ExternalLink className="ml-1 h-3 w-3" />
               </SafeExternalLink>
             </div>
