@@ -257,29 +257,63 @@ function SubgraphAnalytics() {
       <div className="mb-8">
         <h3 className="text-xl font-semibold mb-4">Winning Bids</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Winning Bids Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatEthValue(metrics.totalWinningBidsValue)}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {formatUsdValue(metrics.totalWinningBidsValue * metrics.ethPriceUsd)}
-              </div>
-            </CardContent>
-          </Card>
+          <div>
+            <h4 className="text-lg font-medium mb-3">ETH Auctions</h4>
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">ETH Total Winning Bids Value</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatEthValue(metrics.totalETHWinningBidsValue)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatUsdValue(metrics.totalETHWinningBidsValue * metrics.ethPriceUsd)}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Average Winning Bid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatEthValue(metrics.averageWinningBidValue)}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {formatUsdValue(metrics.averageWinningBidValue * metrics.ethPriceUsd)}
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">ETH Average Winning Bid</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatEthValue(metrics.averageETHWinningBidValue)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatUsdValue(metrics.averageETHWinningBidValue * metrics.ethPriceUsd)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-medium mb-3">QR Auctions</h4>
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">QR Total Winning Bids Value</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatQrValue(metrics.totalQRWinningBidsValue)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatUsdValue(metrics.totalQRWinningBidsValue * metrics.qrPriceUsd)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">QR Average Winning Bid</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatQrValue(metrics.averageQRWinningBidValue)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatUsdValue(metrics.averageQRWinningBidValue * metrics.qrPriceUsd)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

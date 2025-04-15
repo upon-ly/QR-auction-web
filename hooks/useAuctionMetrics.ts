@@ -106,7 +106,7 @@ export function useAuctionMetrics() {
       
       let averageETHWinningBidValue = 0;
       try {
-        averageETHWinningBidValue = Number(metrics.averageETHWinningBidValue);
+        averageETHWinningBidValue = Number(metrics.averageETHWinningBidValue) / 1e18;
       } catch (e) {
         console.error("Error parsing averageETHWinningBidValue:", e);
       }
@@ -121,7 +121,7 @@ export function useAuctionMetrics() {
       
       let averageQRWinningBidValue = 0;
       try {
-        averageQRWinningBidValue = Number(metrics.averageQRWinningBidValue);
+        averageQRWinningBidValue = Number(metrics.averageQRWinningBidValue) / 1e18;
       } catch (e) {
         console.error("Error parsing averageQRWinningBidValue:", e);
       }
