@@ -23,6 +23,268 @@ const Badge = ({ variant, className, children }: { variant?: string, className?:
   );
 };
 import { ExternalLink, Dices } from "lucide-react";
+import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
+
+// Subgraph Analytics Component
+function SubgraphAnalytics() {
+  const { data: metrics, isLoading } = useAuctionMetrics();
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array(12).fill(0).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                <Skeleton className="h-4 w-40" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+        <p className="text-red-700 dark:text-red-400">
+          There was an error loading the subgraph analytics data. Please try again later.
+        </p>
+      </div>
+    );
+  }
+
+  const formatNumber = (num: number | undefined, decimals = 2) => {
+    if (num === undefined) return "0";
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const formatPercentage = (num: number | undefined) => {
+    if (num === undefined) return "0%";
+    return `${formatNumber(num, 1)}%`;
+  };
+
+  const formatEthValue = (ethValue: number | undefined) => {
+    if (ethValue === undefined) return "0 ETH";
+    return `${formatNumber(ethValue, 4)} ETH`;
+  };
+
+  const formatQrValue = (qrValue: number | undefined) => {
+    if (qrValue === undefined) return "0 $QR";
+    return `${formatNumber(qrValue, 0)} $QR`;
+  };
+
+  const formatUsdValue = (value: number | undefined) => {
+    if (value === undefined) return "$0.00";
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+
+  return (
+    <div>
+      <div className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">
+          Subgraph Analytics
+        </h3>
+        <p className="text-green-700 dark:text-green-400">
+          Real-time on-chain analytics powered by The Graph protocol. Last updated: {new Date(metrics.lastUpdatedTimestamp * 1000).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Auctions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.totalAuctions}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Bids</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.totalBids}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatPercentage(100 * metrics.totalETHBidCount / metrics.totalBids)} ETH | 
+                {formatPercentage(100 * metrics.totalQRBidCount / metrics.totalBids)} QR
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Bid Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{formatUsdValue(metrics.totalBidValueUsd)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                ETH: {formatEthValue(metrics.totalETHBidVolume)} | QR: {formatQrValue(metrics.totalQRBidVolume)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Unique Bidders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.totalUniqueBidders}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                ETH: {metrics.uniqueETHBidders} | QR: {metrics.uniqueQRBidders}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div>
+          <h3 className="text-xl font-semibold mb-4">ETH Auction Metrics</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">ETH Total Bids</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metrics.totalETHBidCount}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  From {metrics.uniqueETHBidders} unique bidders
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">ETH Bid Volume</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatEthValue(metrics.totalETHBidVolume)}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {formatUsdValue(metrics.ethBidValueUsd)}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xl font-semibold mb-4">QR Auction Metrics</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">QR Total Bids</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metrics.totalQRBidCount}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  From {metrics.uniqueQRBidders} unique bidders
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">QR Bid Volume</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatQrValue(metrics.totalQRBidVolume)}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {formatUsdValue(metrics.qrBidValueUsd)}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Bidding Behavior</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Bids per Auction</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatNumber(metrics.bidsPerAuction, 1)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Auctions with Bidding Wars</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.biddingWarsCount}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatPercentage(metrics.biddingWarsPercentage)} of all auctions
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Bids in Final 5 Minutes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.totalFinalMinutesBids}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatPercentage(metrics.finalMinutesBidsPercentage)} of all bids
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Winning Bids</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Winning Bids Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatEthValue(metrics.totalWinningBidsValue)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatUsdValue(metrics.totalWinningBidsValue * metrics.ethPriceUsd)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Average Winning Bid</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatEthValue(metrics.averageWinningBidValue)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatUsdValue(metrics.averageWinningBidValue * metrics.ethPriceUsd)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // List of authorized admin addresses (lowercase for easy comparison)
 const ADMIN_ADDRESSES = [
@@ -36,40 +298,10 @@ const DUNE_API_KEY = process.env.NEXT_PUBLIC_DUNE_API_KEY;
 
 // Dune query IDs
 const DUNE_QUERY_IDS = {
-  v1Analytics: "4950078",
-  v2Analytics: "4950345", // Updated with the actual V2 query ID
   clankerFees: "4950249", // Clanker fees query ID
 };
 
 // Types for analytics data
-type V1AnalyticsData = {
-  total_auctions: number;
-  total_bids: number;
-  avg_bids_per_auction: number;
-  total_bid_value_eth: number;
-  total_winning_bids_eth: number;
-  avg_winning_bid_eth: number;
-  total_bidders_raw: number;
-  auctions_with_bidding_wars: number;
-  bidding_war_percentage: number;
-  total_bids_in_final_5min: number;
-  percentage_of_bids_in_final_5min: number;
-};
-
-type V2AnalyticsData = {
-  total_auctions: number;
-  total_bids: number;
-  avg_bids_per_auction: number;
-  total_bid_value_qr: number;
-  total_winning_bids_qr: number;
-  avg_winning_bid_qr: number;
-  total_bidders_raw: number;
-  auctions_with_bidding_wars: number;
-  bidding_war_percentage: number;
-  total_bids_in_final_5min: number;
-  percentage_of_bids_in_final_5min: number;
-};
-
 type ClankerFeesData = {
   day: string;
   tx_count: number;
@@ -93,8 +325,6 @@ export default function AdminDashboard() {
   const { address, isConnected } = useAccount();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [v1Data, setV1Data] = useState<V1AnalyticsData | null>(null);
-  const [v2Data, setV2Data] = useState<V2AnalyticsData | null>(null);
   const [clankerData, setClankerData] = useState<ClankerFeesData | null>(null);
   const [clankerDailyData, setClankerDailyData] = useState<ClankerFeesData[]>([]);
   
@@ -186,18 +416,6 @@ export default function AdminDashboard() {
     const loadAllData = async () => {
       setLoading(true);
 
-      // Fetch V1 analytics
-      const v1Response = await fetchDuneData(DUNE_QUERY_IDS.v1Analytics);
-      if (v1Response && v1Response.result && v1Response.result.rows.length > 0) {
-        setV1Data(v1Response.result.rows[0] as V1AnalyticsData);
-      }
-
-      // Fetch V2 analytics (placeholder - update with real query ID)
-      const v2Response = await fetchDuneData(DUNE_QUERY_IDS.v2Analytics);
-      if (v2Response && v2Response.result && v2Response.result.rows.length > 0) {
-        setV2Data(v2Response.result.rows[0] as V2AnalyticsData);
-      }
-
       // Fetch Clanker fees
       const clankerResponse = await fetchDuneData(DUNE_QUERY_IDS.clankerFees);
       if (clankerResponse && clankerResponse.result && clankerResponse.result.rows.length > 0) {
@@ -240,32 +458,8 @@ export default function AdminDashboard() {
     });
   };
 
-  const formatPercentage = (num: number) => {
-    return `${formatNumber(num, 1)}%`;
-  };
-
-  const formatEthValue = (ethValue: number) => {
-    return `${formatNumber(ethValue, 4)} ETH`;
-  };
-
   const formatQrValue = (qrValue: number) => {
     return `${formatNumber(qrValue, 0)} $QR`;
-  };
-
-  const formatUsdValue = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  // Calculate USD values from ETH amounts in V1 data
-  const getV1UsdValue = (ethAmount: number) => {
-    if (ethPriceLoading || !ethPrice) return '-';
-    const usdValue = ethAmount * ethPrice.ethereum.usd;
-    return formatUsdValue(usdValue);
   };
 
   // Calculate USD values from QR amounts in V2 data
@@ -348,354 +542,15 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <Tabs defaultValue="v1">
+        <Tabs defaultValue="subgraph">
           <TabsList className="mb-6">
-            <TabsTrigger value="v1">V1 Auctions (ETH)</TabsTrigger>
-            <TabsTrigger value="v2">V2 Auctions (QR)</TabsTrigger>
+            <TabsTrigger value="subgraph">Subgraph Analytics</TabsTrigger>
             <TabsTrigger value="clanker">Clanker Fees</TabsTrigger>
           </TabsList>
 
-          {/* V1 Dashboard */}
-          <TabsContent value="v1">
-            <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">V2 Analytics</h3>
-              <p className="text-amber-700 dark:text-amber-400">
-                Displaying V1 auction data (ETH token-based auctions)
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Auctions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v1Data?.total_auctions || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bids</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v1Data?.total_bids || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Bids per Auction</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : formatNumber(v1Data?.avg_bids_per_auction || 0)}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bids Value</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatEthValue(v1Data?.total_bid_value_eth || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV1UsdValue(v1Data?.total_bid_value_eth || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Winning Bids</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatEthValue(v1Data?.total_winning_bids_eth || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV1UsdValue(v1Data?.total_winning_bids_eth || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Avg. Winning Bid</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatEthValue(v1Data?.avg_winning_bid_eth || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV1UsdValue(v1Data?.avg_winning_bid_eth || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Unique Bidders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v1Data?.total_bidders_raw || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Auctions with Bidding Wars</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v1Data?.auctions_with_bidding_wars || 0}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      formatPercentage(v1Data?.bidding_war_percentage || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Bids in Final 5 Minutes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v1Data?.total_bids_in_final_5min || 0}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      formatPercentage(v1Data?.percentage_of_bids_in_final_5min || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Dune Query Link */}
-            <div className="flex items-center justify-end mt-4 mb-8">
-              <a
-                href={`https://dune.com/queries/${DUNE_QUERY_IDS.v1Analytics}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center"
-              >
-                <Dices className="h-4 w-4 mr-1" />
-                View Dune Query
-                <ExternalLink className="h-3 w-3 ml-1" />
-              </a>
-            </div>
-          </TabsContent>
-
-          {/* V2 Dashboard */}
-          <TabsContent value="v2">
-            <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">V2 Analytics</h3>
-              <p className="text-amber-700 dark:text-amber-400">
-                Displaying V2 auction data (QR token-based auctions)
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total V2 Auctions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v2Data?.total_auctions || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bids</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v2Data?.total_bids || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Bids per Auction</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : formatNumber(v2Data?.avg_bids_per_auction || 0)}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bids Value</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatQrValue(v2Data?.total_bid_value_qr || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV2UsdValue(v2Data?.total_bid_value_qr || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Winning Bids</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatQrValue(v2Data?.total_winning_bids_qr || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV2UsdValue(v2Data?.total_winning_bids_qr || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Avg. Winning Bid</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? (
-                      <Skeleton className="h-8 w-20" />
-                    ) : (
-                      formatQrValue(v2Data?.avg_winning_bid_qr || 0)
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      getV2UsdValue(v2Data?.avg_winning_bid_qr || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Unique Bidders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v2Data?.total_bidders_raw || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Auctions with Bidding Wars</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v2Data?.auctions_with_bidding_wars || 0}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      formatPercentage(v2Data?.bidding_war_percentage || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Bids in Final 5 Minutes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {loading ? <Skeleton className="h-8 w-20" /> : v2Data?.total_bids_in_final_5min || 0}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {loading ? (
-                      <Skeleton className="h-4 w-16" />
-                    ) : (
-                      formatPercentage(v2Data?.percentage_of_bids_in_final_5min || 0)
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Dune Query Link */}
-            <div className="flex items-center justify-end mt-4 mb-8">
-              <a
-                href={`https://dune.com/queries/${DUNE_QUERY_IDS.v2Analytics}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center"
-              >
-                <Dices className="h-4 w-4 mr-1" />
-                View Dune Query
-                <ExternalLink className="h-3 w-3 ml-1" />
-              </a>
-            </div>
+          {/* Subgraph Analytics Dashboard */}
+          <TabsContent value="subgraph">
+            <SubgraphAnalytics />
           </TabsContent>
 
           {/* Clanker Fees Dashboard */}
