@@ -24,7 +24,7 @@ export function formatURL(url: string, today = false, mobile = false) {
     }
     
     // Determine maximum path length based on today parameter
-    const maxPathLength = today ? mobile ? 30 : 32 : 18;
+    const maxPathLength = today ? mobile ? 18 : 18 : 15;
     
     // If the path is short enough to display fully, don't add ellipsis
     if (path.length <= maxPathLength) {
