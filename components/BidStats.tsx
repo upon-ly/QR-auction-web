@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuctionMetrics } from '@/hooks/useAuctionMetrics';
+import { useTokenPrice } from '@/hooks/useTokenPrice';
 import { Skeleton } from './ui/skeleton';
 import clsx from 'clsx';
 import { useBaseColors } from '@/hooks/useBaseColors';
@@ -10,6 +11,7 @@ const QR_TOTAL_SUPPLY = 100_000_000_000;
 
 export default function BidStats() {
   const { data, isLoading } = useAuctionMetrics();
+  const { priceUsd: qrPriceUsd } = useTokenPrice();
   const isBaseColors = useBaseColors();
 
   const formatUsd = (value: number | undefined) => {
@@ -51,6 +53,16 @@ export default function BidStats() {
     return (value / QR_TOTAL_SUPPLY) * 100;
   };
 
+  // Calculate QR token amount equivalent to USD value
+  const calculateQrTokensFromUsd = (usdValue: number | undefined) => {
+    if (!usdValue || !qrPriceUsd) return 0;
+    return usdValue / qrPriceUsd;
+  };
+
+  // Get QR token amount representing total bid value
+  const qrTokensEquivalent = calculateQrTokensFromUsd(data?.totalBidValueUsd);
+  const supplyPercentage = calculateSupplyPercentage(qrTokensEquivalent);
+
   return (
     <div 
       className={clsx(
@@ -81,7 +93,7 @@ export default function BidStats() {
             isBaseColors ? "text-foreground/70" : "text-gray-500 dark:text-gray-400",
             "text-sm mt-0.5"
           )}>
-            = {formatQrAmount(data?.totalQRBidVolume)} $QR ({calculateSupplyPercentage(data?.totalQRBidVolume).toFixed(1)}% of supply)
+            = {formatQrAmount(qrTokensEquivalent)} $QR ({supplyPercentage.toFixed(1)}% of supply)
           </p>
         )}
       </div>
