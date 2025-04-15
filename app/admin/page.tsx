@@ -25,6 +25,198 @@ const Badge = ({ variant, className, children }: { variant?: string, className?:
 import { ExternalLink, Dices } from "lucide-react";
 import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
 
+// Hook for Farcaster metrics
+function useFarcasterMetrics() {
+  const { address } = useAccount();
+  const [metrics, setMetrics] = useState<{
+    totalFrameUsers: number;
+    usersAddedLastWeek: number;
+    tokens: {
+      total: number;
+      enabled: number;
+      disabled: number;
+    };
+    dailyGrowth: {
+      date: string;
+      newUsers: number;
+      total: number;
+    }[];
+    isLoading: boolean;
+    error: Error | null;
+  }>({
+    totalFrameUsers: 0,
+    usersAddedLastWeek: 0,
+    tokens: {
+      total: 0,
+      enabled: 0,
+      disabled: 0
+    },
+    dailyGrowth: [],
+    isLoading: true,
+    error: null
+  });
+
+  useEffect(() => {
+    if (!address) return;
+    
+    const fetchData = async () => {
+      try {
+        // Set authorization header with the wallet address for authentication
+        const response = await fetch('/api/farcaster-metrics');
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setMetrics({
+          ...data,
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        setMetrics(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error : new Error('An unknown error occurred')
+        }));
+      }
+    };
+
+    fetchData();
+  }, [address]);
+
+  return metrics;
+}
+
+// Farcaster Analytics Component
+function FarcasterAnalytics() {
+  const metrics = useFarcasterMetrics();
+
+  if (metrics.isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array(12).fill(0).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                <Skeleton className="h-4 w-40" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (metrics.error) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+        <p className="text-red-700 dark:text-red-400">
+          There was an error loading the Farcaster user data. Please try again later.
+        </p>
+      </div>
+    );
+  }
+
+  // Format dates for better display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <div>
+      <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster User Analytics</h3>
+        <p className="text-purple-700 dark:text-purple-400">
+          Real-time user statistics from Farcaster notifications system
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">User Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.totalFrameUsers}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {metrics.usersAddedLastWeek} registered in the last 7 days
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Enabled Notifications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.tokens.enabled}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}% of total tokens
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
+                <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}%` }}></div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Disabled Notifications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.tokens.disabled}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}% of total tokens
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
+                <div className="bg-red-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}%` }}></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">User Growth</h3>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-medium mb-4">New Users by Day</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left p-3">Date</th>
+                  <th className="text-right p-3">New Users</th>
+                  <th className="text-right p-3">Total Users</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.dailyGrowth.map((day, index) => (
+                  <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+                    <td className="p-3">{formatDate(day.date)}</td>
+                    <td className="text-right p-3">{day.newUsers}</td>
+                    <td className="text-right p-3">{day.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Subgraph Analytics Component
 function SubgraphAnalytics() {
   const { data: metrics, isLoading } = useAuctionMetrics();
@@ -580,6 +772,7 @@ export default function AdminDashboard() {
           <TabsList className="mb-6">
             <TabsTrigger value="subgraph">Subgraph Analytics</TabsTrigger>
             <TabsTrigger value="clanker">Clanker Fees</TabsTrigger>
+            <TabsTrigger value="farcaster">Farcaster Users</TabsTrigger>
           </TabsList>
 
           {/* Subgraph Analytics Dashboard */}
@@ -821,6 +1014,11 @@ export default function AdminDashboard() {
                 <ExternalLink className="h-3 w-3 ml-1" />
               </a>
             </div>
+          </TabsContent>
+
+          {/* Farcaster Users Dashboard */}
+          <TabsContent value="farcaster">
+            <FarcasterAnalytics />
           </TabsContent>
         </Tabs>
 
