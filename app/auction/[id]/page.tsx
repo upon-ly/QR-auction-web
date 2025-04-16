@@ -201,7 +201,8 @@ export default function AuctionPage() {
         34: "https://i.postimg.cc/mhWtNxTw/34winner.png",
         35: "https://i.postimg.cc/wBfV58jL/35winner.png",
         38: "https://i.postimg.cc/RZfJ9hsX/winner37.jpg",
-        40: "https://i.postimg.cc/rpxzhzbX/winner39.png"
+        40: "https://i.postimg.cc/rpxzhzbX/winner39.png",
+        43: "https://i.postimg.cc/bwGJ6JKy/42winner.jpg"
     }),
     []
   );
@@ -292,7 +293,7 @@ export default function AuctionPage() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto mt-12 md:mt-14 lg:mt-16">
         <div className="flex flex-col justify-center items-center gap-9">
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div
