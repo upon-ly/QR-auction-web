@@ -189,15 +189,17 @@ export function WinDetailsView(winnerdata: AuctionType) {
       {winnerdata.url !== "" && winnerdata.url !== "0x" && (
         <div className={`${isBaseColors ? "bg-background" : "bg-green-50 border border-green-100"} flex flex-col mt-6 p-3 rounded-md h-full md:h-[236px]`}>
           <div className="inline-flex flex-row justify-between items-center w-full">
-            <div className="text-sm">
+            <div className="text-sm w-full overflow-hidden">
               <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Winner: </span>
               <SafeExternalLink
                 href={winnerdata.url}
-                className={`${isBaseColors ? "text-foreground" : "text-gray-700 hover:text-gray-900"} transition-colors inline-flex items-center`}
+                className={`${isBaseColors ? "text-foreground" : "text-gray-700 hover:text-gray-900"} transition-colors inline-flex items-center max-w-[calc(100%-65px)]`}
                 onBeforeNavigate={() => false}
               >
-                {formatURL(winnerdata.url, true, true)}
-                <ExternalLink className="ml-1 h-3 w-3" />
+                <span className="truncate inline-block align-middle">
+                  {formatURL(winnerdata.url, true, true, 280)}
+                </span>
+                <ExternalLink className="ml-1 h-3 w-3 flex-shrink-0" />
               </SafeExternalLink>
             </div>
           </div>

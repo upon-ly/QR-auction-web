@@ -366,17 +366,19 @@ export default function AuctionPage() {
                         <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
                           The QR now points to:
                         </span>
-                        <div className="w-full overflow-hidden truncate">
+                        <div className="w-full flex justify-center">
                           <a
                             href={ogUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex font-medium hover:opacity-80 transition-opacity"
+                            className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                             title={ogUrl}
                             aria-label="redirect"
                           >
-                            {formatURL(ogUrl, true)}
-                            <ExternalLink className="ml-1 h-6 w-3.5" />
+                            <span className="truncate font-medium">
+                              {formatURL(ogUrl, true, true, 280)}
+                            </span>
+                            <ExternalLink className="ml-1 h-6 w-3.5 flex-shrink-0" />
                           </a>
                         </div>
                       </div>
@@ -414,17 +416,19 @@ export default function AuctionPage() {
                       <span className={clsx(isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]", "font-normal")}>
                         The QR now points to:
                       </span>
-                      <div className="w-full overflow-hidden truncate">
+                      <div className="w-full flex justify-center">
                         <a
                           href={ogUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex font-medium hover:opacity-80 transition-opacity"
+                          className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                           title={ogUrl}
                           aria-label="redirect"
                         >
-                          {formatURL(ogUrl, true)}
-                          <ExternalLink className="ml-1 h-6 w-3.5" />
+                          <span className="truncate font-medium">
+                            {formatURL(ogUrl, true, false, 350)}
+                          </span>
+                          <ExternalLink className="ml-1 h-6 w-3.5 flex-shrink-0" />
                         </a>
                       </div>
                     </div>

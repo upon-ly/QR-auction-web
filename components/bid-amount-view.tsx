@@ -337,15 +337,17 @@ export function BidForm({
 
         {displayUrl !== "" && (
           <div className={`mt-0.5 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-[#131313]"}`}>
-            <div className="text-sm">
+            <div className="text-sm w-full overflow-hidden">
               <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-gray-300"}`}>Current bid website: </span>
               <SafeExternalLink
                 href={targetUrl || ""}
-                className={`font-medium hover:text-gray-900 transition-colors inline-flex items-center ${isBaseColors ? "text-foreground" : "text-gray-700 dark:text-gray-400"}`}
+                className={`font-medium hover:text-gray-900 transition-colors inline-flex items-center max-w-[calc(100%-135px)] ${isBaseColors ? "text-foreground" : "text-gray-700 dark:text-gray-400"}`}
                 onBeforeNavigate={openDialog}
               >
-                {formatURL(displayUrl)}
-                <ExternalLink className="ml-1 h-3 w-3" />
+                <span className="truncate inline-block align-middle">
+                  {formatURL(displayUrl, false, false, 260)}
+                </span>
+                <ExternalLink className="ml-1 h-3 w-3 flex-shrink-0" />
               </SafeExternalLink>
             </div>
           </div>
