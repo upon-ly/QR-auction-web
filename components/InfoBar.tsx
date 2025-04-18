@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, memo } from 'react';
 import { useAccount } from 'wagmi'; 
 // import { initializeChannels } from '@/lib/channelManager';
 import { useTradeActivityApi } from '@/hooks/useTradeActivityApi';
@@ -9,6 +9,15 @@ import { ExternalLink, ArrowRightLeft } from 'lucide-react';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { useTheme } from 'next-themes';
 import clsx from 'clsx';
+import { useCryptoTicker } from '@/hooks/useCryptoTicker';
+
+// Get TokenPrice type from useCryptoTicker hook
+interface TokenPrice {
+  symbol: string;
+  price: number;
+  priceChange24h: number;
+  color: string;
+}
 
 type InfoUpdate = {
   id: string;
@@ -22,6 +31,135 @@ type InfoUpdate = {
 
 // Store a browser instance ID to distinguish between local and remote events
 // const BROWSER_INSTANCE_ID = Math.random().toString(36).substring(2, 15);
+
+// COMPLETELY SEPARATE PRICE TICKER COMPONENT
+// This is a fully independent component that won't re-render when trade activity changes
+const PriceTicker = memo(() => {
+  const { tokens, loading: tokensLoading } = useCryptoTicker();
+  const [stableTokens, setStableTokens] = useState<TokenPrice[]>([]);
+  const [lastTokenUpdate, setLastTokenUpdate] = useState(0);
+  const TOKEN_CACHE_DURATION = 15000; // 15 seconds cache
+  
+  // Update stable tokens only every 15 seconds
+  useEffect(() => {
+    const now = Date.now();
+    if (
+      tokens.length > 0 && 
+      (stableTokens.length === 0 || now - lastTokenUpdate >= TOKEN_CACHE_DURATION)
+    ) {
+      setStableTokens(tokens);
+      setLastTokenUpdate(now);
+    }
+  }, [tokens, stableTokens, lastTokenUpdate]);
+  
+  // Format crypto price with the right number of decimals
+  const formatCryptoPrice = (price: number) => {
+    if (price >= 1000) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      }).format(price);
+    } else if (price >= 1) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 2
+      }).format(price);
+    } else {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: price < 0.0001 ? 6 : 4
+      }).format(price);
+    }
+  };
+  
+  // Format price change percentage
+  const formatPriceChange = (change: number) => {
+    return `${Math.abs(change).toFixed(2)}%`;
+  };
+
+  // Triangular arrow components
+  const UpTriangle = () => (
+    <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-[#00FF00] mx-0.5" style={{ marginBottom: '1px' }} />
+  );
+
+  const DownTriangle = () => (
+    <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-[#FF0000] mx-0.5" style={{ marginTop: '1px' }} />
+  );
+  
+  // Use stable tokens to prevent animation resets
+  const displayTokens = stableTokens.length > 0 ? stableTokens : tokens;
+  
+  if (tokensLoading && displayTokens.length === 0) {
+    return (
+      <div className="flex w-full h-full items-center justify-start pl-4">
+        <span className="text-gray-400 text-sm">Loading crypto prices...</span>
+      </div>
+    );
+  }
+  
+  // Create duplicate tokens array for smoother looping
+  const renderedTokens = [...displayTokens, ...displayTokens]; // Duplicate tokens for seamless loop
+  
+  return (
+    <div className="relative flex overflow-x-hidden w-full marquee-container pr-[120px]">
+      {/* Using a direct div for crypto ticker to keep animation stable */}
+      <div 
+        className="animate-marquee whitespace-nowrap h-full flex items-center"
+        style={{ 
+          transform: 'translateZ(0)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          animationDuration: '45s'
+        }}
+      >
+        {renderedTokens.map((token, index) => (
+          <React.Fragment key={`${token.symbol}-${index}`}>
+            <span className="mx-4 font-medium inline-flex items-center" style={{ color: token.color }}>
+              {token.symbol} {formatCryptoPrice(token.price)}
+              {token.priceChange24h !== 0 && (
+                <span className="flex items-center ml-1.5" style={{ color: token.priceChange24h >= 0 ? '#00FF00' : '#FF0000' }}>
+                  {token.priceChange24h >= 0 ? <UpTriangle /> : <DownTriangle />}
+                  {formatPriceChange(token.priceChange24h)}
+                </span>
+              )}
+            </span>
+            <span className="text-gray-500 mx-2">|</span>
+          </React.Fragment>
+        ))}
+      </div>
+      
+      <div 
+        className="absolute top-0 animate-marquee2 whitespace-nowrap h-full flex items-center"
+        style={{ 
+          transform: 'translateZ(0)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          animationDuration: '45s'
+        }}
+      >
+        {renderedTokens.map((token, index) => (
+          <React.Fragment key={`clone-${token.symbol}-${index}`}>
+            <span className="mx-4 font-medium inline-flex items-center" style={{ color: token.color }}>
+              {token.symbol} {formatCryptoPrice(token.price)}
+              {token.priceChange24h !== 0 && (
+                <span className="flex items-center ml-1.5" style={{ color: token.priceChange24h >= 0 ? '#00FF00' : '#FF0000' }}>
+                  {token.priceChange24h >= 0 ? <UpTriangle /> : <DownTriangle />}
+                  {formatPriceChange(token.priceChange24h)}
+                </span>
+              )}
+            </span>
+            <span className="text-gray-500 mx-2">|</span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+PriceTicker.displayName = 'PriceTicker';
 
 export const useInfoBarUpdates = () => {
   const [updates, setUpdates] = useState<InfoUpdate[]>([]);
@@ -74,10 +212,10 @@ export const useInfoBarUpdates = () => {
         return prev;
       }
       
-      // Keep only last 5 updates, more ephemeral
+      // Keep only last 15 updates instead of 5
       const newUpdates = [update, ...prev];
-      if (newUpdates.length > 5) {
-        return newUpdates.slice(0, 5);
+      if (newUpdates.length > 15) {
+        return newUpdates.slice(0, 15);
       }
       return newUpdates;
     });
@@ -94,18 +232,18 @@ export const useInfoBarUpdates = () => {
         showCount: update.showCount + 1
       }));
       
-      // If we have 5 or fewer updates, keep them all regardless of age
-      if (updatedMessages.length <= 5) {
+      // If we have 15 or fewer updates, keep them all regardless of age
+      if (updatedMessages.length <= 15) {
         return updatedMessages;
       }
       
-      // Sort by freshness (newest first) to ensure we always keep the freshest 5
+      // Sort by freshness (newest first) to ensure we always keep the freshest 15
       const sortedMessages = [...updatedMessages].sort((a, b) => b.timestamp - a.timestamp);
       
-      // Keep the 5 freshest messages and any that are less than 15 seconds old
+      // Keep the 15 freshest messages and any that are less than 15 seconds old
       const filteredMessages = sortedMessages.filter((update, index) => {
-        // Always keep the 5 freshest messages
-        if (index < 5) return true;
+        // Always keep the 15 freshest messages
+        if (index < 15) return true;
         
         // Also keep any other messages that are recent
         return now - update.timestamp < 15000;
@@ -150,27 +288,34 @@ export const InfoBar: React.FC = () => {
   const { theme } = useTheme();
   
   // Common styles for the InfoBar
-  const baseStyles = `fixed left-0 right-0 z-[9999] bg-black text-white border-b border-gray-700 shadow-md overflow-hidden h-8 flex items-center`;
+  // Added important z-index values and improved mobile specificity
+  const baseStyles = `fixed left-0 right-0 bg-black text-white border-b border-gray-700 shadow-md overflow-hidden h-8 flex items-center w-full`;
+  const topBarStyles = `${baseStyles} z-[9999] top-0`; // Ensure top-0 is set explicitly
+  const bottomBarStyles = `${baseStyles} z-[9998] top-8`; // Slightly lower z-index than top bar
   
   // Calculate animation duration based on content width to maintain consistent speed
   useEffect(() => {
-    if (!marqueeRef.current || !marqueeCloneRef.current || updates.length === 0) return;
-    
-    // Base animation duration for 5 items (25s from CSS)
-    const baseDuration = 25;
-    
-    // This helps maintain consistent speed regardless of content length
-    // We calculate what the width would be with 5 items
-    const baseItemCount = 5;
-    const itemRatio = updates.length / baseItemCount;
-    
-    // Calculate adjusted duration based on ratio of actual items to base items
-    // This ensures animation appears at same speed regardless of item count
-    const adjustedDuration = baseDuration * itemRatio;
-    
-    // Apply the calculated duration
-    marqueeRef.current.style.animationDuration = `${adjustedDuration}s`;
-    marqueeCloneRef.current.style.animationDuration = `${adjustedDuration}s`;
+    try {
+      if (!marqueeRef.current || !marqueeCloneRef.current || updates.length === 0) return;
+      
+      // Base animation duration for 5 items (25s from CSS)
+      const baseDuration = 25;
+      
+      // This helps maintain consistent speed regardless of content length
+      // We calculate what the width would be with 5 items
+      const baseItemCount = 5;
+      const itemRatio = updates.length / baseItemCount;
+      
+      // Calculate adjusted duration based on ratio of actual items to base items
+      // This ensures animation appears at same speed regardless of item count
+      const adjustedDuration = baseDuration * itemRatio;
+      
+      // Apply the calculated duration
+      marqueeRef.current.style.animationDuration = `${adjustedDuration}s`;
+      marqueeCloneRef.current.style.animationDuration = `${adjustedDuration}s`;
+    } catch (error) {
+      console.error('Error setting trade ticker animation duration:', error);
+    }
   }, [updates.length]);
 
   // Always render the market cap section, even with no updates
@@ -229,70 +374,104 @@ export const InfoBar: React.FC = () => {
       </a>
     </div>
   );
-  
-  // If no updates, still render market cap but with a fallback message
+    
+  // If no updates, still render both tickers but with fallback message for QR events
   if (updates.length === 0) {
     return (
-      <div className={baseStyles}>
-        <div className="flex w-full h-full items-center justify-start pl-4">
-          <span className="text-gray-400 text-sm">Loading trade activity...</span>
+      <div className="flex flex-col">
+        {/* Crypto price ticker - on top */}
+        <div className={topBarStyles}>
+          <PriceTicker />
         </div>
-        {marketCapSection}
+        
+        {/* Trade activity ticker - below */}
+        <div className={bottomBarStyles}>
+          <div className="flex w-full h-full items-center justify-start pl-4">
+            <span className="text-gray-400 text-sm">
+              Loading trade activity...
+            </span>
+          </div>
+          {marketCapSection}
+        </div>
       </div>
     );
   }
   
   return (
-    <div className={baseStyles}>
-      <div className="relative flex overflow-x-hidden w-full marquee-container pr-[120px]">
-        <div ref={marqueeRef} className="animate-marquee whitespace-nowrap h-full flex items-center">
-          {updates.map((update) => (
-            <React.Fragment key={update.id}>
-              <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
-                <ArrowRightLeft className="mr-1" size={14} />
-                {update.message}
-                {update.txHash && (
-                  <a 
-                    href={`https://basescan.org/tx/${update.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block ml-1 align-text-bottom"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink size={14} className="inline" />
-                  </a>
-                )}
-              </span>
-              <span className="text-gray-500 mx-2">|</span>
-            </React.Fragment>
-          ))}
-        </div>
-        
-        <div ref={marqueeCloneRef} className="absolute top-0 animate-marquee2 whitespace-nowrap h-full flex items-center">
-          {updates.map((update) => (
-            <React.Fragment key={`clone-${update.id}`}>
-              <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
-                <ArrowRightLeft className="mr-1" size={14} />
-                {update.message}
-                {update.txHash && (
-                  <a 
-                    href={`https://basescan.org/tx/${update.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block ml-1 align-text-bottom"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink size={14} className="inline" />
-                  </a>
-                )}
-              </span>
-              <span className="text-gray-500 mx-2">|</span>
-            </React.Fragment>
-          ))}
-        </div>
+    <div className="flex flex-col">
+      {/* Crypto price ticker - on top */}
+      <div className={topBarStyles}>
+        <PriceTicker />
       </div>
       
-      {marketCapSection}
+      {/* Trade activity ticker - below */}
+      <div className={bottomBarStyles}>
+        <div className="relative flex overflow-x-hidden w-full marquee-container pr-[120px]">
+          <div 
+            ref={marqueeRef} 
+            className="animate-marquee whitespace-nowrap h-full flex items-center"
+            style={{ 
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden'
+            }}
+          >
+            {updates.map((update) => (
+              <React.Fragment key={update.id}>
+                <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
+                  <ArrowRightLeft className="mr-1" size={14} />
+                  {update.message}
+                  {update.txHash && (
+                    <a 
+                      href={`https://basescan.org/tx/${update.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block ml-1 align-text-bottom"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink size={14} className="inline" />
+                    </a>
+                  )}
+                </span>
+                <span className="text-gray-500 mx-2">|</span>
+              </React.Fragment>
+            ))}
+          </div>
+          
+          <div 
+            ref={marqueeCloneRef} 
+            className="absolute top-0 animate-marquee2 whitespace-nowrap h-full flex items-center"
+            style={{ 
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden'
+            }}
+          >
+            {updates.map((update) => (
+              <React.Fragment key={`clone-${update.id}`}>
+                <span className="mx-4 font-medium inline-flex items-center text-[#00FF00]">
+                  <ArrowRightLeft className="mr-1" size={14} />
+                  {update.message}
+                  {update.txHash && (
+                    <a 
+                      href={`https://basescan.org/tx/${update.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block ml-1 align-text-bottom"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink size={14} className="inline" />
+                    </a>
+                  )}
+                </span>
+                <span className="text-gray-500 mx-2">|</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+        
+        {marketCapSection}
+      </div>
     </div>
   );
-}; 
+};

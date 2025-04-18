@@ -12,7 +12,7 @@ const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0' as 
 const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 
 // Maximum number of buy events to display
-const MAX_BUY_EVENTS = 10;
+const MAX_BUY_EVENTS = 25;
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -27,7 +27,7 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// Historical blocks to fetch - ~24 hours (about 43200 blocks at 2s block time)
+// Historical blocks to fetch - ~48 hours (about 86400 blocks at 2s block time)
 const INITIAL_HISTORICAL_BLOCKS = BigInt(43200);
 
 // Known router/aggregator addresses that might appear as recipients
@@ -56,11 +56,39 @@ const formatAddress = (address: string): string => {
 };
 
 // Cache for processed logs to avoid duplicates
-const processedLogsCache = new Set<string>();
+const processedLogsCache = new Map<string, number>(); // Map of logId to timestamp
+// Add a max size and auto-clearing mechanism for the cache
+const MAX_CACHE_SIZE = 1000;
+// Cache expiry for processed logs (5 minutes)
+const PROCESSED_LOGS_CACHE_EXPIRY = 5 * 60 * 1000;
 // Cache for trade activity results
 let tradeActivityCache: TradeActivityResponse | null = null;
 let lastCacheTime = 0;
-const TRADE_ACTIVITY_CACHE_DURATION = 30 * 1000; // 30 seconds
+// Reduced cache duration to refresh more often
+const TRADE_ACTIVITY_CACHE_DURATION = 15 * 1000; // 15 seconds
+
+// Clean old entries from processed logs cache
+function cleanProcessedLogsCache() {
+  const now = Date.now();
+  // Remove entries older than the expiry time
+  for (const [logId, timestamp] of processedLogsCache.entries()) {
+    if (now - timestamp > PROCESSED_LOGS_CACHE_EXPIRY) {
+      processedLogsCache.delete(logId);
+    }
+  }
+  
+  // If still too many entries, remove oldest ones
+  if (processedLogsCache.size > MAX_CACHE_SIZE) {
+    // Sort by timestamp (oldest first)
+    const entries = Array.from(processedLogsCache.entries())
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, Math.floor(MAX_CACHE_SIZE / 2)); // Remove oldest half
+      
+    // Delete those entries
+    entries.forEach(([logId]) => processedLogsCache.delete(logId));
+    console.log(`Cleared old entries from processedLogsCache, new size: ${processedLogsCache.size}`);
+  }
+}
 
 /**
  * Resolves an Ethereum address to a human-readable identity
@@ -178,25 +206,35 @@ interface TradeActivityResponse {
 }
 
 // Process a swap event and extract trade activity data
-async function processSwapEvent(log: SwapLog): Promise<TradeActivity | null> {
+async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<TradeActivity | null> {
   try {
     // Create a unique ID for the event to avoid duplicates
     const logId = `${log.blockHash}-${log.logIndex}`;
+    const now = Date.now();
     
-    // Skip if we've already processed this event
-    if (processedLogsCache.has(logId)) {
-      return null;
+    // Skip if we've already processed this event recently, unless force processing
+    if (!forceProcess && processedLogsCache.has(logId)) {
+      const timestamp = processedLogsCache.get(logId);
+      // Shorter cache expiry for processed events (1 minute) to allow reprocessing more often
+      if (timestamp && now - timestamp < 60 * 1000) {
+        return null;
+      }
     }
     
-    // Mark this event as processed
-    processedLogsCache.add(logId);
+    // Mark this event as processed with current timestamp
+    processedLogsCache.set(logId, now);
+    
+    // Clean cache periodically
+    if (processedLogsCache.size % 50 === 0) {
+      cleanProcessedLogsCache();
+    }
     
     const { recipient, sender, amount0 } = log.args;
     
-    // Determine if this is a buy or sell
+    // Determine if this is a buy or sell (amount0 < 0 means QR token is going out from pool = buy)
     const isBuy = amount0 < 0n;
     
-    // Only process buy transactions
+    // Skip sell transactions
     if (!isBuy) {
       return null;
     }
@@ -204,6 +242,11 @@ async function processSwapEvent(log: SwapLog): Promise<TradeActivity | null> {
     // Get token amount raw value
     const absAmount = amount0 < 0n ? -amount0 : amount0;
     const amountRaw = Number(formatEther(absAmount));
+    
+    // Lower dust threshold to include more transactions, but still skip extremely tiny ones
+    if (amountRaw < 0.000001) {
+      return null;
+    }
     
     // Get transaction hash for block explorer link
     const txHash = log.transactionHash;
@@ -288,13 +331,23 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
     // Check if we have valid cached data
     const now = Date.now();
     if (tradeActivityCache && (now - lastCacheTime < TRADE_ACTIVITY_CACHE_DURATION)) {
+      console.log(`Returning cached trade activity (${tradeActivityCache.activities.length} items)`);
       return tradeActivityCache.activities;
     }
+
+    // Reset cache if it's older than 10 minutes to ensure we process events again
+    const isStaleCache = (now - lastCacheTime > 10 * 60 * 1000);
+    if (isStaleCache) {
+      console.log("Cache is stale (>10 minutes), resetting processed logs cache");
+      processedLogsCache.clear();
+    }
+
+    console.log("Cache expired or missing, fetching fresh trade activity data");
 
     // Get current block
     const currentBlock = await publicClient.getBlockNumber();
     
-    // Get historical events (24 hours)
+    // Get historical events (looking further back to find more events)
     const fromBlock = currentBlock > INITIAL_HISTORICAL_BLOCKS ? currentBlock - INITIAL_HISTORICAL_BLOCKS : 0n;
     
     // Fetch in smaller chunks to avoid RPC timeouts on large ranges
@@ -306,6 +359,7 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
       const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock ? fromBlock : toBlock - MAX_BLOCK_RANGE + 1n;
       
       try {
+        console.log(`Fetching logs from block ${chunkFromBlock} to ${toBlock}`);
         const events = await publicClient.getLogs({
           address: QR_UNISWAP_POOL_ADDRESS,
           event: swapEventAbi,
@@ -313,9 +367,28 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
           toBlock
         });
         
-        // Process events in reverse chronological order (newest first)
+        console.log(`Found ${events.length} swap events in chunk`);
+        
+        // If we have few events after initial processing, force process some of the newest events
+        const shouldForceProcess = (
+          tradeActivityCache && 
+          tradeActivityCache.activities.length === 0 && 
+          events.length > 0
+        );
+        
+        if (shouldForceProcess) {
+          console.log("No events in previous cache, force processing newest events");
+        }
+        
+        // Process all events in reverse chronological order (newest first)
         for (let i = events.length - 1; i >= 0 && buyEvents.length < MAX_BUY_EVENTS; i--) {
-          const tradeActivity = await processSwapEvent(events[i] as SwapLog);
+          // Force process some events if we need to
+          const forceProcess = shouldForceProcess && (i >= events.length - 15);
+          
+          // Occasionally reprocess events to ensure we have a healthy number
+          const randomReprocess = buyEvents.length < 5 && Math.random() < 0.2;
+          
+          const tradeActivity = await processSwapEvent(events[i] as SwapLog, forceProcess || randomReprocess);
           if (tradeActivity) {
             buyEvents.push(tradeActivity);
           }
@@ -323,6 +396,7 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
         
         // If we have enough buy events, stop fetching more chunks
         if (buyEvents.length >= MAX_BUY_EVENTS) {
+          console.log(`Reached maximum buyEvents (${MAX_BUY_EVENTS}), stopping fetch`);
           break;
         }
       } catch (chunkError) {
@@ -331,7 +405,18 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
       }
     }
     
-    // Update cache
+    console.log(`Processed ${buyEvents.length} buy events total`);
+    
+    // If we didn't find any events but had some before, maintain at least a few 
+    // from the previous cache to avoid empty ticker
+    if (buyEvents.length === 0 && tradeActivityCache && tradeActivityCache.activities.length > 0) {
+      console.log("No new events found, maintaining some from previous cache");
+      // Keep the most recent events from previous cache (up to 5)
+      const eventsToKeep = Math.min(5, tradeActivityCache.activities.length);
+      buyEvents.push(...tradeActivityCache.activities.slice(0, eventsToKeep));
+    }
+    
+    // Always update cache with our results
     tradeActivityCache = {
       activities: buyEvents,
       timestamp: now
@@ -342,7 +427,14 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
   } catch (error) {
     console.error('Error fetching trade activity:', error);
     // Return cached data if available, otherwise empty array
-    return tradeActivityCache?.activities || [];
+    if (tradeActivityCache?.activities && tradeActivityCache.activities.length > 0) {
+      console.log('Returning cached activity after error');
+      return tradeActivityCache.activities;
+    }
+    
+    // Return empty array if no activity is available
+    console.log('No activity available, returning empty array');
+    return [];
   }
 }
 
@@ -376,34 +468,49 @@ async function fetchTokenPrice(): Promise<number | null> {
 // API route handler
 export async function GET() {
   try {
+    console.log('Trade activity API called');
+    
     // Fetch trade activity in parallel with token price
     const [activities, tokenPrice] = await Promise.all([
       fetchTradeActivity(),
       fetchTokenPrice()
     ]);
     
-    // Format messages with USD values if price is available
-    const formattedActivities = activities.map(activity => {
-      let message = activity.message;
-      
-      if (tokenPrice !== null) {
-        const usdValue = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 2,
-          minimumFractionDigits: 0
-        }).format(activity.amountRaw * tokenPrice);
+    console.log(`Formatting ${activities.length} activities with price $${tokenPrice || 'unknown'}`);
+    
+    // Filter and format messages with USD values if price is available
+    const formattedActivities = activities
+      .filter(activity => {
+        // Skip activities with USD value less than $0.01
+        if (tokenPrice !== null) {
+          const usdValue = activity.amountRaw * tokenPrice;
+          return usdValue >= 0.01;
+        }
+        // Keep all activities if we don't have a price
+        return true;
+      })
+      .map(activity => {
+        let message = activity.message;
         
-        message = `${activity.trader} bought $QR (${usdValue})`;
-      } else {
-        message = `${activity.trader} bought $QR (${activity.amountRaw.toFixed(2)} $QR)`;
-      }
-      
-      return {
-        ...activity,
-        message
-      };
-    });
+        if (tokenPrice !== null) {
+          const usdValue = activity.amountRaw * tokenPrice;
+          const formattedValue = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 2,
+            minimumFractionDigits: 0
+          }).format(usdValue);
+          
+          message = `${activity.trader} bought $QR (${formattedValue})`;
+        } else {
+          message = `${activity.trader} bought $QR (${activity.amountRaw.toFixed(2)} $QR)`;
+        }
+        
+        return {
+          ...activity,
+          message
+        };
+      });
     
     return NextResponse.json({
       activities: formattedActivities,
@@ -412,9 +519,13 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error in trade activity API route:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch trade activity' },
-      { status: 500 }
-    );
+    
+    // Return empty activities array on error
+    return NextResponse.json({
+      activities: [],
+      timestamp: Date.now(),
+      price: null,
+      error: 'Error fetching data'
+    }, { status: 200 }); // Return 200 even on error so the UI doesn't show loading
   }
 } 

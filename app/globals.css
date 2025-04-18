@@ -130,19 +130,38 @@
 
 @keyframes marquee {
   0% {
-    transform: translateX(0);
+    transform: translateX(0) translateZ(0);
   }
   100% {
-    transform: translateX(-100%);
+    transform: translateX(-100%) translateZ(0);
   }
 }
 
 @keyframes marquee2 {
   0% {
-    transform: translateX(100%);
+    transform: translateX(100%) translateZ(0);
   }
   100% {
-    transform: translateX(0);
+    transform: translateX(0) translateZ(0);
+  }
+}
+
+/* Reverse direction for crypto ticker */
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-100%) translateZ(0);
+  }
+  100% {
+    transform: translateX(0) translateZ(0);
+  }
+}
+
+@keyframes marquee2-reverse {
+  0% {
+    transform: translateX(0) translateZ(0);
+  }
+  100% {
+    transform: translateX(100%) translateZ(0);
   }
 }
 
@@ -152,6 +171,7 @@
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
+  transform-style: preserve-3d;
 }
 
 .animate-marquee2 {
@@ -160,16 +180,40 @@
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
+  transform-style: preserve-3d;
+}
+
+/* Reverse animation classes */
+.animate-marquee-reverse {
+  animation: marquee-reverse 30s linear infinite;
+  animation-delay: -0.1s;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transform-style: preserve-3d;
+}
+
+.animate-marquee2-reverse {
+  animation: marquee2-reverse 30s linear infinite;
+  animation-delay: -0.1s;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transform-style: preserve-3d;
 }
 
 /* Create a parent container hover state that affects all child animations */
 .marquee-container:hover .animate-marquee,
-.marquee-container:hover .animate-marquee2 {
+.marquee-container:hover .animate-marquee2,
+.marquee-container:hover .animate-marquee-reverse,
+.marquee-container:hover .animate-marquee2-reverse {
   animation-play-state: paused;
 }
 
 /* Add transition to smooth out updates */
 .animate-marquee,
-.animate-marquee2 {
+.animate-marquee2,
+.animate-marquee-reverse,
+.animate-marquee2-reverse {
   transition: transform 0.5s ease-out;
 }

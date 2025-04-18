@@ -3,69 +3,136 @@ import { useState, useEffect, useCallback } from 'react';
 interface TradeActivity {
   id: string;
   message: string;
-  txHash: string;
-  trader: string;
-  amountRaw: number;
+  txHash?: string;
   timestamp: number;
 }
 
-interface TradeActivityResponse {
-  activities: TradeActivity[];
-  timestamp: number;
-  price: number | null;
-}
+// Track error state globally to avoid repeated retries causing UI thrashing
+let lastFetchFailed = false;
+let lastFetchTime = 0;
+const RETRY_INTERVAL = 10000; // 10 seconds between retries after failure
 
-export const useTradeActivityApi = (callback: (message: string, txHash?: string, messageKey?: string) => void) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-
-  // Fetch trade activity from the API
+// Hook that fetches trade activity from our API
+export const useTradeActivityApi = (
+  onUpdate: (message: string, txHash?: string, messageKey?: string) => void
+) => {
+  // Fetch trade activity data from the API
   const fetchTradeActivity = useCallback(async () => {
+    // Don't retry too frequently if previous requests failed
+    const now = Date.now();
+    if (lastFetchFailed && now - lastFetchTime < RETRY_INTERVAL) {
+      console.log('Skipping trade activity fetch (throttled after failure)');
+      return;
+    }
+    
+    lastFetchTime = now;
+    
     try {
-      setIsLoading(true);
-      setError(null);
-      
+      console.log('Fetching trade activity...');
       const response = await fetch('/api/trade-activity');
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Failed to fetch trade activity: ${response.status}`);
       }
       
-      const data: TradeActivityResponse = await response.json();
+      const data = await response.json();
+      lastFetchFailed = false;
       
-      // Process activities and send them to callback
-      data.activities.forEach(activity => {
-        callback(activity.message, activity.txHash, activity.id);
-      });
-      
-      return data;
+      if (data.activities && Array.isArray(data.activities)) {
+        // Check if we actually have activities
+        if (data.activities.length === 0) {
+          console.log('No trade activities returned from API');
+          return;
+        }
+        
+        console.log(`Processing ${data.activities.length} trade activities`);
+        
+        // Process each activity and call the update function
+        // Sort activities by timestamp (newest first) before processing
+        const sortedActivities = [...data.activities].sort((a, b) => {
+          // Use timestamps for sorting, newest first
+          return b.timestamp - a.timestamp;
+        });
+        
+        // Process newest activities first
+        sortedActivities.forEach((activity: TradeActivity) => {
+          if (activity.message && activity.id) {
+            onUpdate(activity.message, activity.txHash, activity.id);
+          }
+        });
+      }
     } catch (error) {
       console.error('Error fetching trade activity:', error);
-      setError(error instanceof Error ? error.message : String(error));
-      return null;
-    } finally {
-      setIsLoading(false);
+      lastFetchFailed = true;
+      
+      // Create a fallback message to ensure we have at least one message
+      if (lastFetchFailed) {
+        onUpdate(
+          "Recent $QR purchases will appear here", 
+          undefined, 
+          `fallback-${Date.now()}`
+        );
+      }
     }
-  }, [callback]);
-
-  // Set up polling interval
+  }, [onUpdate]);
+  
+  // Fetch data on mount and every 15 seconds
   useEffect(() => {
-    // Initial fetch
-    fetchTradeActivity();
+    // Initial fetch with a slight delay to ensure component is mounted
+    const initialTimer = setTimeout(() => {
+      fetchTradeActivity();
+    }, 1000);
     
-    // Set up interval to fetch every minute
-    const intervalId = setInterval(fetchTradeActivity, 60000);
+    // Set up interval for polling - more frequent updates
+    const interval = setInterval(() => {
+      fetchTradeActivity();
+    }, 15000); // Every 15 seconds
     
-    setIsListening(true);
-    console.log('Trade activity API listener set up with 60-second interval');
-    
+    // Clean up interval on unmount
     return () => {
-      clearInterval(intervalId);
-      setIsListening(false);
-      console.log('Trade activity API listener cleaned up');
+      clearTimeout(initialTimer);
+      clearInterval(interval);
     };
   }, [fetchTradeActivity]);
   
-  return { isLoading, error, isListening, fetchTradeActivity };
+  return null;
+};
+
+// Hook to fetch token price
+export const useTokenPriceApi = () => {
+  const [price, setPrice] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const fetchTokenPrice = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/trade-activity');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch token price');
+      }
+      
+      const data = await response.json();
+      
+      if (data.price) {
+        setPrice(data.price);
+      }
+    } catch (error) {
+      console.error('Error fetching token price:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  useEffect(() => {
+    fetchTokenPrice();
+    
+    const interval = setInterval(() => {
+      fetchTokenPrice();
+    }, 60000); // Every minute
+    
+    return () => clearInterval(interval);
+  }, [fetchTokenPrice]);
+  
+  return { price, loading };
 }; 
