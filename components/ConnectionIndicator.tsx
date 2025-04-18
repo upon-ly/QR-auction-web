@@ -42,12 +42,7 @@ export const ConnectionIndicator = () => {
   // Fetch Farcaster username when a user connects
   useEffect(() => {
     const handleConnection = async (userAddress: string) => {
-      // Don't show our own connection events
-      if (address && userAddress === address) {
-        console.log('Ignoring own connection event');
-        return;
-      }
-      
+      // Removed the condition to hide our own connection events
       console.log('Connection event received from', userAddress);
       
       // Clear any existing timeout
