@@ -24,6 +24,7 @@ const Badge = ({ variant, className, children }: { variant?: string, className?:
 };
 import { ExternalLink, Dices } from "lucide-react";
 import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
+import { TestimonialsAdmin } from "./testimonials";
 
 // Hook for Farcaster metrics
 function useFarcasterMetrics() {
@@ -773,6 +774,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="subgraph">Subgraph Analytics</TabsTrigger>
             <TabsTrigger value="clanker">Clanker Fees</TabsTrigger>
             <TabsTrigger value="farcaster">Farcaster Users</TabsTrigger>
+            <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
           </TabsList>
 
           {/* Subgraph Analytics Dashboard */}
@@ -1019,6 +1021,11 @@ export default function AdminDashboard() {
           {/* Farcaster Users Dashboard */}
           <TabsContent value="farcaster">
             <FarcasterAnalytics />
+          </TabsContent>
+
+          {/* Testimonials Dashboard */}
+          <TabsContent value="testimonials">
+            <TestimonialsAdmin />
           </TabsContent>
         </Tabs>
 

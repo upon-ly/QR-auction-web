@@ -43,6 +43,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.87 0 0);
+  --tweet-body-color: #111;
+  --tweet-container-background: rgba(255, 255, 255, 0.9);
+  --tweet-container-border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .dark {
@@ -78,6 +81,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --tweet-body-color: #eee;
+  --tweet-container-background: rgba(30, 30, 30, 0.9);
+  --tweet-container-border: 1px solid rgba(255, 255, 255, 0.1);
+  --tweet-header-name-color: #fff;
+  --tweet-header-username-color: #aaa;
+  --tweet-body-background: transparent;
+  --tweet-actions-color: #aaa;
 }
 
 @theme inline {
@@ -216,4 +226,59 @@
 .animate-marquee-reverse,
 .animate-marquee2-reverse {
   transition: transform 0.5s ease-out;
+}
+
+/* Twitter and Farcaster embed styles */
+.twitter-tweet {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.twitter-tweet iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Ensure Farcaster embeds have consistent width */
+.farcaster-embed-container {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* React-Tweet Styling */
+.react-tweet-theme {
+  --tweet-container-margin: 0;
+  --tweet-body-font-size: 1rem;
+  --tweet-thread-container-margin: 0;
+  --tweet-header-font-weight: 500;
+  --tweet-header-name-font-weight: 600;
+  width: 100%;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin: 0 !important;
+}
+
+.react-tweet-container {
+  margin: 0 !important;
+  width: 100%;
+}
+
+/* Fix any intrinsic margins */
+.react-tweet {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.react-tweet-container > div {
+  margin: 0 !important;
+}
+
+/* BaseColors theme adjustment */
+div[data-theme="light"] .react-tweet-theme {
+  --tweet-body-color: #111;
+  --tweet-container-background: rgba(255, 255, 255, 0.9);
+  --tweet-container-border: 1px solid rgba(0, 0, 0, 0.1);
+  --tweet-header-name-color: #000;
+  --tweet-header-username-color: #536471;
+  --tweet-actions-color: #536471;
 }

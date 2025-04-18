@@ -33,6 +33,7 @@ import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { QRContextMenu } from "@/components/QRContextMenu";
 import { useAccount } from 'wagmi';
 import BidStats from "@/components/BidStats";
+import { EndorsementsCarousel } from "@/components/EndorsementsCarousel";
 
 interface SettingsResponse {
   data: Array<{
@@ -489,7 +490,12 @@ export default function AuctionPage() {
         </div>
       </div>
 
-      <footer className="mt-10 text-center flex flex-col items-center">
+      {/* Love Carousel - add this before the footer */}
+      <div className=" md:mt-0">
+        <EndorsementsCarousel />
+      </div>
+
+      <footer className="lg:mt-10 md:mt-10 mt-10 text-center flex flex-col items-center">
         <div className="flex items-center justify-center gap-6 mb-3">
           <a
             href="https://x.com/QRcoindotfun"

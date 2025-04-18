@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useBaseColors } from "@/hooks/useBaseColors";
+import { useTheme } from "next-themes";
+import { Loader2 } from "lucide-react";
 
 interface TwitterEmbedProps {
   tweetUrl: string;
+  onError?: () => void;
+  showLoader?: boolean;
 }
 
 const extractTweetId = (url: string): string => {
@@ -47,9 +51,10 @@ const TwitterScriptLoader = {
   }
 };
 
-export function TwitterEmbed({ tweetUrl }: TwitterEmbedProps) {
+export function TwitterEmbed({ tweetUrl, onError, showLoader = false }: TwitterEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isBaseColors = useBaseColors();
+  const { resolvedTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const tweetId = extractTweetId(tweetUrl);
   const mountedRef = useRef(true);
@@ -79,16 +84,22 @@ export function TwitterEmbed({ tweetUrl }: TwitterEmbedProps) {
         
         // Clear the container again right before embedding
         container.innerHTML = '';
+
+        // Determine theme based on system theme and base colors mode
+        // Use dark theme only when specifically in dark mode
+        const isDarkMode = resolvedTheme === 'dark' && !isBaseColors;
         
-        // Create the tweet
+        // Create the tweet with full width
         if (window.twttr && window.twttr.widgets) {
           await window.twttr.widgets.createTweet(
             tweetId, 
             container,
             {
-              theme: 'light', // Always use light mode for consistency
+              theme: isDarkMode ? 'dark' : 'light',
               conversation: 'none', // Hide the conversation
               width: '100%',
+              align: 'center',
+              dnt: true
             }
           );
           
@@ -101,6 +112,9 @@ export function TwitterEmbed({ tweetUrl }: TwitterEmbedProps) {
         }
       } catch (error) {
         console.error('Error embedding tweet:', error);
+        if (onError && mountedRef.current) {
+          onError();
+        }
       } finally {
         if (mountedRef.current) {
           setLoading(false);
@@ -124,18 +138,25 @@ export function TwitterEmbed({ tweetUrl }: TwitterEmbedProps) {
       clearTimeout(timeoutId);
       container.innerHTML = '';
     };
-  }, [tweetId, isBaseColors]);
+  }, [tweetId, isBaseColors, resolvedTheme, onError]);
 
   return (
-    <div className="flex flex-col rounded-md justify-center items-center w-full md:w-[376px] overflow-hidden bg-white">
-      {loading && (
-        <div className="flex items-center justify-center h-[200px] w-full">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+    <div className={`flex flex-col rounded-xl justify-center items-center w-full overflow-hidden relative ${loading ? 'min-h-[200px]' : ''}`}>
+      {loading && showLoader && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       )}
       <div 
         ref={containerRef} 
-        className="w-full min-h-[100px] [&_.twitter-tweet]:!mt-0" // Use !important on any twitter-tweet element inside
+        className={`w-full transition-opacity duration-500 ${loading ? 'opacity-0' : 'opacity-100'}`} 
+        style={{ 
+          width: 'calc(100% - 0px)', 
+          maxWidth: '100%', 
+          padding: 0, 
+          margin: 0,
+          boxSizing: 'border-box'
+        }}
       />
     </div>
   );
@@ -154,6 +175,7 @@ declare global {
             align?: string;
             width?: string | number;
             conversation?: 'none' | 'all';
+            dnt?: boolean;
           }
         ) => Promise<HTMLElement>;
       };
