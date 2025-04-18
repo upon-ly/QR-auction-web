@@ -4,7 +4,7 @@ import { useTokenPrice } from './useTokenPrice';
 import useEthPrice from './useEthPrice';
 
 // Updated to point to the newer version of the subgraph
-const SUBGRAPH_URL = 'https://api.studio.thegraph.com/query/109116/qr-auction-tracker/version/latest';
+const SUBGRAPH_URL = 'https://gateway.thegraph.com/api/subgraphs/id/9BQvuZLRAHVaMomrczg5e66mfdcDmzLqZionmyAJ6f13';
 const API_KEY = process.env.NEXT_PUBLIC_GRAPH_API_KEY;
 const HEADERS = { Authorization: `Bearer ${API_KEY}` };
 
