@@ -293,6 +293,7 @@ export function BidForm({
               type="text"
               placeholder="https://"
               className="pr-16 border p-2 w-full"
+              spellCheck="false"
               {...register("url")}
               onKeyDown={handleKeyDown}
               onInput={handleInputChange}
