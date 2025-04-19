@@ -491,9 +491,11 @@ export default function AuctionPage() {
       </div>
 
       {/* Love Carousel - add this before the footer */}
-      <div className=" md:mt-0">
-        <EndorsementsCarousel />
-      </div>
+      {isLatestAuction && (
+        <div className="md:mt-0">
+          <EndorsementsCarousel />
+        </div>
+      )}
 
       <footer className="lg:mt-10 md:mt-10 mt-10 text-center flex flex-col items-center">
         <div className="flex items-center justify-center gap-6 mb-3">
