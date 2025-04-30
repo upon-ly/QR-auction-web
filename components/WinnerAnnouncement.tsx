@@ -48,7 +48,7 @@ export function WinnerAnnouncement({ auctionId }: WinnerAnnouncementProps) {
       <label className="font-semibold text-xl md:text-2xl inline-flex gap-2">
         🏆<span className="underline">Winner Announcement</span>🏆
       </label>
-      <div className="mt-1 w-full flex justify-center">
+      <div className="mt-1 w-full max-w-[550px] mx-auto flex justify-center">
         <TwitterEmbed tweetUrl={tweetUrl} />
       </div>
     </div>
