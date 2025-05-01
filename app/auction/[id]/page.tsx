@@ -285,10 +285,13 @@ export default function AuctionPage() {
 
           <div className="relative">
             <ConnectButton
-              accountStatus="full"
+              accountStatus={{
+                smallScreen: "avatar",
+                largeScreen: "full",
+              }}
               chainStatus="none"
               showBalance={false}
-              
+              label="Connect Wallet"
             />
             <div className="absolute right-0 top-full mt-2 pr-1">
               <ConnectionIndicator />
