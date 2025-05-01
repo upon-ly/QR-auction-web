@@ -288,7 +288,7 @@ export default function AuctionPage() {
               accountStatus="full"
               chainStatus="none"
               showBalance={false}
-              label="Connect Wallet"
+              
             />
             <div className="absolute right-0 top-full mt-2 pr-1">
               <ConnectionIndicator />
