@@ -63,24 +63,27 @@ export function BidForm({
   // Handle URL opening with Frame SDK
   const handleOpenUrl = async (url: string) => {
     // Always use safety dialog first, regardless of frame environment
+    // The openDialog function should return true if it's going to show dialog
     if (openDialog && openDialog(url)) {
-      return; // Safety dialog is handling it
-    }
-    
-    // If safety dialog is disabled/bypassed, then check if we're in a frame
-    if (isFrame.current) {
-      try {
-        await frameSdk.redirectToUrl(url);
-      } catch (error) {
-        console.error("Error opening URL in frame:", error);
-        // Fallback to regular navigation
-        window.open(url, "_blank");
-      }
+      // Safety dialog is handling it - SafetyDialog will use the appropriate
+      // method (frameSdk or window.open) when user clicks "I understand"
       return;
     }
     
-    // For non-frame environments with safety dialog disabled
-    window.open(url, "_blank");
+    // Safety dialog is disabled or bypassed
+    if (isFrame.current) {
+      // In frame environments, use only the Frame SDK
+      try {
+        console.log("Opening URL with Frame SDK:", url);
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    } else {
+      // In non-frame environments, use regular browser navigation
+      console.log("Opening URL with window.open:", url);
+      window.open(url, "_blank");
+    }
   };
   
   // Get user's QR token balance

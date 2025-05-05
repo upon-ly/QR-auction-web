@@ -45,16 +45,22 @@ export function SafetyDialog({
       localStorage.setItem("hideSafetyWarning", "true");
     }
     
+    // Call the parent's onContinue callback
     onContinue();
     
-    // For frame environments, we open the URL using the Frame SDK
-    if (isFrame.current && targetUrl) {
-      try {
-        console.log("Opening URL in Frame context:", targetUrl);
-        await frameSdk.redirectToUrl(targetUrl);
-      } catch (error) {
-        console.error("Error opening URL in frame:", error);
-        // Fallback to regular navigation
+    // Navigate to the target URL using the appropriate method
+    if (targetUrl) {
+      if (isFrame.current) {
+        // In frame environments, use only the Frame SDK
+        try {
+          console.log("Safety Dialog: Opening URL with Frame SDK:", targetUrl);
+          await frameSdk.redirectToUrl(targetUrl);
+        } catch (error) {
+          console.error("Safety Dialog: Error opening URL in frame:", error);
+        }
+      } else {
+        // In non-frame environments, use regular browser navigation
+        console.log("Safety Dialog: Opening URL with window.open:", targetUrl);
         window.open(targetUrl, "_blank");
       }
     }
