@@ -73,12 +73,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
 
   // Handle URL opening, prioritizing Frame SDK when in frame environment
   const handleOpenUrl = async (url: string) => {
-    // Always use safety dialog first, regardless of frame environment
-    if (winnerdata.openDialog && winnerdata.openDialog(url)) {
-      return; // Safety dialog is handling it
-    }
-    
-    // If safety dialog is disabled/bypassed, then check if we're in a frame
+    // For frame environments, use the Frame SDK
     if (isFrame.current) {
       try {
         await frameSdk.redirectToUrl(url);
@@ -90,7 +85,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       return;
     }
     
-    // For non-frame environments with safety dialog disabled
+    // For non-frame environments, open directly without safety dialog
     window.open(url, "_blank");
   };
 
