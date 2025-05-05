@@ -5,7 +5,7 @@ import { formatEther } from "viem";
 import { Address } from "viem";
 import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
@@ -16,6 +16,7 @@ import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import useEthPrice from "@/hooks/useEthPrice";
+import { frameSdk } from "@/lib/frame-sdk";
 
 type AuctionType = {
   tokenId: bigint;
@@ -24,6 +25,7 @@ type AuctionType = {
   url: string;
   openDialog: (url: string) => boolean;
   openBids: () => void;
+  isFrame?: boolean;
 };
 
 export function WinDetailsView(winnerdata: AuctionType) {
@@ -32,6 +34,9 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
+  
+  // Initialize isFrame from props or determine via useRef
+  const isFrame = useRef(!!winnerdata.isFrame);
 
   const { priceUsd: qrPrice } = useTokenPrice();
   const { ethPrice } = useEthPrice();
@@ -44,6 +49,50 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const isLegacyAuction = winnerdata.tokenId <= 22n;
   const currentEthPrice = ethPrice?.ethereum?.usd || 0;
   const ethBalance = isLegacyAuction ? qrTokenAmount * currentEthPrice : 0;
+
+  // Check if we're in Farcaster frame context if not passed in props
+  useEffect(() => {
+    if (winnerdata.isFrame !== undefined) {
+      isFrame.current = winnerdata.isFrame;
+      return;
+    }
+    
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrame.current = !!context?.user;
+        console.log("Frame context check in WinDetailsView:", isFrame.current ? "Running in frame" : "Not in frame");
+      } catch (frameError) {
+        console.log("Not in a Farcaster frame context:", frameError);
+        isFrame.current = false;
+      }
+    }
+    
+    checkFrameContext();
+  }, [winnerdata.isFrame]);
+
+  // Handle URL opening, prioritizing Frame SDK when in frame environment
+  const handleOpenUrl = async (url: string) => {
+    // Always use safety dialog first, regardless of frame environment
+    if (winnerdata.openDialog && winnerdata.openDialog(url)) {
+      return; // Safety dialog is handling it
+    }
+    
+    // If safety dialog is disabled/bypassed, then check if we're in a frame
+    if (isFrame.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+        // Fallback to regular navigation
+        window.open(url, "_blank");
+      }
+      return;
+    }
+    
+    // For non-frame environments with safety dialog disabled
+    window.open(url, "_blank");
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -202,16 +251,15 @@ export function WinDetailsView(winnerdata: AuctionType) {
           <div className="inline-flex flex-row justify-between items-center w-full">
             <div className="text-sm w-full overflow-hidden">
               <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Winner: </span>
-              <SafeExternalLink
-                href={winnerdata.url}
+              <button
+                onClick={() => handleOpenUrl(winnerdata.url)}
                 className={`${isBaseColors ? "text-foreground" : "text-gray-700 hover:text-gray-900"} transition-colors inline-flex items-center max-w-[calc(100%-65px)]`}
-                onBeforeNavigate={() => false}
               >
                 <span className="truncate inline-block align-middle">
                   {formatURL(winnerdata.url, true, true, 280)}
                 </span>
                 <ExternalLink className="ml-1 h-3 w-3 flex-shrink-0" />
-              </SafeExternalLink>
+              </button>
             </div>
           </div>
           <div className={`${isBaseColors ? "bg-background" : "bg-white"} flex flex-col rounded-md justify-center items-center h-full mt-1 w-full overflow-hidden aspect-[2/1]`}>
@@ -219,10 +267,8 @@ export function WinDetailsView(winnerdata: AuctionType) {
               <img
                 src={ogImage}
                 alt="Open Graph"
-                className="h-auto w-full"
-                onClick={() => {
-                  window.location.href = winnerdata.url;
-                }}
+                className="h-auto w-full cursor-pointer"
+                onClick={() => handleOpenUrl(winnerdata.url)}
               />
             )}
           </div>

@@ -22,8 +22,9 @@ import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { MIN_QR_BID } from "@/config/tokens";
 import { formatQRAmount } from "@/utils/formatters";
 import { UniswapModal } from "./ui/uniswap-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useFetchBids } from "@/hooks/useFetchBids";
+import { frameSdk } from "@/lib/frame-sdk";
 
 export function BidForm({
   auctionDetail,
@@ -41,6 +42,46 @@ export function BidForm({
   const { isConnected, address } = useAccount();
   const { handleTypingStart } = useTypingStatus();
   const { fetchHistoricalAuctions } = useFetchBids();
+  const isFrame = useRef(false);
+  
+  // Check if we're in Farcaster frame context on mount
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrame.current = !!context?.user;
+        console.log("Frame context check in BidForm:", isFrame.current ? "Running in frame" : "Not in frame");
+      } catch (frameError) {
+        console.log("Not in a Farcaster frame context:", frameError);
+        isFrame.current = false;
+      }
+    }
+    
+    checkFrameContext();
+  }, []);
+  
+  // Handle URL opening with Frame SDK
+  const handleOpenUrl = async (url: string) => {
+    // Always use safety dialog first, regardless of frame environment
+    if (openDialog && openDialog(url)) {
+      return; // Safety dialog is handling it
+    }
+    
+    // If safety dialog is disabled/bypassed, then check if we're in a frame
+    if (isFrame.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+        // Fallback to regular navigation
+        window.open(url, "_blank");
+      }
+      return;
+    }
+    
+    // For non-frame environments with safety dialog disabled
+    window.open(url, "_blank");
+  };
   
   // Get user's QR token balance
   const qrTokenAddress = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"; // QR token address
@@ -353,16 +394,15 @@ export function BidForm({
           <div className={`mt-0.5 p-3 bg-orange-50/30 border border-orange-100/50 rounded-md ${isBaseColors ? "bg-background" : "bg-gray-900 dark:bg-[#131313]"}`}>
             <div className="text-sm w-full overflow-hidden">
               <span className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-gray-300"}`}>Current bid website: </span>
-              <SafeExternalLink
-                href={targetUrl || ""}
+              <button
+                onClick={() => handleOpenUrl(targetUrl || "")}
                 className={`font-medium hover:text-gray-900 transition-colors inline-flex items-center max-w-[calc(100%-135px)] ${isBaseColors ? "text-foreground" : "text-gray-700 dark:text-gray-400"}`}
-                onBeforeNavigate={openDialog}
               >
                 <span className="truncate inline-block align-middle">
                   {formatURL(displayUrl, false, false, 260)}
                 </span>
                 <ExternalLink className="ml-1 h-3 w-3 flex-shrink-0" />
-              </SafeExternalLink>
+              </button>
             </div>
           </div>
         )}
