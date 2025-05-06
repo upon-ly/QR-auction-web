@@ -468,14 +468,15 @@ export default function AuctionPage() {
                   </div>
                   
                   {/* BidStats for desktop - under Today's Winner */}
-                  <div className="mt-4 w-full max-w-[376px]">
+                  {/* TODO: Add BidStats back in when ready with v3 subgraph */}
+                  {/* <div className="mt-4 w-full max-w-[376px]">
                     <h2 className="font-semibold text-xl md:text-2xl text-center mb-1">
                       <span className="">Bid Counter</span>
                     </h2>
                     <div className="h-[190px]">
                       <BidStats />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               )}
             </div>
