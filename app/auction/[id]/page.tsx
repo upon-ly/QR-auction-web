@@ -533,12 +533,12 @@ export default function AuctionPage() {
           )} */}
           
           {/* BidStats for mobile - centered */}
-          <div className="md:hidden mx-auto w-full">
+          {/* <div className="md:hidden mx-auto w-full">
             <h2 className="font-semibold text-xl text-center mb-1">
               <span className="">Bid Counter</span>
             </h2>
             <BidStats />
-          </div>
+          </div> */}
         </div>
       </div>
 
