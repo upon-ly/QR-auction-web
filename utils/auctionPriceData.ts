@@ -10,8 +10,8 @@ export type AuctionPriceData = {
 export function getAuctionVersion(tokenId: string | number | bigint): "v1" | "v2" | "v3" | null {
   const id = Number(tokenId);
   if (id >= 1 && id <= 22) return "v1";
-  if (id >= 23 && id <= 35) return "v2";
-  if (id >= 36) return "v3";
+  if (id >= 23 && id <= 61) return "v2";
+  if (id >= 62) return "v3";
   return null;
 }
 

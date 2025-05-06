@@ -51,8 +51,8 @@ export function BidCellView({
 
   // Check auction version based on tokenId
   const isLegacyAuction = bid.tokenId <= 22n;
-  const isV2Auction = bid.tokenId >= 23n && bid.tokenId <= 35n;
-  const isV3Auction = bid.tokenId >= 36n;
+  const isV2Auction = bid.tokenId >= 23n && bid.tokenId <= 61n;
+  const isV3Auction = bid.tokenId >= 62n;
   
   // Calculate amount based on auction type
   const amount = isV3Auction 

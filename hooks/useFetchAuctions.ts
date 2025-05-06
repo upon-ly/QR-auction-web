@@ -42,8 +42,8 @@ export function useFetchAuctions(tokenId?: bigint) {
   const initialState: AuctionState = { auctions: [], historicalLoaded: false };
   const [state, dispatch] = useReducer(auctionReducer, initialState);
   const isLegacyAuction = tokenId && tokenId <= 22n;
-  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
-  const isV3Auction = tokenId && tokenId >= 36n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 61n;
+  const isV3Auction = tokenId && tokenId >= 62n;
 
   const client = useClient({ config: wagmiConfig });
 

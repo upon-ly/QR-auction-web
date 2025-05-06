@@ -216,7 +216,7 @@ export function useAuctionEvents({
     const contractAddress = tokenId 
       ? tokenId >= 1 && tokenId <= 22 
         ? process.env.NEXT_PUBLIC_QRAuction as Address 
-        : tokenId >= 23 && tokenId <= 35
+        : tokenId >= 23 && tokenId <= 61
           ? process.env.NEXT_PUBLIC_QRAuctionV2 as Address
           : process.env.NEXT_PUBLIC_QRAuctionV3 as Address
       : process.env.NEXT_PUBLIC_QRAuctionV3 as Address;
@@ -246,8 +246,8 @@ export function useAuctionEvents({
               getBidderIdentity(bidder).then(displayName => {
                 // Check if it's a legacy auction (1-22), v2 auction (23-35), or v3 auction (36+)
                 const isLegacyAuction = tokenId <= 22n;
-                const isV2Auction = tokenId >= 23n && tokenId <= 35n;
-                const isV3Auction = tokenId >= 36n;
+                const isV2Auction = tokenId >= 23n && tokenId <= 61n;
+                const isV3Auction = tokenId >= 62n;
                 const amount_num = isV3Auction ? Number(amount) / 1e6 : Number(amount) / 1e18;
                 
                 let bidText = '';

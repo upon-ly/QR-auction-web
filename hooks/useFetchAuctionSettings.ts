@@ -38,8 +38,8 @@ type AuctionSettingsResponse = [
 export function useFetchAuctionSettings(tokenId?: bigint) {
   const [settingDetail, setSettingdetails] = useState<Settings>();
   const isLegacyAuction = tokenId && tokenId <= 22n;
-  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
-  const isV3Auction = tokenId && tokenId >= 36n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 61n;
+  const isV3Auction = tokenId && tokenId >= 62n;
 
   const contractAddress = isLegacyAuction 
     ? process.env.NEXT_PUBLIC_QRAuction as Address 

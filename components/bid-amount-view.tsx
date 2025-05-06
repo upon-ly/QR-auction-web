@@ -184,10 +184,10 @@ export function BidForm({
     checkFrameContext();
   }, []);
 
-  // Check if it's a legacy auction (1-22), v2 auction (23-35), or v3 auction (36+)
+  // Check if it's a legacy auction (1-22), v2 auction (23-61), or v3 auction (62+)
   const isLegacyAuction = auctionDetail?.tokenId <= 22n;
-  const isV2Auction = auctionDetail?.tokenId >= 23n && auctionDetail?.tokenId <= 35n;
-  const isV3Auction = auctionDetail?.tokenId >= 36n;
+  const isV2Auction = auctionDetail?.tokenId >= 23n && auctionDetail?.tokenId <= 61n;
+  const isV3Auction = auctionDetail?.tokenId >= 62n;
   
   // Set token addresses based on auction type
   const qrTokenAddress = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF"; // QR token address
@@ -224,7 +224,7 @@ export function BidForm({
   
   // Calculate full token value based on auction type
   const fullMinimumBid = lastHighestBid === 0n 
-    ? (isV3Auction ? 1 : MIN_QR_BID) // For V3, we use 1 USDC flat minimum
+    ? (isV3Auction ? 11.11 : MIN_QR_BID) // For V3, we use 11.11 USDC flat minimum
     : isV3Auction 
       ? Number(formatUnits(lastHighestBid + increment, 6)) // USDC has 6 decimals
       : Number(formatEther(lastHighestBid + increment)); // ETH/QR have 18 decimals
@@ -749,9 +749,36 @@ export function BidForm({
       ? data.bid  // For USDC, use the actual value without multiplying
       : data.bid * 1_000_000; // For QR, multiply by 1M
     
-    // Skip balance checks for frame wallets - they're handled by the useWriteActions hook
+    // Check balance for frame wallets before allowing transaction
     if (hasFrameWallet) {
-      console.log("[BidForm] Frame wallet detected, skipping balance checks");
+      console.log("[BidForm] Frame wallet detected, checking balance before proceeding");
+      
+      // For Frame wallet users, check balance before proceeding
+      if (isV3Auction) {
+        try {
+          // Use our existing USDC balance fetch function
+          const freshBalanceResult = await refetchUsdcBalance();
+          const currentUsdcBalance = freshBalanceResult.data;
+          
+          // Format current balance for comparison
+          const formattedBalance = currentUsdcBalance 
+            ? Number(formatUnits(currentUsdcBalance.value, 6)) 
+            : 0;
+          
+          console.log(`[Frame] Current USDC balance: ${formattedBalance}, Required: ${fullBidAmount}`);
+          
+          if (formattedBalance < fullBidAmount) {
+            toast.error(`You don't have enough USDC tokens for this bid`);
+            setIsPlacingBid(false);
+            return;
+          }
+        } catch (error) {
+          console.error("[Frame] Error checking balance:", error);
+          toast.error("Unable to check wallet balance");
+          setIsPlacingBid(false);
+          return;
+        }
+      }
     } 
     // For smart wallet users, always fetch fresh balance first
     else if (hasSmartWallet && isV3Auction) {

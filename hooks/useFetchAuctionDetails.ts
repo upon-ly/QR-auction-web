@@ -42,8 +42,8 @@ const auctionCache = new Map<string, Auction>();
 export function useFetchAuctionDetails(tokenId?: bigint) {
   const [auctionDetail, setAuctiondetails] = useState<Auction>();
   const isLegacyAuction = tokenId && tokenId <= 22n;
-  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
-  const isV3Auction = tokenId && tokenId >= 36n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 61n;
+  const isV3Auction = tokenId && tokenId >= 62n;
   const lastFetchedTokenId = useRef<bigint | undefined>(undefined);
   
   // Determine the correct contract address and ABI based on tokenId

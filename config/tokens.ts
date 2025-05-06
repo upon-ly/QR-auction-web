@@ -22,4 +22,4 @@ export const USDC_TOKEN = {
 export const MIN_QR_BID = 1_000_000;
 
 // Minimum bid in USDC (5 USDC)
-export const MIN_USDC_BID = 5; 
+export const MIN_USDC_BID = 11.11;

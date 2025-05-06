@@ -116,9 +116,9 @@ export function AuctionDetails({
   // Check if this is the last auction in its contract
   const isLastInContract = isLegacyAuction ? id === 22 : isLatest;
 
-  const isAuction36 = id === 36;
-  const isV2Auction = id >= 23 && id <= 35;
-  const isV3Auction = id >= 36;
+  const isAuction61 = id === 61;
+  const isV2Auction = id >= 23 && id <= 61;
+  const isV3Auction = id >= 62;
 
   // Add state to track fetch errors
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -613,12 +613,12 @@ export function AuctionDetails({
               variant="outline" 
               size="icon"
               className={`rounded-full border-none transition-colors ${
-                (isLatest && !isAuction22 && !isAuction36)
+                (isLatest && !isAuction22 && !isAuction61)
                   ? `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 opacity-50 cursor-not-allowed ${isBaseColors ? "bg-primary/90 hover:bg-primary/90 hover:text-foreground" : ""}`
                   : `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`
               }`}
               onClick={onNext}
-              disabled={isLatest && !isAuction22 && !isAuction36}
+              disabled={isLatest && !isAuction22 && !isAuction61}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -710,7 +710,7 @@ export function AuctionDetails({
                           <div className="border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/30 rounded-md p-3 text-amber-800 dark:text-amber-200">
                             <p className="text-sm">
                               This auction is from a previous version (V{isLegacyAuction ? '1' : '2'}) and is read-only.
-                              Only the current V3 auctions (ID 36+) accept bids.
+                              Only the current V3 auctions (ID 62+) accept bids.
                             </p>
                           </div>
                         )}
@@ -759,7 +759,7 @@ export function AuctionDetails({
               ) : (
                 <>
                   {/* Don't show the "Visit Winning Site" button for auction #22 */}
-                  {isAuction22 || isAuction36 ? (
+                  {isAuction22 || isAuction61 ? (
                     <WinDetailsView
                       tokenId={BigInt(id)}
                       winner={auctionDetail.highestBidder}

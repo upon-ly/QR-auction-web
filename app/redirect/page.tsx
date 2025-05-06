@@ -2,7 +2,7 @@
 // app/redirect/page.tsx
 import { redirect } from "next/navigation";
 import { ethers } from "ethers";
-import QRAuctionV2 from "@/abi/QRAuctionV2.json"; // Adjust the path as needed
+import QRAuctionV3 from "@/abi/QRAuctionV3.json"; // Adjust the path as needed
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,12 +13,12 @@ export default async function RedirectPage() {
   );
 
   // The contract address from your environment variable
-  const contractAddress = process.env.NEXT_PUBLIC_QRAuctionV2 as string;
+  const contractAddress = process.env.NEXT_PUBLIC_QRAuctionV3 as string;
 
   // Instantiate the contract using its ABI and provider
   const contract = new ethers.Contract(
     contractAddress,
-    QRAuctionV2.abi,
+    QRAuctionV3.abi,
     provider
   );
 

@@ -38,8 +38,8 @@ function clientToProvider(client: Client<Transport, Chain>) {
 export function useFetchBids(tokenId?: bigint) {
   const client = useClient({ config: wagmiConfig });
   const isLegacyAuction = tokenId && tokenId <= 22n;
-  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
-  const isV3Auction = tokenId && tokenId >= 36n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 61n;
+  const isV3Auction = tokenId && tokenId >= 62n;
   
   // Get the correct contract address based on tokenId
   const getContractAddress = () => {

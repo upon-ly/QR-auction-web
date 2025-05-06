@@ -86,8 +86,8 @@ export default function AuctionPage() {
   // Check if this is auction #22 from v1 contract
   const isAuction22 = currentAuctionId === 22;
   
-  // Check if this is auction #56 from v2 contract
-  const isAuction56 = currentAuctionId === 56;
+  // Check if this is auction #61 from v2 contract
+  const isAuction61 = currentAuctionId === 61;
 
   // Check if we're in Farcaster frame context on mount
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function AuctionPage() {
   };
 
   const handleNext = () => {
-    if (!isLatestAuction || currentAuctionId === 22) {
+    if (!isLatestAuction || currentAuctionId === 22 || currentAuctionId === 61) {
       router.push(`/auction/${currentAuctionId + 1}`);
     }
   };
@@ -436,7 +436,7 @@ export default function AuctionPage() {
             </div>
 
             <div className="hidden md:flex flex-col gap-1">
-              {isLatestAuction && !isAuction22 && !isAuction56 && (
+              {isLatestAuction && !isAuction22 && !isAuction61 && (
                 <>
                   <h2 className="font-semibold text-xl md:text-2xl text-center">
                     <span className="">Buy USDC</span>
@@ -455,7 +455,7 @@ export default function AuctionPage() {
             </div>
           </div>
 
-          {(!isLatestAuction || isAuction22) && currentAuctionId > 0 && (
+          {(!isLatestAuction || isAuction22 || isAuction61) && currentAuctionId > 0 && (
             <WinnerAnnouncement auctionId={currentAuctionId} />
           )}
           

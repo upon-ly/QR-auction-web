@@ -48,7 +48,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
 
   // Determine which auction version we're dealing with
   const isLegacyAuction = tokenId <= 22n;
-  const isV2Auction = tokenId >= 23n && tokenId <= 35n;
+  const isV2Auction = tokenId >= 23n && tokenId <= 61n;
 
   // For V1 and V2 auctions, provide disabled versions of the functions
   if (isLegacyAuction || isV2Auction) {

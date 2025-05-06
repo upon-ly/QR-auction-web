@@ -37,8 +37,8 @@ function clientToProvider(client: Client<Transport, Chain>) {
 
 export function useFetchSettledAuc(tokenId?: bigint) {
   const isLegacyAuction = tokenId && tokenId <= 22n;
-  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
-  const isV3Auction = tokenId && tokenId >= 36n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 61n;
+  const isV3Auction = tokenId && tokenId >= 62n;
   const client = useClient({
     config: wagmiConfig,
   });
