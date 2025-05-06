@@ -91,6 +91,12 @@ export function CustomWallet() {
   const [copied, setCopied] = useState(false); // Track whether the address was just copied
   const [frameWalletAddress, setFrameWalletAddress] = useState<string | null>(null); // Track wallet address in frame context
   
+  // Add state for funding
+  const [showFundForm, setShowFundForm] = useState(false);
+  const [fundAmount, setFundAmount] = useState("");
+  const [fundAsset, setFundAsset] = useState<"native-currency" | "USDC">("USDC");
+  const [isFunding, setIsFunding] = useState(false);
+  
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
 
@@ -536,12 +542,41 @@ export function CustomWallet() {
   };
 
   const handleAddFunds = () => {
-      const targetAddress = finalSmartWalletAddress ?? eoaAddress;
-      if (!targetAddress) {
-          toast.error("No wallet address found to fund.");
-          return;
-      }
-      fundWallet(targetAddress);
+    const targetAddress = finalSmartWalletAddress ?? eoaAddress;
+    if (!targetAddress) {
+        toast.error("No wallet address found to fund.");
+        return;
+    }
+    // Instead of directly calling fundWallet, show the funding form
+    setShowFundForm(true);
+  };
+
+  const handleConfirmFunding = () => {
+    const targetAddress = finalSmartWalletAddress ?? eoaAddress;
+    if (!targetAddress) {
+        toast.error("No wallet address found to fund.");
+        return;
+    }
+    
+    // Only validate that the amount is a valid number
+    const amount = parseFloat(fundAmount);
+    if (isNaN(amount)) {
+        toast.error("Please enter a valid amount.");
+        return;
+    }
+    
+    setIsFunding(true);
+    
+    // Call fundWallet with the user-specified amount and asset
+    fundWallet(targetAddress, {
+      chain: base,
+      amount: fundAmount,
+      asset: fundAsset
+    });
+    
+    // Close the form and reset state
+    setShowFundForm(false);
+    setIsFunding(false);
   };
 
   const handleConfirmSend = async () => {
@@ -1150,6 +1185,55 @@ export function CustomWallet() {
                                 {isSending ? "Sending..." : `Send ${selectedToken}`}
                             </Button>
                             <Button variant="outline" onClick={() => setShowSendForm(false)} className="flex-1 h-8 sm:h-10 text-xs sm:text-sm">
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                ) : showFundForm ? (
+                    <div className="space-y-2 pt-1">
+                        <DialogTitle className="text-sm sm:text-base">Add Funds</DialogTitle>
+                        <div className="flex gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="w-[70px] sm:w-[80px] flex items-center justify-between text-xs sm:text-sm h-8 sm:h-10">
+                                        <Image 
+                                            src={fundAsset === 'native-currency' ? 'https://www.cryptologos.cc/logos/ethereum-eth-logo.png?v=040' : 'https://www.cryptologos.cc/logos/usd-coin-usdc-logo.png?v=040'}
+                                            alt={fundAsset === 'native-currency' ? 'ETH' : 'USDC'}
+                                            width={14} height={14}
+                                            className={clsx('sm:w-4 sm:h-4', fundAsset === 'native-currency' && 'rounded-full')}
+                                        />
+                                        <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50"/>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => setFundAsset('native-currency')}>
+                                        <Image src="https://www.cryptologos.cc/logos/ethereum-eth-logo.png?v=040" alt="ETH" width={14} height={14} className="mr-2 rounded-full sm:w-4 sm:h-4"/> ETH
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setFundAsset('USDC')}>
+                                        <Image src="https://www.cryptologos.cc/logos/usd-coin-usdc-logo.png?v=040" alt="USDC" width={14} height={14} className="mr-2 sm:w-4 sm:h-4"/> USDC
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Input 
+                                type="number" 
+                                placeholder="Enter amount" 
+                                value={fundAmount}
+                                onChange={(e) => setFundAmount(e.target.value)}
+                                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                            />
+                        </div>
+                        <div className="pt-2 text-xs text-center text-muted-foreground">
+                            Funds will be added to your wallet on Base network.
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                            <Button 
+                                onClick={handleConfirmFunding} 
+                                disabled={isFunding || fundAmount === "" || isNaN(parseFloat(fundAmount))}
+                                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                            >
+                                {isFunding ? "Processing..." : "Confirm"}
+                            </Button>
+                            <Button variant="outline" onClick={() => setShowFundForm(false)} className="flex-1 h-8 sm:h-10 text-xs sm:text-sm">
                                 Cancel
                             </Button>
                         </div>
