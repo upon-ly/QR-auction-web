@@ -378,7 +378,7 @@ export default function AuctionPage() {
               )}
               
               {/* Desktop Winner Display - hidden on mobile, displayed on desktop */}
-              {isLatestAuction && ogImage && !isAuction22 && (
+              {isLatestAuction && ogImage && !isAuction22 && !isAuction61 && (
                 <div className="hidden md:flex flex-col justify-center items-center gap-1 w-full max-w-[376px] mx-auto">
                   <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
                     <span className="hidden md:inline">🏆</span>
