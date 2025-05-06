@@ -266,7 +266,7 @@ export default function AuctionPage() {
         57: "https://i.postimg.cc/NfXMQDtR/55winner.jpg",
         58: "https://i.postimg.cc/GhFSqpM7/57winner.jpg",
         60: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW1rY216bmtidnAwcDgzcHYwdTNmYTB2dDhnM3BxbW43cDZ5bmV3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZmCWjB3utyyAN61pAj/giphy.gif",
-        61: "https://i.ibb.co/JWWcQyJ4/60winner.jpg"
+        62: "https://i.ibb.co/JWWcQyJ4/60winner.jpg"
     }),
     []
   );
