@@ -678,7 +678,7 @@ export function BidForm({
       
       fetchPreviousBid();
     }
-  }, [auctionDetail?.tokenId, activeAddress, fetchHistoricalAuctions, setValue, getValues]);
+  }, [auctionDetail?.tokenId, activeAddress]);
 
   // Clear URL field when wallet is disconnected
   useEffect(() => {
