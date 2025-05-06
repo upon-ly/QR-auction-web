@@ -2,7 +2,9 @@ import {
   usePrivy,
   useLogin,
   useLogout,
-  useFundWallet
+  useFundWallet,
+  useWallets,
+  useConnectWallet
 } from "@privy-io/react-auth";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -101,6 +103,7 @@ export function CustomWallet() {
   const dragControls = useDragControls();
 
   const { ready, authenticated, user } = usePrivy();
+  const { wallets } = useWallets();
   const { address: eoaAddress, chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const { disconnect: wagmiDisconnect } = useDisconnect();
@@ -118,6 +121,20 @@ export function CustomWallet() {
       console.error("Login error:", error);
       toast.error("Login failed. Please try again.");
       setIsConnecting(false); // Reset connecting state on error
+    }
+  });
+  
+  // Add connectWallet hook
+  const { connectWallet } = useConnectWallet({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onSuccess: ({ wallet }: { wallet: any }) => {
+      console.log("Wallet connected successfully:", wallet);
+      // Note: don't reset connecting state yet
+    },
+    onError: (error: Error) => {
+      console.error("Wallet connection error:", error);
+      toast.error("Failed to connect wallet. Please try again.");
+      setIsConnecting(false);
     }
   });
 
@@ -710,20 +727,63 @@ export function CustomWallet() {
     // First close our dialog to avoid showing multiple modals
     setIsOpen(false);
     
-    // Set connecting state and trigger Privy login
+    // Set connecting state
     setIsConnecting(true);
     
-    // Small timeout to ensure our dialog is fully closed before Privy opens
-    setTimeout(() => {
-      login();
+    // Check if we might be using Rainbow wallet
+    const isRainbowWallet = typeof window !== 'undefined' && 
+      (window.localStorage.getItem('LAST_ACTIVE_CONNECTOR') === 'rainbow' ||
+       navigator.userAgent.toLowerCase().includes('rainbow'));
+    
+    console.log("Starting wallet connection flow", { isRainbowWallet });
+    
+    // For Rainbow wallet, use the two-step authentication process to fix issues
+    if (isRainbowWallet) {
+      console.log("Using two-step authentication for Rainbow wallet");
       
-      // Set a timeout to clean up if login modal gets stuck
+      // Step 1: Connect the wallet first
+      connectWallet().then(() => {
+        console.log("Rainbow wallet connected, waiting to authenticate...");
+        
+        // Wait a moment for the wallet to be properly connected
+        setTimeout(() => {
+          // Check if we have a wallet available
+          if (wallets && wallets.length > 0) {
+            console.log("Wallet available, triggering authentication:", wallets[0]);
+            
+            // Step 2: Authenticate the connected wallet
+            wallets[0].loginOrLink().then(() => {
+              console.log("Rainbow wallet authenticated successfully");
+              setIsConnecting(false);
+            }).catch((error: Error) => {
+              console.error("Rainbow wallet authentication error:", error);
+              toast.error("Authentication failed. Please try again.");
+              setIsConnecting(false);
+            });
+          } else {
+            console.error("Wallet connected but not found in wallet list");
+            toast.error("Wallet connection issue. Please try again.");
+            setIsConnecting(false);
+          }
+        }, 2000); // 1 second delay before trying to authenticate
+      }).catch((error: Error) => {
+        console.error("Rainbow wallet connection error:", error);
+        toast.error("Failed to connect wallet. Please try again.");
+        setIsConnecting(false);
+      });
+    } else {
+      // For other wallets, use the standard login flow
       setTimeout(() => {
-        if (isConnecting) {
-          setIsConnecting(false);
-        }
-      }, 5000); // 5 second safety timeout
-    }, 100);
+        login();
+        
+        // Set a timeout to clean up if login modal gets stuck
+        setTimeout(() => {
+          if (isConnecting) {
+            setIsConnecting(false);
+          }
+        }, 5000); // 5 second safety timeout
+      }, 100);
+    }
     
     return false;
   };
