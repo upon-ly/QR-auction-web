@@ -57,7 +57,7 @@ export default function AboutPage() {
           
           <div>
             <h2 className="text-xl font-bold mb-2">How do I bid on the auction?</h2>
-            <p>Buy $QR on base and enter a bid amount and url in the bidding widget on <Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link> to place your bid.</p>
+            <p>Go to <Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link>, sign up with your email address, and pay with Apple Pay or credit card in a few clicks. If you’re into crypto, you can optionally connect your wallet to pay with USDC.</p>
           </div>
           
           <div>
@@ -68,7 +68,7 @@ export default function AboutPage() {
           
           <div>
             <h2 className="text-xl font-bold mb-2">How is the coin connected to the project?</h2>
-            <p>Bidding on our auctions requires $QR, which creates demand for the coin. This auction-driven demand for the coin should theoretically allow people who believe in the project to bet on its success by buying and holding $QR. If and as the project becomes more popular over time, the price of the coin could increase accordingly. This relationship between the project&apos;s success and the QR coin&apos;s price should incentivize $QR holders from around the world to help promote the project.</p>
+            <p>We have used and plan to continue to use a portion of the revenues from our daily auctions to buy $QR. This auction-driven demand for the coin should theoretically allow people who believe in the project to bet on its success by buying and holding $QR. If and as the project becomes more popular over time, the price of the coin could increase accordingly. This relationship between the project&apos;s success and the QR coin&apos;s price should incentivize $QR holders from around the world to help promote the project.</p>
           </div>
           
           <div>
