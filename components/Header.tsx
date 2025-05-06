@@ -2,22 +2,41 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CustomWallet } from '@/components/CustomWallet';
 import { ConnectionIndicator } from '@/components/ConnectionIndicator';
 import { ThemeDialog } from '@/components/ThemeDialog';
 import { QRContextMenu } from '@/components/QRContextMenu';
 import { useBaseColors } from '@/hooks/useBaseColors';
+import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions';
 
 export function Header() {
   const router = useRouter();
   const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [latestV3Id, setLatestV3Id] = useState(0);
+  
+  // Call useFetchAuctions without a tokenId parameter to get auctions from all contracts
+  const { auctions } = useFetchAuctions();
+  
+  // Fetch the latest V3 auction ID when auctions data updates
+  useEffect(() => {
+    if (auctions && auctions.length > 0) {
+      const v3Id = getLatestV3AuctionId(auctions);
+      setLatestV3Id(v3Id);
+    }
+  }, [auctions]);
 
   const handleLogoClick = () => {
-    // Navigate to the root (which usually shows the latest auction or redirects)
-    router.push('/'); 
+    // Use the stored latestV3Id state
+    if (latestV3Id > 0) {
+      // Navigate to the latest V3 auction
+      router.push(`/auction/${latestV3Id}`);
+    } else {
+      // Fallback to the root path if no V3 auctions found
+      router.push('/'); 
+    }
   };
 
   return (

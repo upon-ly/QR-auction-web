@@ -10,7 +10,7 @@ import { QRPage } from "@/components/QRPage";
 import { AuctionDetails } from "@/components/auction-details";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Check, ExternalLink } from "lucide-react";
-import { useFetchAuctions } from "@/hooks/useFetchAuctions";
+import { useFetchAuctions, getLatestV3AuctionId } from "@/hooks/useFetchAuctions";
 import { XLogo } from "@/components/XLogo";
 import { DexscreenerLogo } from "@/components/DexScannerLogo";
 import { UniswapLogo } from "@/components/UniswapLogo";
@@ -76,6 +76,7 @@ export default function AuctionPage() {
   const [copied, setCopied] = useState(false);
   const [isLatestAuction, setIsLatestAuction] = useState(false);
   const [latestAuctionId, setLatestAuctionId] = useState(0);
+  const [latestV3AuctionId, setLatestV3AuctionId] = useState(0);
   const isFrame = useRef(false);
 
   const isBaseColors = useBaseColors();
@@ -130,7 +131,14 @@ export default function AuctionPage() {
       const lastAuction = auctions[auctions.length - 1];
       const latestId = Number(lastAuction.tokenId);
       setLatestAuctionId(latestId);
+      
+      // Get the latest V3 auction ID
+      const latestV3Id = getLatestV3AuctionId(auctions);
+      setLatestV3AuctionId(latestV3Id);
+      
+      // Check if current auction is the latest (of any version)
       setIsLatestAuction(currentAuctionId === latestId);
+      
       setIsLoading(false);
       
       // Update the cached latest auction ID if this is indeed the latest
@@ -211,7 +219,11 @@ export default function AuctionPage() {
   };
 
   const handleLatest = () => {
-    if (latestAuctionId > 0) {
+    if (latestV3AuctionId > 0) {
+      // Always navigate to the latest V3 auction (62+)
+      router.push(`/auction/${latestV3AuctionId}`);
+    } else if (latestAuctionId > 0) {
+      // Fallback to latest auction of any version if no V3 auctions exist
       router.push(`/auction/${latestAuctionId}`);
     } else {
       console.warn("Latest auction ID not available yet.");
@@ -239,8 +251,17 @@ export default function AuctionPage() {
         // Update the cached latest auction ID when a new auction is created
         safeLocalStorage.setItem(LATEST_AUCTION_KEY, newLatestId.toString());
         
+        // Check if this is a V3 auction (ID >= 62)
+        const isV3Auction = newLatestId >= 62;
+        
         if (isLatestAuction || currentAuctionId === newLatestId - 1) {
-          router.push(`/auction/${newLatestId}`);
+          // Only redirect to new auction if it's a V3 auction or we don't have V3 auctions yet
+          if (isV3Auction || latestV3AuctionId === 0) {
+            router.push(`/auction/${newLatestId}`);
+          } else {
+            // If not a V3 auction but we have V3 auctions, stay on latest V3
+            router.push(`/auction/${latestV3AuctionId}`);
+          }
         }
         fetchOgImage();
       });
@@ -521,7 +542,7 @@ export default function AuctionPage() {
       </div>
 
       {/* Love Carousel - add this before the footer */}
-      {isLatestAuction && !isAuction61 && (
+      {isLatestAuction && (
         <div className="md:mt-0">
           <EndorsementsCarousel />
         </div>

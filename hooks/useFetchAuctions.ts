@@ -38,6 +38,23 @@ function clientToProvider(client: any) {
   return new JsonRpcProvider(transport.url, network);
 }
 
+// Helper function to get the latest V3 auction ID
+export function getLatestV3AuctionId(auctions: AuctionType[]): number {
+  if (!auctions || auctions.length === 0) return 0;
+  
+  // Filter for only V3 auctions (ID >= 62)
+  const v3Auctions = auctions.filter(auction => Number(auction.tokenId) >= 62);
+  
+  // If no V3 auctions found, return 0
+  if (v3Auctions.length === 0) return 0;
+  
+  // Get the maximum token ID from V3 auctions
+  const latestV3Auction = v3Auctions.reduce((max, auction) => 
+    Number(auction.tokenId) > Number(max.tokenId) ? auction : max, v3Auctions[0]);
+  
+  return Number(latestV3Auction.tokenId);
+}
+
 export function useFetchAuctions(tokenId?: bigint) {
   const initialState: AuctionState = { auctions: [], historicalLoaded: false };
   const [state, dispatch] = useReducer(auctionReducer, initialState);
