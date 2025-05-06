@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,6 +24,7 @@ const Badge = ({ variant, className, children }: { variant?: string, className?:
 import { ExternalLink, Dices } from "lucide-react";
 import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
 import { TestimonialsAdmin } from "./testimonials";
+import { CustomWallet } from "@/components/CustomWallet";
 
 // Hook for Farcaster metrics
 function useFarcasterMetrics() {
@@ -703,7 +703,23 @@ export default function AdminDashboard() {
             <Link href="/" className="text-2xl font-bold">
               $QR
             </Link>
-            <ConnectButton />
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="px-3 py-1 font-normal">
+                {ethPriceLoading ? (
+                  <Skeleton className="h-4 w-20" />
+                ) : (
+                  `ETH: $${formatNumber(ethPrice?.ethereum?.usd || 0)}`
+                )}
+              </Badge>
+              <Badge variant="outline" className="px-3 py-1 font-normal">
+                {qrPriceLoading ? (
+                  <Skeleton className="h-4 w-20" />
+                ) : (
+                  `$QR: $${formatNumber(qrPrice || 0, 6)}`
+                )}
+              </Badge>
+              <CustomWallet />
+            </div>
           </div>
           <div className="bg-amber-100 text-amber-800 p-6 rounded-lg">
             <h2 className="text-xl font-semibold mb-2">Connect Your Wallet</h2>
@@ -722,7 +738,23 @@ export default function AdminDashboard() {
             <Link href="/" className="text-2xl font-bold">
               $QR
             </Link>
-            <ConnectButton />
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="px-3 py-1 font-normal">
+                {ethPriceLoading ? (
+                  <Skeleton className="h-4 w-20" />
+                ) : (
+                  `ETH: $${formatNumber(ethPrice?.ethereum?.usd || 0)}`
+                )}
+              </Badge>
+              <Badge variant="outline" className="px-3 py-1 font-normal">
+                {qrPriceLoading ? (
+                  <Skeleton className="h-4 w-20" />
+                ) : (
+                  `$QR: $${formatNumber(qrPrice || 0, 6)}`
+                )}
+              </Badge>
+              <CustomWallet />
+            </div>
           </div>
           <div className="bg-red-100 text-red-800 p-6 rounded-lg">
             <h2 className="text-xl font-semibold mb-2">⚠️ Access Denied</h2>
@@ -758,7 +790,7 @@ export default function AdminDashboard() {
                 `$QR: $${formatNumber(qrPrice || 0, 6)}`
               )}
             </Badge>
-            <ConnectButton />
+            <CustomWallet />
           </div>
         </div>
 

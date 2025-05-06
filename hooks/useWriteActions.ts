@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import QRAuctionV2 from "../abi/QRAuctionV2.json";
-import { Address } from "viem";
+import QRAuctionV3 from "../abi/QRAuctionV3.json";
+import { Address, encodeFunctionData } from "viem";
 import { useWriteContract } from "wagmi";
-import { QR_TOKEN_ADDRESS } from "@/config/tokens";
+import { USDC_TOKEN_ADDRESS } from "@/config/tokens";
+import { frameSdk } from "@/lib/frame-sdk";
+import { useEffect, useRef } from "react";
 
 // ERC20 ABI for token approval
 const erc20ABI = [
@@ -24,22 +26,200 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
   const { writeContractAsync: bidAuction } = useWriteContract();
   const { writeContractAsync: settleAndCreate } = useWriteContract();
   const { writeContractAsync: approveToken } = useWriteContract();
+  
+  // Reference to track if we're in frame context
+  const isFrame = useRef(false);
+  
+  // Check if we're in frame context when the component mounts
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrame.current = !!context?.user;
+        console.log("Frame context check:", isFrame.current ? "Running in frame" : "Not in frame");
+      } catch (frameError) {
+        console.log("Not in a Farcaster frame context:", frameError);
+        isFrame.current = false;
+      }
+    }
+    
+    checkFrameContext();
+  }, []);
 
+  // Determine which auction version we're dealing with
+  const isLegacyAuction = tokenId <= 22n;
+  const isV2Auction = tokenId >= 23n && tokenId <= 35n;
+
+  // For V1 and V2 auctions, provide disabled versions of the functions
+  if (isLegacyAuction || isV2Auction) {
+    const readOnlyMessage = `Auction #${tokenId} is read-only. Only the latest V3 auctions can be interacted with.`;
+    
+    return {
+      bidAmount: async () => {
+        throw new Error(readOnlyMessage);
+      },
+      settleTxn: async () => {
+        throw new Error(readOnlyMessage);
+      }
+    };
+  }
+  
+  // Only V3 auctions can be interacted with
   const bidAmount = async ({
     value,
     urlString,
+    smartWalletClient,
+    onPhaseChange
   }: {
     value: bigint;
     urlString: string;
+    smartWalletClient?: any;
+    onPhaseChange?: (phase: 'approving' | 'confirming' | 'executing') => void;
   }) => {
     try {
-      // First approve QR tokens to be spent by the auction contract
-      console.log("Approving QR tokens:", value.toString());
+      console.log(`Bidding on V3 auction #${tokenId.toString()}`);
+      console.log(`Using USDC token, address: ${USDC_TOKEN_ADDRESS}`);
+      
+      // Check if we're in a Farcaster frame context
+      console.log("Bidding environment:", { isFrame: isFrame.current });
+      
+      // Check if we have a smart wallet client
+      if (smartWalletClient) {
+        console.log("Using smart wallet for transaction");
+        
+        // First approve USDC tokens to be spent by the auction contract using the smart wallet
+        console.log("Approving USDC tokens with smart wallet:", value.toString());
+        
+        // Use smart wallet for approval
+        const approveTxData = {
+          address: USDC_TOKEN_ADDRESS as Address,
+          abi: erc20ABI,
+          functionName: "approve",
+          args: [process.env.NEXT_PUBLIC_QRAuctionV3 as Address, value],
+        };
+        
+        const approveTx = await smartWalletClient.writeContract(approveTxData);
+        console.log("Smart wallet approval tx:", approveTx);
+        
+        // Wait for approval to complete
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        onPhaseChange?.('executing');
+        
+        // Use the 3-parameter version of createBid instead of the backward compatibility one
+        console.log("Placing bid with smart wallet and URL:", urlString);
+        
+        const bidTxData = {
+          address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+          abi: QRAuctionV3.abi,
+          functionName: "createBid",
+          args: [tokenId, urlString, ""], // Add empty string as name parameter
+        };
+        
+        const tx = await smartWalletClient.writeContract(bidTxData);
+        return tx;
+      } else if (isFrame.current && await frameSdk.isWalletConnected()) {
+        // Use Farcaster SDK for bidding in frames
+        try {
+          console.log("Using Farcaster SDK for bidding");
+          onPhaseChange?.('approving');
+          
+          // Get connected accounts
+          const accounts = await frameSdk.connectWallet();
+          
+          if (accounts.length === 0) {
+            throw new Error("No Farcaster wallet connected");
+          }
+          
+          const fromAddress = accounts[0];
+          console.log("Using Farcaster wallet address:", fromAddress);
+          
+          // First need to approve USDC spending
+          console.log("Approving USDC tokens with Farcaster wallet:", value.toString());
+          
+          // Properly encode approval call data
+          const approveData = encodeFunctionData({
+            abi: erc20ABI,
+            functionName: "approve",
+            args: [process.env.NEXT_PUBLIC_QRAuctionV3 as Address, value]
+          });
+          
+          // Create approval transaction parameters
+          const approveTxParams = {
+            from: fromAddress as `0x${string}`,
+            to: USDC_TOKEN_ADDRESS as `0x${string}`,
+            data: approveData,
+          };
+          
+          // Get direct access to SDK methods using our wrapper
+          // Get the ethProvider from our wrapper
+          if (!frameSdk.isWalletConnected) {
+            throw new Error("Farcaster SDK wallet not available");
+          }
+          
+          // Use native JS SDK methods if needed
+          const { wallet } = await import("@farcaster/frame-sdk").then(module => module.default);
+          
+          if (!wallet?.ethProvider) {
+            throw new Error("Farcaster ethProvider not available");
+          }
+          
+          // Send approval transaction
+          const approveTxHash = await wallet.ethProvider.request({
+            method: "eth_sendTransaction",
+            params: [approveTxParams],
+          });
+          
+          console.log("Farcaster USDC approval transaction sent:", approveTxHash);
+          
+          // Wait for approval confirmation
+          onPhaseChange?.('confirming');
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Now create the bid transaction
+          onPhaseChange?.('executing');
+          
+          // Encode bid function call data (tokenId, urlString, empty name)
+          const bidData = encodeFunctionData({
+            abi: QRAuctionV3.abi,
+            functionName: "createBid",
+            args: [tokenId, urlString, ""]
+          });
+          
+          // Create bid transaction parameters
+          const bidTxParams = {
+            from: fromAddress as `0x${string}`,
+            to: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+            data: bidData,
+          };
+          
+          // Send bid transaction
+          const bidTxHash = await wallet.ethProvider.request({
+            method: "eth_sendTransaction",
+            params: [bidTxParams],
+          });
+          
+          console.log("Farcaster bid transaction sent:", bidTxHash);
+          return bidTxHash;
+        } catch (farcasterError) {
+          console.error("Farcaster bidding error:", farcasterError);
+          console.log("Falling back to regular bidding");
+          // Fall through to regular EOA path
+        }
+      }
+      
+      // Use regular EOA wallet - this path still needs approval
+      console.log("Using EOA wallet for transaction");
+      
+      // Notify that we're in approval phase
+      onPhaseChange?.('approving');
+      
+      // First approve USDC tokens to be spent by the auction contract
+      console.log("Approving USDC tokens with EOA:", value.toString());
       const approveTx = await approveToken({
-        address: QR_TOKEN_ADDRESS as Address,
+        address: USDC_TOKEN_ADDRESS as Address,
         abi: erc20ABI,
         functionName: "approve",
-        args: [process.env.NEXT_PUBLIC_QRAuctionV2 as Address, value],
+        args: [process.env.NEXT_PUBLIC_QRAuctionV3 as Address, value],
       });
       
       console.log("Approval tx:", approveTx);
@@ -47,15 +227,20 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       // Wait for approval to complete
       await new Promise(resolve => setTimeout(resolve, 5000));
       
-      // Then call createBid on V2 contract - contract will automatically use the approved amount
-      console.log("Placing bid with URL:", urlString);
+      // Notify that we're in confirmation phase
+      onPhaseChange?.('confirming');
+      
+      // Use the 3-parameter version of createBid instead of the backward compatibility one
+      console.log("Placing bid with EOA and URL:", urlString);
       const tx = await bidAuction({
-        address: process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
-        abi: QRAuctionV2.abi,
+        address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+        abi: QRAuctionV3.abi,
         functionName: "createBid",
-        args: [tokenId, urlString],
+        args: [tokenId, urlString, ""], // Add empty string as name parameter
       });
 
+      // After submitting the transaction, move to executing phase
+      onPhaseChange?.('executing');
       return tx;
     } catch (error: any) {
       console.error("Bid error:", error);
@@ -63,17 +248,105 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
     }
   };
 
-  const settleTxn = async () => {
+  const settleTxn = async ({ smartWalletClient }: { smartWalletClient?: any } = {}) => {
     try {
-      const tx = await settleAndCreate({
-        address: process.env.NEXT_PUBLIC_QRAuctionV2 as Address,
-        abi: QRAuctionV2.abi,
-        functionName: "settleCurrentAndCreateNewAuction",
-        args: [],
-      });
-
-      return tx;
+      console.log(`Settling V3 auction #${tokenId.toString()}`);
+      
+      console.log("navigator.userAgent", navigator.userAgent);
+      // Check if we're in a frame context
+      console.log("Settlement environment:", { isFrame: isFrame.current });
+      
+      if (smartWalletClient) {
+        console.log("Using smart wallet for settlement");
+        
+        const settleTxData = {
+          address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+          abi: QRAuctionV3.abi,
+          functionName: "settleCurrentAndCreateNewAuction",
+          args: [],
+        };
+        
+        const tx = await smartWalletClient.writeContract(settleTxData);
+        return tx;
+      } else if (isFrame.current && await frameSdk.isWalletConnected()) {
+        // Use Farcaster SDK for settlement in frames
+        try {
+          console.log("Using Farcaster SDK for settlement");
+          
+          // Get connected accounts
+          const accounts = await frameSdk.connectWallet();
+          
+          if (accounts.length === 0) {
+            throw new Error("No Farcaster wallet connected");
+          }
+          
+          const fromAddress = accounts[0];
+          console.log("Using Farcaster wallet address:", fromAddress);
+          
+          // Get direct access to SDK methods using our wrapper
+          // Get the ethProvider from our wrapper
+          if (!frameSdk.isWalletConnected) {
+            throw new Error("Farcaster SDK wallet not available");
+          }
+          
+          // Use native JS SDK methods if needed
+          const { wallet } = await import("@farcaster/frame-sdk").then(module => module.default);
+          
+          if (!wallet?.ethProvider) {
+            throw new Error("Farcaster ethProvider not available");
+          }
+          
+          // Encode settlement function call data (no parameters needed)
+          const settleData = encodeFunctionData({
+            abi: QRAuctionV3.abi,
+            functionName: "settleCurrentAndCreateNewAuction",
+            args: []
+          });
+          
+          // Create transaction parameters
+          const txParams = {
+            from: fromAddress as `0x${string}`,
+            to: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+            data: settleData,
+          };
+          
+          // Send transaction
+          const txHash = await wallet.ethProvider.request({
+            method: "eth_sendTransaction",
+            params: [txParams],
+          });
+          
+          console.log("Farcaster settlement transaction sent:", txHash);
+          return txHash;
+        } catch (farcasterError) {
+          console.error("Farcaster settlement error:", farcasterError);
+          console.log("Falling back to regular settlement");
+          // Fall through to regular EOA path
+        }
+      }
+      
+      // If we're here, either we're not in Warpcast or the Warpcast settlement failed
+      console.log("Using regular EOA wallet for settlement via useWriteContract");
+      console.log("Contract address:", process.env.NEXT_PUBLIC_QRAuctionV3);
+      
+      try {
+        const tx = await settleAndCreate({
+          address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
+          abi: QRAuctionV3.abi,
+          functionName: "settleCurrentAndCreateNewAuction",
+          args: [],
+        });
+        
+        console.log("Transaction successful:", tx);
+        return tx;
+      } catch (error: any) {
+        console.error("Settlement transaction error:", error);
+        console.error("Error message:", error.message);
+        console.error("Error details:", JSON.stringify(error, null, 2));
+        throw error;
+      }
     } catch (error: any) {
+      console.error("Settlement error:", error);
       throw error;
     }
   };

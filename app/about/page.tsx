@@ -1,9 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { QRContextMenu } from "@/components/QRContextMenu";
-import { useRouter } from "next/navigation";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { XLogo } from "@/components/XLogo";
 import { DexscreenerLogo } from "@/components/DexScannerLogo";
@@ -12,21 +9,10 @@ import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { ConnectionIndicator } from "@/components/ConnectionIndicator";
-import { ThemeDialog } from "@/components/ThemeDialog";
-import { useAccount } from 'wagmi';
 
 export default function AboutPage() {
-  const router = useRouter();
   const isBaseColors = useBaseColors();
   const [copied, setCopied] = useState(false);
-  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
-  const { isConnected } = useAccount();
-  
-  const handleLogoClick = () => {
-    router.push('/');
-  };
 
   const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
   const copyToClipboard = (e: React.MouseEvent) => {
@@ -39,85 +25,7 @@ export default function AboutPage() {
   };
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
-        <QRContextMenu className="inline-block" isHeaderLogo>
-          <h1
-            onClick={handleLogoClick}
-            className="text-2xl font-bold cursor-pointer"
-          >
-            $QR
-          </h1>
-        </QRContextMenu>
-        <div className="flex items-center gap-1 md:gap-3">
-          <Button
-            variant="outline"
-            className={isConnected ? "h-10 px-3 text-sm font-medium" : "h-10 w-10 md:w-auto md:px-3 md:text-sm md:font-medium"}
-          >
-            <span className="md:hidden text-lg">{isConnected ? "What is this?" : "?"}</span>
-            <span className="hidden md:inline">What is this?</span>
-          </Button>
-          
-          <Link href="/winners">
-            <Button
-              variant="outline"
-              size="icon"
-              className={
-                isBaseColors
-                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                  : "h-10 w-10"
-              }
-            >
-              <div className="h-5 w-5 flex items-center justify-center">
-                🏆
-              </div>
-            </Button>
-          </Link>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                : "h-10 w-10"
-            }
-            onClick={() => setThemeDialogOpen(true)}
-          >
-            <div className="h-5 w-5 flex items-center justify-center">
-              {isBaseColors ? (
-                <img 
-                  src="/basecolors2.jpeg" 
-                  alt="Theme toggle - base colors"
-                  className="h-5 w-5 object-cover"
-                />
-              ) : (
-                <img 
-                  src="/basecolors.jpeg" 
-                  alt="Theme toggle - light/dark" 
-                  className="h-5 w-5 object-cover border"
-                />
-              )}
-            </div>
-          </Button>
-          
-          <div className="relative">
-            <ConnectButton
-              accountStatus={{
-                smallScreen: "avatar",
-                largeScreen: "full",
-              }}
-              chainStatus="none"
-              showBalance={false}
-              label="Connect Wallet"
-            />
-            <div className="absolute right-0 top-full mt-2 pr-1">
-              <ConnectionIndicator />
-            </div>
-          </div>
-        </div>
-      </nav>
-
+    <main className="min-h-screen p-4 md:px-8 md:pb-8">
       <div className="max-w-3xl mx-auto">
         <div className="space-y-6">
           <div>
@@ -241,8 +149,6 @@ export default function AboutPage() {
           </button>
         </div>
       </footer>
-      
-      <ThemeDialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen} />
     </main>
   );
 } 

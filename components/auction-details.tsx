@@ -3,12 +3,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 import { useCountdown } from "@/hooks/useCountdown";
 import { BidHistoryDialog } from "./bid-history-dialog";
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 import { HowItWorksDialog } from "./HowItWorksDialog";
 
 import { useFetchSettledAuc } from "@/hooks/useFetchSettledAuc";
@@ -17,7 +17,7 @@ import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { useWriteActions } from "@/hooks/useWriteActions";
 import { waitForTransactionReceipt } from "@wagmi/core";
 import { toast } from "sonner";
-import { config } from "@/config/config";
+import { wagmiConfig } from "@/config/wagmiConfig";
 import { BidForm } from "@/components/bid-amount-view";
 import { WinDetailsView } from "@/components/WinDetailsView";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,9 @@ import { useBaseColors } from "@/hooks/useBaseColors";
 import { TypingIndicator } from "./TypingIndicator";
 import { useWhitelistStatus } from "@/hooks/useWhitelistStatus";
 import { Address } from "viem";
+import { frameSdk } from "@/lib/frame-sdk";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../types/database";
 
 interface AuctionDetailsProps {
   id: number;
@@ -56,6 +59,12 @@ type NameInfo = {
   pfpUrl: string | null;
 };
 
+// Initialize Supabase client once, outside the component
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export function AuctionDetails({
   id,
   onPrevious,
@@ -66,6 +75,8 @@ export function AuctionDetails({
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [settledAuctions, setSettledAcustions] = useState<AuctionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
+  const [completionStatusReady, setCompletionStatusReady] = useState(false);
   const [bidderNameInfo, setBidderNameInfo] = useState<NameInfo>({
     displayName: "",
     farcasterUsername: null,
@@ -74,8 +85,8 @@ export function AuctionDetails({
   });
 
   const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc(BigInt(id));
-  const { refetch, auctionDetail } = useFetchAuctionDetails(BigInt(id));
-  const { refetchSettings, settingDetail } = useFetchAuctionSettings(BigInt(id));
+  const { refetch, forceRefetch, auctionDetail, contractReadError } = useFetchAuctionDetails(BigInt(id));
+  const { refetchSettings, settingDetail, error: settingsError } = useFetchAuctionSettings(BigInt(id));
 
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
   const { isConnected, address } = useAccount();
@@ -105,19 +116,144 @@ export function AuctionDetails({
   // Check if this is the last auction in its contract
   const isLastInContract = isLegacyAuction ? id === 22 : isLatest;
 
+  const isAuction36 = id === 36;
+  const isV2Auction = id >= 23 && id <= 35;
+  const isV3Auction = id >= 36;
+
+  // Add state to track fetch errors
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Combine loading states to determine when to show skeleton
+  // Include completionStatus to ensure settle button state is considered
+  const showSkeleton = isLoading || !dataReady || !completionStatusReady;
+
+  // Reset all data ready states whenever ID changes
+  useEffect(() => {
+    setDataReady(false);
+    setCompletionStatusReady(false);
+    setIsLoading(true);
+  }, [id]);
+
+  // Update the refetching mechanism when ID changes to ensure proper refresh after settlement
+  useEffect(() => {
+    if (id) {
+      const refetchDetails = async () => {
+        console.log(`[Effect] Refetching details for auction #${id}`);
+        setIsLoading(true);
+        setDataReady(false);
+        setCompletionStatusReady(false);
+        setFetchError(null); // Clear previous errors
+        
+        try {
+          // Fetch all data in parallel for better performance
+          const [auctionResult, settingsResult, settledAuctions] = await Promise.all([
+            refetch(),
+            refetchSettings(),
+            auctionsSettled()
+          ]);
+          
+          console.log(`[Effect] Refetch complete for auction #${id}`);
+          
+          // Update settled auctions if we got them
+          if (settledAuctions !== undefined) {
+            setSettledAcustions(settledAuctions);
+          }
+          
+          // Set a flag that data is ready for this specific ID
+          setDataReady(true);
+          
+          // Short timeout to synchronize UI updates and prevent flicker
+          setTimeout(() => {
+            // Set completion status ready even if countdown isn't updated yet
+            setCompletionStatusReady(true);
+            
+            // Now set loading to false after all statuses are ready
+            setTimeout(() => {
+              console.log(`[Effect] Setting isLoading to false for auction #${id}`);
+              setIsLoading(false);
+            }, 50);
+          }, 50);
+        } catch (error: any) {
+          console.error(`[Effect] Error fetching auction #${id} details:`, error);
+          setFetchError(`Failed to load auction data: ${error.message || 'Unknown error'}`);
+          setIsLoading(false);
+          setDataReady(true);
+          setCompletionStatusReady(true);
+        }
+      };
+      
+      refetchDetails();
+    }
+  }, [id, refetch, refetchSettings, auctionsSettled]);
+
+  // When countdown updates to "complete", make sure we show the settle button immediately
+  useEffect(() => {
+    // This ensures the completion status is set properly when isComplete changes
+    if (isComplete && auctionDetail) {
+      console.log(`[Effect] Auction #${id} is now complete, updating UI`);
+      setCompletionStatusReady(true);
+    }
+  }, [isComplete, auctionDetail, id]);
+
+  // Add ref to track if we're in a Farcaster frame context
+  const isFrame = useRef(false);
+  
+  // Check if we're in Farcaster frame context on mount
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrame.current = !!context?.user;
+        console.log("Frame context check in auction-details:", isFrame.current ? "Running in frame" : "Not in frame");
+      } catch (frameError) {
+        console.log("Not in a Farcaster frame context:", frameError);
+        isFrame.current = false;
+      }
+    }
+    
+    checkFrameContext();
+  }, []);
+
   const handleSettle = useCallback(async () => {
-    console.log(`[DEBUG] handleSettle called, isComplete: ${isComplete}, isWhitelisted: ${isWhitelisted}`);
+    console.log(`[DEBUG] handleSettle called, isComplete: ${isComplete}, isWhitelisted: ${isWhitelisted}, isV3Auction: ${isV3Auction}`);
+    console.log(`[DEBUG] Whitelist check for ${address}: isWhitelisted=${isWhitelisted}, isLoading=${whitelistLoading}`);
     
     if (!isComplete) {
       return;
     }
 
-    if (!isConnected) {
+    console.log("navigator.userAgent", navigator.userAgent);
+    console.log("isConnected", isConnected);
+    console.log("isFrame.current", isFrame.current);
+
+    // Check if we have a frame wallet connection
+    let hasFrameWallet = false;
+    if (isFrame.current) {
+      try {
+        const isWalletConnected = await frameSdk.isWalletConnected();
+        console.log("isWalletConnected", isWalletConnected);
+        hasFrameWallet = isWalletConnected;
+      } catch (error) {
+        console.error("[DEBUG] Error checking frame wallet:", error);
+      }
+    }
+    
+    // Consider connected if either wagmi reports connection or we have a frame wallet
+    const effectivelyConnected = isConnected || hasFrameWallet;
+    
+    if (!effectivelyConnected) {
       toast.error("Connect a wallet");
       return;
     }
+    
+    // Only allow settlement of V3 auctions
+    if (!isV3Auction) {
+      toast.error("Only V3 auctions (36+) can be settled. Previous auctions are read-only.");
+      return;
+    }
 
-    if (!isWhitelisted) {
+    if (!isFrame.current && !isWhitelisted) {
+      console.error(`[DEBUG] Settlement blocked: Address ${address} is not whitelisted in contract ${process.env.NEXT_PUBLIC_QRAuctionV3}`);
       toast.error("Only whitelisted settlers can settle auctions");
       return;
     }
@@ -130,7 +266,7 @@ export function AuctionDetails({
       // Register the transaction hash to prevent duplicate toasts
       registerTransaction(hash);
 
-      const transactionReceiptPr = waitForTransactionReceipt(config, {
+      const transactionReceiptPr = waitForTransactionReceipt(wagmiConfig, {
         hash: hash,
       });
 
@@ -138,8 +274,59 @@ export function AuctionDetails({
         loading: "Executing Transaction...",
         success: async (data: any) => {
           console.log(`[DEBUG] Transaction successful, receipt:`, data);
+          
+          // Add winner to database
+          try {
+            // Only proceed in production environment
+            const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
+            
+            if (isDev) {
+              console.log('[DEV MODE] Skipping database insert in development/preview environment');
+            } else if (auctionDetail?.highestBidder && auctionDetail.highestBidder !== '0x0000000000000000000000000000000000000000') {
+              console.log(`[Settle] Adding auction #${id} winner to database`);
+              
+              // Prepare values for database insert
+              const winnerData = {
+                token_id: id.toString(),
+                winner_address: auctionDetail.highestBidder,
+                amount: formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18),
+                url: auctionDetail.qrMetadata?.urlString || null,
+                display_name: bidderNameInfo.displayName || null,
+                farcaster_username: bidderNameInfo.farcasterUsername || null,
+                basename: bidderNameInfo.basename || null,
+                pfp_url: bidderNameInfo.pfpUrl || null,
+                usd_value: isV3Auction 
+                  ? Number(formatUnits(auctionDetail.highestBid, 6)) // USDC is already in USD
+                  : qrPrice ? Number(formatEther(auctionDetail.highestBid)) * qrPrice : null,
+                is_v1_auction: isLegacyAuction,
+                ens_name: auctionDetail.highestBidderName || null
+              };
+              
+              // Insert into Supabase winners table
+              const { error } = await supabase
+                .from('winners')
+                .upsert(winnerData, { onConflict: 'token_id' });
+              
+              if (error) {
+                console.error('[Settle] Error inserting winner to database:', error);
+              } else {
+                console.log('[Settle] Successfully added winner to database');
+              }
+            }
+          } catch (dbError) {
+            console.error('[Settle] Database error:', dbError);
+          }
+          
           // After successful transaction, send notifications
           try {
+            // Skip notifications in development environment
+            const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
+            
+            if (isDev) {
+              console.log('[DEV MODE] Skipping notifications in development environment');
+              return "New Auction Created";
+            }
+            
             if (auctionDetail?.highestBidder) {
               console.log(`[DEBUG] Winner address: ${auctionDetail.highestBidder}`);
               // Check if this is a zero address (auction with no bids)
@@ -234,10 +421,11 @@ export function AuctionDetails({
     } catch (error) {
       console.error(`[DEBUG] Settlement error:`, error);
     }
-  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, settleTxn, bidderNameInfo]);
+  }, [isComplete, id, auctionDetail, isConnected, address, isWhitelisted, whitelistLoading, settleTxn, bidderNameInfo, isV3Auction]);
 
   const updateDetails = async () => {
-    await refetch();
+    console.log("Forcing refresh of auction details after successful bid");
+    await forceRefetch();
     await refetchSettings();
   };
 
@@ -245,28 +433,13 @@ export function AuctionDetails({
     setShowBidHistory(true);
   };
 
-  useEffect(() => {
-    if (id) {
-      const refetchDetails = async () => {
-        await refetch();
-        await refetchSettings();
-
-        if (auctionDetail !== undefined) {
-          setIsLoading(false);
-        }
-      };
-      setIsLoading(true);
-      refetchDetails();
-    }
-  }, [id, auctionDetail?.tokenId]);
-
   // Update document title with current bid
   useEffect(() => {
     // Start with default title
     document.title = "QR";
     
     // Only proceed if we have auction data and it's not loading
-    if (!auctionDetail || isLoading) {
+    if (!auctionDetail || showSkeleton) {
       return;
     }
     
@@ -279,24 +452,22 @@ export function AuctionDetails({
       auctionDetail.highestBid > 0n;
     
     if (isAuctionActive) {
-      const currentBid = Number(formatEther(auctionDetail.highestBid));
-      const usdValue = qrPrice ? currentBid * qrPrice : 0;
-      const formattedQR = formatQRAmount(currentBid);
-      const bidText = `${formattedQR} $QR ${usdValue > 0 ? `(${formatUsdValue(usdValue)})` : ''}`;
-      document.title = `QR ${bidText} - ${bidderNameInfo.displayName}`;
-    }
-  }, [auctionDetail, qrPrice, bidderNameInfo.displayName, isLoading]);
-
-  useEffect(() => {
-    const ftSetled = async () => {
-      const data = await auctionsSettled();
-      if (data !== undefined) {
-        setSettledAcustions(data);
+      if (isV3Auction) {
+        // For V3 auctions, use USDC format (6 decimals)
+        const currentBid = Number(formatUnits(auctionDetail?.highestBid || 0n, 6));
+        // For whole numbers, don't show decimal places
+        const bidText = `$${currentBid.toFixed(2)}`;
+        document.title = `QR ${bidText} - ${bidderNameInfo.displayName}`;
+      } else {
+        // For legacy and V2 auctions, use QR format (18 decimals)
+        const currentBid = Number(formatEther(auctionDetail.highestBid));
+        const usdValue = qrPrice ? currentBid * qrPrice : 0;
+        const formattedQR = formatQRAmount(currentBid);
+        const bidText = `${formattedQR} $QR ${usdValue > 0 ? `(${formatUsdValue(usdValue)})` : ''}`;
+        document.title = `QR ${bidText} - ${bidderNameInfo.displayName}`;
       }
-    };
-
-    ftSetled();
-  }, [isComplete]);
+    }
+  }, [auctionDetail, qrPrice, bidderNameInfo.displayName, showSkeleton, isV3Auction]);
 
   useEffect(() => {
     const fetchBidderName = async () => {
@@ -348,27 +519,31 @@ export function AuctionDetails({
 
   // Use the auction events hook to listen for real-time updates
   useAuctionEvents({
-    onAuctionBid: (tokenId, bidder, amount, extended, endTime) => {
+    onAuctionBid: (tokenId, bidder, amount, extended, endTime, urlString, name) => {
       // Only update if this event is for the current auction
       if (tokenId === BigInt(id)) {
         console.log(`Real-time update: New bid on auction #${id}`);
-        // Update auction details when a new bid is placed
-        refetch();
+        // Use forceRefetch to bypass the cache and get fresh data
+        forceRefetch();
       }
     },
-    onAuctionSettled: (tokenId, winner, amount) => {
+    onAuctionSettled: (tokenId, winner, amount, urlString, name) => {
       // Only update if this event is for the current auction
       if (tokenId === BigInt(id)) {
         console.log(`Real-time update: Auction #${id} settled`);
-        // Update auction details when the auction is settled
-        refetch();
+        // Use forceRefetch to bypass the cache for settlement as well
+        forceRefetch();
       }
     },
     onAuctionCreated: (tokenId, startTime, endTime) => {
       console.log(`Real-time update: New auction #${tokenId} created`);
-      // The main page already handles updating to the latest auction
-      // We don't need to call onNext() here as it causes double navigation
-      // The parent component (page.tsx) already updates currentAuctionId
+      
+      // If we're on the latest auction, refresh data for the newly created auction
+      if (isLatest) {
+        console.log(`Refreshing data for new auction #${tokenId}`);
+        refetch();
+        refetchSettings();
+      }
     },
     showToasts: false // Disable toasts in this component as they're already shown in the main page
   });
@@ -406,12 +581,22 @@ export function AuctionDetails({
     return `ends @ ${timeStr} ${tzAbbr}`;
   };
 
+  // Update the useEffect or component render to show whitelist status in console
+  useEffect(() => {
+    if (address) {
+      console.log(`Current wallet address: ${address}, Whitelist status: ${isWhitelisted}, Loading: ${whitelistLoading}`);
+    }
+  }, [address, isWhitelisted, whitelistLoading]);
+
+  // Ensure we have valid data for the current auction ID before showing content
+  const hasValidAuctionData = auctionDetail && Number(auctionDetail.tokenId) === id;
+
   return (
     <div className="space-y-6">
-      <div className="space-y-2.5">
+      <div className="space-y-1 md:space-y-2.5">
         <div className="flex flex-row justify-between items-center w-full">
           <div className="inline-flex justify-start items-center gap-2">
-            <h1 className="text-3xl font-bold">Auction #{id}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Auction #{id}</h1>
             <Button
               variant="outline"
               size="icon"
@@ -428,12 +613,12 @@ export function AuctionDetails({
               variant="outline" 
               size="icon"
               className={`rounded-full border-none transition-colors ${
-                (isLatest && !isAuction22)
+                (isLatest && !isAuction22 && !isAuction36)
                   ? `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 opacity-50 cursor-not-allowed ${isBaseColors ? "bg-primary/90 hover:bg-primary/90 hover:text-foreground" : ""}`
                   : `bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/30 ${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground" : ""}`
               }`}
               onClick={onNext}
-              disabled={isLatest && !isAuction22}
+              disabled={isLatest && !isAuction22 && !isAuction36}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -444,7 +629,7 @@ export function AuctionDetails({
             className={`${isBaseColors ? "text-foreground" : ""} cursor-pointer`}
           />
         </div>
-        {isLoading && (
+        {showSkeleton && (
           <div className="flex flex-col space-y-3">
             <Skeleton className="h-[125px] w-full rounded-xl" />
             <div className="space-y-2">
@@ -454,41 +639,57 @@ export function AuctionDetails({
           </div>
         )}
 
-        {auctionDetail &&
-          Number(auctionDetail.tokenId) === id &&
-          !isLoading && (
+        {fetchError && !showSkeleton && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-md text-red-700">
+            <p className="font-medium">Error loading auction</p>
+            <p className="text-sm">{fetchError}</p>
+            <Button 
+              onClick={() => refetch()} 
+              className="mt-2 bg-red-100 text-red-700 hover:bg-red-200"
+              size="sm"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {hasValidAuctionData && !showSkeleton && (
             <>
-              {/* Special handling for auction #22 - always show it as settled */}
+              {/* Only show settled view if auction is actually settled or it's auction #22 */}
               {!auctionDetail.settled && !isAuction22 ? (
                 <>
                   <div className="flex flex-row justify-between gap-8">
-                    <div className="space-y-1.25 relative">
+                    <div className="md:space-y-1.25 relative">
                       <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>Current bid</div>
                       <div className="flex flex-row items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
-                          {formatQRAmount(Number(formatEther(
-                            auctionDetail?.highestBid
-                              ? auctionDetail.highestBid
-                              : 0n
-                          )))} $QR
+                          {isV3Auction ? (
+                            `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toFixed(2)}`
+                          ) : isLegacyAuction ? (
+                            // For legacy auctions (V1), show ETH
+                            `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} ETH`
+                          ) : (
+                            // For V2 auctions, show QR
+                            `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR`
+                          )}
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                          {usdBalance !== 0 && `(${formatUsdValue(usdBalance)})`}
+                          {usdBalance !== 0 && !isV3Auction && `(${formatUsdValue(usdBalance)})`}
                         </div>
                       </div>
-                      <div className="h-4 mt-1 overflow-hidden" style={{ minHeight: "18px" }}>
+                      <div className="h-4 md:mt-1 overflow-hidden" style={{ minHeight: "18px" }}>
                         <TypingIndicator />
                       </div>
                     </div>
                     {!isComplete && (
-                      <div className="space-y-1">
+                      <div className="space-y-0">
                         <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} text-right`}>
                           Time left
                         </div>
                         <div className={`${isBaseColors ? "text-foreground" : ""} text-right text-xl md:text-2xl font-bold whitespace-nowrap`}>
                           {time}
                         </div>
-                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs` }>
+                        <div className={`${isBaseColors ? "text-foreground/80" : "text-gray-500 dark:text-gray-400"} text-right text-xs`}>
                           {formatEndTime()}
                         </div>
                       </div>
@@ -497,20 +698,37 @@ export function AuctionDetails({
 
                   <div className="space-y-2">
                     {!isComplete && (
-                      <BidForm
-                        auctionDetail={auctionDetail}
-                        settingDetail={settingDetail}
-                        onSuccess={updateDetails}
-                        openDialog={openDialog}
-                      />
+                      <>
+                        {isV3Auction ? (
+                          <BidForm
+                            auctionDetail={auctionDetail}
+                            settingDetail={settingDetail}
+                            onSuccess={updateDetails}
+                            openDialog={openDialog}
+                          />
+                        ) : (
+                          <div className="border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/30 rounded-md p-3 text-amber-800 dark:text-amber-200">
+                            <p className="text-sm">
+                              This auction is from a previous version (V{isLegacyAuction ? '1' : '2'}) and is read-only.
+                              Only the current V3 auctions (ID 36+) accept bids.
+                            </p>
+                          </div>
+                        )}
+                      </>
                     )}
                     {isComplete && (
-                      <Button
-                        className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""} px-8 h-12`}
-                        onClick={handleSettle}
-                      >
-                        Settle and create auction
-                      </Button>
+                      <>
+                        {isV3Auction ? (
+                          <Button
+                            className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground" : ""} px-8 h-12`}
+                            onClick={handleSettle}
+                          >
+                            Settle and create auction
+                          </Button>
+                        ) : (
+                          <></>
+                        )}
+                      </>
                     )}
 
                     {auctionDetail && auctionDetail.highestBidder && (
@@ -541,7 +759,7 @@ export function AuctionDetails({
               ) : (
                 <>
                   {/* Don't show the "Visit Winning Site" button for auction #22 */}
-                  {isAuction22 ? (
+                  {isAuction22 || isAuction36 ? (
                     <WinDetailsView
                       tokenId={BigInt(id)}
                       winner={auctionDetail.highestBidder}
@@ -556,7 +774,13 @@ export function AuctionDetails({
                         <div>
                           <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                           <div className="text-2xl font-bold">
-                            {formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR
+                            {isV3Auction ? (
+                              `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toFixed(2)}`
+                            ) : isLegacyAuction ? (
+                              `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} ETH`
+                            ) : (
+                              `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} $QR`
+                            )}
                           </div>
                         </div>
                         <div>
@@ -615,9 +839,7 @@ export function AuctionDetails({
             </>
           )}
 
-        {auctionDetail &&
-          Number(auctionDetail.tokenId) !== id &&
-          !isLoading && (
+        {currentSettledAuction && !hasValidAuctionData && !showSkeleton && (
             <>
               <WinDetailsView
                 tokenId={currentSettledAuction?.tokenId || 0n}

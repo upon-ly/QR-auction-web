@@ -1,11 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 import { Address } from "viem";
 import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { ExternalLink } from "lucide-react";
@@ -16,7 +16,17 @@ import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import useEthPrice from "@/hooks/useEthPrice";
+import { getAuctionVersion } from "@/utils/auctionPriceData";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../types/database";
 import { frameSdk } from "@/lib/frame-sdk";
+
+// Initialize Supabase client
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 
 type AuctionType = {
   tokenId: bigint;
@@ -34,21 +44,60 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
+
+  const [winnerDbData, setWinnerDbData] = useState<{ usd_value: number | null, is_v1_auction: boolean | null } | null>(null);
+  
+  // Determine auction version
+  const auctionVersion = useMemo(() => getAuctionVersion(winnerdata.tokenId), [winnerdata.tokenId]);
+  
+  // Fallback to current prices if database data isn't available
+
   
   // Initialize isFrame from props or determine via useRef
   const isFrame = useRef(!!winnerdata.isFrame);
 
+
   const { priceUsd: qrPrice } = useTokenPrice();
   const { ethPrice } = useEthPrice();
 
-  // Calculate QR token balance and USD value instead of ETH
-  const qrTokenAmount = Number(formatEther(winnerdata.amount));
-  const usdBalance = qrPrice ? qrTokenAmount * qrPrice : 0;
+  // Determine auction version
+  const isV1Auction = auctionVersion === "v1";
+  const isV2Auction = auctionVersion === "v2";
+  const isV3Auction = auctionVersion === "v3";
   
-  // Check if tokenId is between 1-22 to determine if we show ETH or QR
-  const isLegacyAuction = winnerdata.tokenId <= 22n;
-  const currentEthPrice = ethPrice?.ethereum?.usd || 0;
-  const ethBalance = isLegacyAuction ? qrTokenAmount * currentEthPrice : 0;
+  // Calculate token amount from blockchain data
+  const tokenAmount = useMemo(() => {
+    if (isV3Auction) {
+      return Number(formatUnits(winnerdata.amount, 6)); // USDC has 6 decimals
+    }
+    return Number(formatEther(winnerdata.amount)); // ETH and QR have 18 decimals
+  }, [winnerdata.amount, isV3Auction]);
+
+  // Fetch winner data from database
+  useEffect(() => {
+    const fetchWinnerData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('winners')
+          .select('usd_value, is_v1_auction')
+          .eq('token_id', winnerdata.tokenId.toString())
+          .single();
+        
+        if (error) {
+          console.error('Error fetching winner data:', error);
+          return;
+        }
+        
+        if (data) {
+          setWinnerDbData(data);
+        }
+      } catch (error) {
+        console.error('Error in database query:', error);
+      }
+    };
+    
+    fetchWinnerData();
+  }, [winnerdata.tokenId]);
 
   // Check if we're in Farcaster frame context if not passed in props
   useEffect(() => {
@@ -182,6 +231,42 @@ export function WinDetailsView(winnerdata: AuctionType) {
     fetchOgImage();
   }, [winnerdata.url, winnerdata.tokenId]);
 
+  // Helper function to format bid amount based on auction type
+  const formatBidAmount = () => {
+    if (isV3Auction) {
+      // For V3, show USDC format
+      return `$${tokenAmount.toFixed(2)}`;
+    } else if (isV1Auction) {
+      return `${formatQRAmount(tokenAmount)} ETH`;
+    } else {
+      return `${formatQRAmount(tokenAmount)} $QR`;
+    }
+  };
+
+  // Helper function to format value in USD
+  const formatUsdValueDisplay = (): string => {
+    // If we have database value, use it
+    if (winnerDbData?.usd_value) {
+      return `($${winnerDbData.usd_value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    } 
+    
+    // Don't show USD value for V3 since amount is already in USD
+    if (isV3Auction) {
+      return '';
+    }
+    
+    // Fallback to calculating with current prices
+    if (isV1Auction && ethPrice?.ethereum?.usd) {
+      const currentUsdValue = tokenAmount * ethPrice.ethereum.usd;
+      return `($${currentUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    } else if (isV2Auction && qrPrice) {
+      const currentUsdValue = tokenAmount * qrPrice;
+      return `(${formatUsdValue(currentUsdValue)})`;
+    }
+    
+    return '';
+  };
+
   return (
     <>
       <div className="flex flex-row justify-between items-start gap-1">
@@ -197,11 +282,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
           </div>
           <div className="inline-flex flex-row justify-center items-center gap-1">
             <div className="text-xl font-bold">
-              {formatQRAmount(Number(formatEther(winnerdata?.amount || 0n)))} {isLegacyAuction ? 'ETH' : '$QR'} {
-                isLegacyAuction 
-                  ? ethBalance > 0 ? `($${ethBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : ''
-                  : qrPrice ? `(${formatUsdValue(usdBalance)})` : ''
-              }
+              {formatBidAmount()} {formatUsdValueDisplay()}
             </div>
           </div>
         </div>

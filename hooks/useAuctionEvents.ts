@@ -8,8 +8,8 @@ import { base } from 'viem/chains';
 import { formatQRAmount } from "@/utils/formatters";
 
 // Define the events we want to monitor
-const AuctionBidEvent = parseAbiItem('event AuctionBid(uint256 tokenId, address bidder, uint256 amount, bool extended, uint256 endTime, string urlString)');
-const AuctionSettledEvent = parseAbiItem('event AuctionSettled(uint256 tokenId, address winner, uint256 amount, string urlString)');
+const AuctionBidEvent = parseAbiItem('event AuctionBid(uint256 tokenId, address bidder, uint256 amount, bool extended, uint256 endTime, string urlString, string name)');
+const AuctionSettledEvent = parseAbiItem('event AuctionSettled(uint256 tokenId, address winner, uint256 amount, string urlString, string name)');
 const AuctionCreatedEvent = parseAbiItem('event AuctionCreated(uint256 tokenId, uint256 startTime, uint256 endTime)');
 
 // ==========================================
@@ -117,8 +117,8 @@ async function getBidderIdentity(address: string): Promise<string> {
 // ==========================================
 
 type UseAuctionEventsProps = {
-  onAuctionBid?: (tokenId: bigint, bidder: string, amount: bigint, extended: boolean, endTime: bigint) => void;
-  onAuctionSettled?: (tokenId: bigint, winner: string, amount: bigint) => void;
+  onAuctionBid?: (tokenId: bigint, bidder: string, amount: bigint, extended: boolean, endTime: bigint, urlString: string, name: string) => void;
+  onAuctionSettled?: (tokenId: bigint, winner: string, amount: bigint, urlString: string, name: string) => void;
   onAuctionCreated?: (tokenId: bigint, startTime: bigint, endTime: bigint) => void;
   showToasts?: boolean;
   tokenId?: bigint;
@@ -213,7 +213,13 @@ export function useAuctionEvents({
   useEffect(() => {
     if (!publicClient) return;
 
-    const contractAddress = tokenId && tokenId >= 1 && tokenId <= 22 ? process.env.NEXT_PUBLIC_QRAuction as Address : process.env.NEXT_PUBLIC_QRAuctionV2 as Address;
+    const contractAddress = tokenId 
+      ? tokenId >= 1 && tokenId <= 22 
+        ? process.env.NEXT_PUBLIC_QRAuction as Address 
+        : tokenId >= 23 && tokenId <= 35
+          ? process.env.NEXT_PUBLIC_QRAuctionV2 as Address
+          : process.env.NEXT_PUBLIC_QRAuctionV3 as Address
+      : process.env.NEXT_PUBLIC_QRAuctionV3 as Address;
 
     // Watch for auction bid events
     const unwatchBid = publicClient.watchEvent({
@@ -224,7 +230,7 @@ export function useAuctionEvents({
           const { args, transactionHash } = log;
           if (!args) return;
           
-          const { tokenId, bidder, amount, extended, endTime } = args;
+          const { tokenId, bidder, amount, extended, endTime, urlString, name } = args;
           
           // Check if this event is from the user's own transaction
           const isUserTransaction = transactionHash && activeTransactions.has(transactionHash);
@@ -238,13 +244,20 @@ export function useAuctionEvents({
             if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
               // Get identity information and then show toast
               getBidderIdentity(bidder).then(displayName => {
-                // Check if it's a legacy auction (1-22)
+                // Check if it's a legacy auction (1-22), v2 auction (23-35), or v3 auction (36+)
                 const isLegacyAuction = tokenId <= 22n;
-                const amount_num = Number(amount) / 1e18;
+                const isV2Auction = tokenId >= 23n && tokenId <= 35n;
+                const isV3Auction = tokenId >= 36n;
+                const amount_num = isV3Auction ? Number(amount) / 1e6 : Number(amount) / 1e18;
                 
-                const bidText = isLegacyAuction 
-                  ? `${amount_num.toFixed(3)} ETH` 
-                  : `${formatQRAmount(amount_num)} $QR`;
+                let bidText = '';
+                if (isLegacyAuction) {
+                  bidText = `${amount_num.toFixed(3)} ETH`;
+                } else if (isV2Auction) {
+                  bidText = `${formatQRAmount(amount_num)} $QR`;
+                } else if (isV3Auction) {
+                  bidText = `$${amount_num.toFixed(2)}`;
+                }
                 
                 toast(`New bid: ${bidText} by ${displayName}`, { 
                   id: eventId,
@@ -258,8 +271,8 @@ export function useAuctionEvents({
             }
           }
           
-          if (onAuctionBid && tokenId && bidder && amount !== undefined && extended !== undefined && endTime) {
-            onAuctionBid(tokenId, bidder, amount, extended, endTime);
+          if (onAuctionBid && tokenId && bidder && amount !== undefined && extended !== undefined && endTime !== undefined && urlString !== undefined) {
+            onAuctionBid(tokenId, bidder, amount, extended, endTime, urlString, name || "");
           }
         });
       },
@@ -274,7 +287,7 @@ export function useAuctionEvents({
           const { args, transactionHash } = log;
           if (!args) return;
           
-          const { tokenId, winner, amount } = args;
+          const { tokenId, winner, amount, urlString, name } = args;
           
           // Check if this event is from the user's own transaction
           const isUserTransaction = transactionHash && activeTransactions.has(transactionHash);
@@ -307,8 +320,8 @@ export function useAuctionEvents({
             }, COMBINE_WINDOW);
           }
           
-          if (onAuctionSettled && tokenId && winner && amount !== undefined) {
-            onAuctionSettled(tokenId, winner, amount);
+          if (onAuctionSettled && tokenId && winner && amount !== undefined && urlString !== undefined) {
+            onAuctionSettled(tokenId, winner, amount, urlString, name || "");
           }
         });
       },

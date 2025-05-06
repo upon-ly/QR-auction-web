@@ -5,7 +5,6 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AuctionNavigation } from "@/components/auction-navigation";
 import { QRPage } from "@/components/QRPage";
 import { AuctionDetails } from "@/components/auction-details";
@@ -20,7 +19,6 @@ import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "@/components/SafetyDialog";
 import { SafeExternalLink } from "@/components/SafeExternalLink";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
-import { ThemeDialog } from "@/components/ThemeDialog";
 import { useAuctionEvents } from "@/hooks/useAuctionEvents";
 import { Button } from "@/components/ui/button";
 import { useBaseColors } from "@/hooks/useBaseColors";
@@ -29,12 +27,32 @@ import { WinnerAnnouncement } from "@/components/WinnerAnnouncement";
 import { UniswapWidget } from "@/components/ui/uniswap-widget";
 import Link from "next/link";
 import { formatURL } from "@/utils/helperFunctions";
-import { ConnectionIndicator } from "@/components/ConnectionIndicator";
-import { QRContextMenu } from "@/components/QRContextMenu";
-import { useAccount } from 'wagmi';
 import BidStats from "@/components/BidStats";
 import { EndorsementsCarousel } from "@/components/EndorsementsCarousel";
+import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
+
+// Key for storing the latest auction ID in localStorage
+const LATEST_AUCTION_KEY = 'qrcoin_latest_auction_id';
+
+// Helper function to safely access localStorage
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn('Error accessing localStorage:', e);
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.warn('Error setting localStorage:', e);
+    }
+  }
+};
 
 interface SettingsResponse {
   data: Array<{
@@ -48,7 +66,6 @@ export default function AuctionPage() {
   const params = useParams();
   const router = useRouter();
   const currentAuctionId = Number(params.id);
-  const { isConnected } = useAccount();
 
   const [mounted, setMounted] = useState(false);
   const [ogImage, setOgImage] = useState<string | null>(null);
@@ -57,18 +74,20 @@ export default function AuctionPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [isLatestAuction, setIsLatestAuction] = useState(false);
   const [latestAuctionId, setLatestAuctionId] = useState(0);
   const isFrame = useRef(false);
 
   const isBaseColors = useBaseColors();
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } = useSafetyDialog();
-  const { auctions, refetch: refetchAuctions } = useFetchAuctions(BigInt(currentAuctionId));
+  const { auctions, refetch: refetchAuctions, forceRefetch: forceRefetchAuctions } = useFetchAuctions(BigInt(currentAuctionId));
   const { refetchSettings } = useFetchAuctionSettings(BigInt(currentAuctionId));
 
   // Check if this is auction #22 from v1 contract
   const isAuction22 = currentAuctionId === 22;
+  
+  // Check if this is auction #56 from v2 contract
+  const isAuction56 = currentAuctionId === 56;
 
   // Check if we're in Farcaster frame context on mount
   useEffect(() => {
@@ -105,27 +124,19 @@ export default function AuctionPage() {
     }
   };
 
-  const handleLogoClick = () => {
-    if (auctions && auctions.length > 0) {
-      const lastAuction = auctions[auctions.length - 1];
-      const latestId = Number(lastAuction.tokenId);
-      if (latestId > 0) {
-        router.push(`/`);
-      } else {
-        router.push('/');
-      }
-    } else {
-      router.push('/');
-    }
-  };
-
+  // Update the cached latest auction ID whenever we have auctions data
   useEffect(() => {
     if (auctions && auctions.length > 0) {
       const lastAuction = auctions[auctions.length - 1];
-      const lastId = Number(lastAuction.tokenId);
-      setLatestAuctionId(lastId);
-      setIsLatestAuction(currentAuctionId === lastId);
+      const latestId = Number(lastAuction.tokenId);
+      setLatestAuctionId(latestId);
+      setIsLatestAuction(currentAuctionId === latestId);
       setIsLoading(false);
+      
+      // Update the cached latest auction ID if this is indeed the latest
+      if (latestId > 0) {
+        safeLocalStorage.setItem(LATEST_AUCTION_KEY, latestId.toString());
+      }
     } else if (auctions) {
       setIsLoading(false);
     }
@@ -185,20 +196,25 @@ export default function AuctionPage() {
 
   useAuctionEvents({
     tokenId: BigInt(currentAuctionId),
-    onAuctionBid: (tokenId) => {
+    onAuctionBid: (tokenId, bidder, amount, extended, endTime, urlString, name) => {
       if (Number(tokenId) === currentAuctionId) {
-        refetchAuctions();
+        // Force refresh the auction data to bypass cache
+        forceRefetchAuctions();
       }
     },
-    onAuctionSettled: (tokenId) => {
-      refetchAuctions();
+    onAuctionSettled: (tokenId, winner, amount, urlString, name) => {
+      forceRefetchAuctions();
       if (Number(tokenId) === latestAuctionId && isLatestAuction) {
         fetchOgImage();
       }
     },
     onAuctionCreated: (tokenId) => {
-      refetchAuctions().then(() => {
+      forceRefetchAuctions().then(() => {
         const newLatestId = Number(tokenId);
+        
+        // Update the cached latest auction ID when a new auction is created
+        safeLocalStorage.setItem(LATEST_AUCTION_KEY, newLatestId.toString());
+        
         if (isLatestAuction || currentAuctionId === newLatestId - 1) {
           router.push(`/auction/${newLatestId}`);
         }
@@ -261,112 +277,40 @@ export default function AuctionPage() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
-        <QRContextMenu className="inline-block" isHeaderLogo>
-          <h1
-            onClick={handleLogoClick}
-            className="text-2xl font-bold cursor-pointer"
-          >
-            $QR
-          </h1>
-        </QRContextMenu>
-        <div className="flex items-center gap-1 md:gap-3">
-          <Link href="/about">
-            <Button
-              variant="outline"
-              className={isConnected ? "h-10 px-3 text-sm font-medium" : "h-10 w-10 md:w-auto md:px-3 md:text-sm md:font-medium"}
-            >
-              <span className="md:hidden text-lg">{isConnected ? "What is this?" : "?"}</span>
-              <span className="hidden md:inline">What is this?</span>
-            </Button>
-          </Link>
-          
-          <Link href="/winners">
-            <Button
-              variant="outline"
-              size="icon"
-              className={
-                isBaseColors
-                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                  : "h-10 w-10"
-              }
-            >
-              <div className="h-5 w-5 flex items-center justify-center">
-                🏆
-              </div>
-            </Button>
-          </Link>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                : "h-10 w-10"
-            }
-            onClick={() => setThemeDialogOpen(true)}
-          >
-            <div className="h-5 w-5 flex items-center justify-center">
-              {isBaseColors ? (
-                <img 
-                  src="/basecolors2.jpeg" 
-                  alt="Theme toggle - base colors"
-                  className="h-5 w-5 object-cover "
-                />
-              ) : (
-                <img 
-                  src="/basecolors.jpeg" 
-                  alt="Theme toggle - light/dark" 
-                  className="h-5 w-5 object-cover  border"
-                />
-              )}
-            </div>
-          </Button>
-
-          <div className="relative">
-            <ConnectButton
-              accountStatus={{
-                smallScreen: "avatar",
-                largeScreen: "full",
-              }}
-              chainStatus="none"
-              showBalance={false}
-              label="Connect Wallet"
-            />
-            <div className="absolute right-0 top-full mt-2 pr-1">
-              <ConnectionIndicator />
-            </div>
-          </div>
+      <div className="max-w-3xl mx-auto mt-3 md:mt-0 lg:mt-0">
+        <div className="md:hidden text-center w-full mb-1">
+            <p className="font-bold text-md md:text-xl">SAME QR. NEW WEBSITE. EVERY DAY.</p>
+            <p className="text-sm md:text-base">Win the auction to choose where it points next!</p>
         </div>
-      </nav>
-
-      <div className="max-w-3xl mx-auto mt-12 md:mt-14 lg:mt-16">
         <div className="flex flex-col justify-center items-center gap-9">
-          <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
+
+          <div className="grid md:grid-cols-2 gap-2 md:gap-8 w-full">
             <div
               className={clsx(
-                "flex flex-col justify-center px-8 pb-6 pt-6 md:p-8 lg:p-8 h-[270px] md:h-[345px] rounded-lg",
+                "flex flex-col justify-center px-8 pb-6 pt-6 md:p-8 lg:p-8 h-[220px] md:h-[345px] rounded-lg relative",
                 isBaseColors ? "bg-primary" : "bg-white border"
               )}
             >
-              <div className="inline-flex flex-col items-center mt-2">
+              {/* Desktop-only: Heading and Subheading for QR card, overlayed */}
+              <div className="hidden md:block">
+                <div className={styles.desktopHeading}>SAME QR. NEW WEBSITE. EVERY DAY.</div>
+                <div className={styles.desktopSubheading}>Win the auction to choose where it points next!</div>
+              </div>
+              <SafeExternalLink
+                href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+                className={`absolute top-3 right-3 p-1.5 rounded-full z-10 ${
+                  isBaseColors 
+                    ? "bg-white/20 hover:bg-white/30" 
+                    : "bg-gray-100 hover:bg-gray-200"
+                } transition-colors`}
+                onBeforeNavigate={() => false}
+                aria-label="Open redirect link"
+              >
+                <ExternalLink className={`h-5 w-5 ${isBaseColors ? "text-white" : "text-black"}`} />
+              </SafeExternalLink>
+              
+              <div className="inline-flex flex-col items-center">
                 <QRPage />
-                <div className="mt-1">
-                  <button
-                    onClick={() => handleFrameOpenUrl(`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`)}
-                    className={`relative inline-flex items-center ${
-                      isBaseColors
-                        ? "bg-primary text-foreground"
-                        : "bg-white text-gray-700"
-                    } text-sm font-medium hover:bg-gray-50 transition-colors w-full`}
-                  >
-                    <span className="block w-full text-center">
-                      Visit Website{" "}
-                    </span>
-                    <ExternalLink className="absolute left-full h-3 w-3 ml-1" />
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -492,11 +436,17 @@ export default function AuctionPage() {
             </div>
 
             <div className="hidden md:flex flex-col gap-1">
-              {isLatestAuction && !isAuction22 && (
+              {isLatestAuction && !isAuction22 && !isAuction56 && (
                 <>
                   <h2 className="font-semibold text-xl md:text-2xl text-center">
-                    <span className="">Buy $QR</span>
+                    <span className="">Buy USDC</span>
                   </h2>
+                  {/* <div style={{ height: "510px" }} className="overflow-hidden rounded-lg w-full mx-auto">
+                    <LiFiWidgetComponent 
+                      inputCurrency="NATIVE"
+                      outputCurrency="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" // USDC on Base
+                    />
+                  </div> */}
                   <div style={{ height: "510px" }}>
                     <UniswapWidget />
                   </div>
@@ -509,17 +459,32 @@ export default function AuctionPage() {
             <WinnerAnnouncement auctionId={currentAuctionId} />
           )}
           
-          {/* Mobile Uniswap Widget */}
-          {isLatestAuction && !isAuction22 && (
+          {/* Mobile LiFi Widget */}
+          {/* {isLatestAuction && !isAuction22 && (
             <div className="md:hidden w-full">
               <h2 className="font-semibold text-xl text-center mb-1">
-                <span className="">Buy $QR</span>
+                <span className="">Buy USDC</span>
+              </h2>
+              <div style={{ height: "570px" }} className="overflow-hidden rounded-lg w-full max-w-[95vw] mx-auto sm:max-w-sm">
+                <LiFiWidgetComponent 
+                  inputCurrency="NATIVE"
+                  outputCurrency="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" // USDC on Base
+                />
+              </div>
+            </div>
+          )} */}
+
+          {/* Mobile Uniswap Widget */}
+          {/* {isLatestAuction && !isAuction22 && !isAuction56 && (
+            <div className="md:hidden w-full">
+              <h2 className="font-semibold text-xl text-center mb-1">
+                <span className="">Buy USDC</span>
               </h2>
               <div style={{ height: "570px" }}>
                 <UniswapWidget />
               </div>
             </div>
-          )}
+          )} */}
           
           {/* BidStats for mobile - centered */}
           <div className="md:hidden mx-auto w-full">
@@ -620,8 +585,6 @@ export default function AuctionPage() {
         targetUrl={pendingUrl || ""}
         onContinue={handleContinue}
       />
-
-      <ThemeDialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen} />
     </main>
   );
 } 

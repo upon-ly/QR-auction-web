@@ -1,27 +1,76 @@
 "use client";
 
 import type { ReactNode } from "react";
-import "@rainbow-me/rainbowkit/styles.css";
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { FarcasterFrameProvider } from "./FrameProvider";
 import { SupabaseProvider } from "./SupabaseProvider";
+import { useTheme } from "next-themes";
+import { useState, useEffect, useMemo } from "react"; // Import useMemo
 
-import { customconfig } from "../config/config";
+// Import Privy-specific components
+import { PrivyProvider } from "@privy-io/react-auth";
+import { WagmiProvider } from "@privy-io/wagmi";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
+
+// Import the FUNCTION to get the config, not the config object directly
+import { getPrivyConfig } from "../config/privyConfig";
+import { wagmiConfig } from "../config/wagmiConfig";
 
 const queryClient = new QueryClient();
 
 export function Provider(props: { children: ReactNode }) {
+  // Get current theme
+  const { theme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Need to wait for client-side hydration to get the actual theme
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use the current theme or fallback to light if not mounted yet
+  const currentTheme = mounted ? (resolvedTheme || theme) : 'light';
+
+  // Call getPrivyConfig() inside the component render logic
+  // Use useMemo to prevent recalculating on every render unless theme changes
+  const dynamicPrivyConfig = useMemo(() => {
+    const config = getPrivyConfig(); // Get base config
+    return {
+      ...config,
+      theme: currentTheme === 'dark' ? 'dark' : 'light',
+      appearance: {
+        ...config.appearance,
+        ...(currentTheme === 'dark' ? {
+          accentColor: "#FFFFFF",
+          textColor: "#000000",
+        } : {}),
+      },
+      // Ensure embeddedWallets structure is correct
+      embeddedWallets: {
+        ...config.embeddedWallets,
+         // No need for showWalletUIs here unless specifically required by Privy
+      },
+      externalWallets: {
+        ...config.externalWallets,
+      },
+    };
+  }, [currentTheme]); // Recompute only when theme changes
+
   return (
     <FarcasterFrameProvider>
-      <WagmiProvider config={customconfig}>
-        <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider>
-            <SupabaseProvider>{props.children}</SupabaseProvider>
-          </RainbowKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+      {/* Pass the dynamically generated config */}
+      <PrivyProvider
+        appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
+        config={dynamicPrivyConfig}
+      >
+        <SmartWalletsProvider>
+          <QueryClientProvider client={queryClient}>
+            <WagmiProvider config={wagmiConfig}>
+              <SupabaseProvider>{props.children}</SupabaseProvider>
+            </WagmiProvider>
+          </QueryClientProvider>
+        </SmartWalletsProvider>
+      </PrivyProvider>
     </FarcasterFrameProvider>
   );
 }

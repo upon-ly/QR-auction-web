@@ -38,8 +38,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens if you win?
               </h3>
               <p className={`text-sm sm:text-base ${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                The website submitted with the winning bid will be where the QR
-                is pointed for 24 hours post-auction.
+                The QR will point to the website submitted with the winning bid for 24 hours after the conclusion of each auction.
               </p>
             </div>
           </div>
@@ -53,8 +52,8 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens if you lose?
               </h3>
               <p className={`text-sm sm:text-base ${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                Losing bids will be fully refunded immediately once a higher bid
-                is submitted for the given auction.
+                Losing bids will be fully refunded immediately after a higher bid
+                is submitted in a given auction.
               </p>
             </div>
           </div>
@@ -68,7 +67,7 @@ export function HowItWorksDialog({ isOpen, onClose }: HowItWorksDialogProps) {
                 What happens with the funds?
               </h3>
               <p className={`text-sm sm:text-base ${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"}`}>
-                Funds from the winning bids will be sent to the project&apos;s treasury in $QR at the conclusion of each auction.
+                Funds from the winning bids will be sent to the project&apos;s treasury at the conclusion of each auction.
               </p>
             </div>
           </div>

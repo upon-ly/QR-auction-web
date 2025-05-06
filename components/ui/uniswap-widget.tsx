@@ -11,7 +11,7 @@ interface UniswapWidgetProps {
 export function UniswapWidget({
   className = "",
   inputCurrency = "NATIVE",
-  outputCurrency = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF", // QR token address
+  outputCurrency = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // USDC token address
 }: UniswapWidgetProps) {
   const isBaseColors = useBaseColors();
   const { theme, resolvedTheme } = useTheme();

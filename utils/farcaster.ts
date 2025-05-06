@@ -10,6 +10,8 @@ type FarcasterUser = {
 
 // Cache Farcaster usernames to reduce API calls
 const farcasterCache = new Map<string, FarcasterUser | null>();
+// Add a separate cache for username lookups
+const usernameCache = new Map<string, string | null>();
 
 /**
  * Fetches Farcaster username for an Ethereum address
@@ -186,3 +188,66 @@ export async function getFarcasterUsersBulk(addresses: string[]): Promise<Map<st
     return results;
   }
 }
+
+/**
+ * Fetches Farcaster user profile picture by username
+ * @param username The Farcaster username to look up
+ * @returns Profile picture URL or null if not found
+ */
+export async function getFarcasterProfilePicture(username: string): Promise<string | null> {
+  // Skip invalid usernames
+  if (!username || username === "null" || username === "undefined") {
+    return null;
+  }
+  
+  // Fix for specific usernames
+  if (username === "!217978") {
+    username = "softwarecurator";
+  }
+  
+  // Check cache first
+  if (usernameCache.has(username)) {
+    return usernameCache.get(username) || null;
+  }
+  
+  try {
+    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY;
+    if (!apiKey) {
+      console.error("Missing Neynar API key");
+      return null;
+    }
+    
+    const response = await fetch(
+      `https://api.neynar.com/v2/farcaster/user/by_username?username=${encodeURIComponent(username)}`,
+      {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'x-api-key': apiKey
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data?.user?.pfp_url) {
+      // Cache the result
+      usernameCache.set(username, data.user.pfp_url);
+      return data.user.pfp_url;
+    }
+    
+    // Cache null result
+    usernameCache.set(username, null);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching Farcaster pfp for username ${username}:`, error);
+    return null;
+  }
+}
+
+// Export the type for use in supabase data
+export type { FarcasterUser };

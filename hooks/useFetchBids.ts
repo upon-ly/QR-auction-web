@@ -1,8 +1,10 @@
 "use client";
 import { ethers, FallbackProvider, JsonRpcProvider } from "ethers";
 import QRAuction from "../abi/QRAuction.json";
+import QRAuctionV2 from "../abi/QRAuctionV2.json";
+import QRAuctionV3 from "../abi/QRAuctionV3.json";
 import { useClient } from "wagmi";
-import { config } from "../config/config";
+import { wagmiConfig } from "@/config/wagmiConfig";
 import type { Client, Chain, Transport } from "viem";
 import { v4 as uuidv4 } from "uuid";
 
@@ -34,15 +36,48 @@ function clientToProvider(client: Client<Transport, Chain>) {
 }
 
 export function useFetchBids(tokenId?: bigint) {
-  const client = useClient({ config });
+  const client = useClient({ config: wagmiConfig });
   const isLegacyAuction = tokenId && tokenId <= 22n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
+  const isV3Auction = tokenId && tokenId >= 36n;
+  
+  // Get the correct contract address based on tokenId
+  const getContractAddress = () => {
+    if (isLegacyAuction) {
+      return process.env.NEXT_PUBLIC_QRAuction as string;
+    } else if (isV2Auction) {
+      return process.env.NEXT_PUBLIC_QRAuctionV2 as string;
+    } else if (isV3Auction) {
+      return process.env.NEXT_PUBLIC_QRAuctionV3 as string;
+    } else {
+      // Default to V3 contract for any new auctions
+      return process.env.NEXT_PUBLIC_QRAuctionV3 as string;
+    }
+  };
+
+  // Get the correct ABI based on tokenId
+  const getContractAbi = () => {
+    if (isLegacyAuction) {
+      return QRAuction.abi;
+    } else if (isV2Auction) {
+      return QRAuctionV2.abi;
+    } else if (isV3Auction) {
+      return QRAuctionV3.abi;
+    } else {
+      // Default to V3 ABI for any new auctions
+      return QRAuctionV3.abi;
+    }
+  };
   
   const fetchHistoricalAuctions = async () => {
     try {
       const provider = clientToProvider(client);
+      const contractAddress = getContractAddress();
+      const contractAbi = getContractAbi();
+      
       const contract = new ethers.Contract(
-        isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as string : process.env.NEXT_PUBLIC_QRAuctionV2 as string,
-        QRAuction.abi,
+        contractAddress,
+        contractAbi,
         provider
       );
 

@@ -1,5 +1,5 @@
 "use client";
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 import { Address } from "viem";
 import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
@@ -49,15 +49,25 @@ export function BidCellView({
     pfpUrl: null
   });
 
-  // Check if it's a legacy auction (1-22)
+  // Check auction version based on tokenId
   const isLegacyAuction = bid.tokenId <= 22n;
-  const amount = Number(formatEther(bid.amount));
+  const isV2Auction = bid.tokenId >= 23n && bid.tokenId <= 35n;
+  const isV3Auction = bid.tokenId >= 36n;
+  
+  // Calculate amount based on auction type
+  const amount = isV3Auction 
+    ? Number(formatUnits(bid.amount, 6)) // USDC has 6 decimals
+    : Number(formatEther(bid.amount)); // ETH and QR have 18 decimals
 
-  function formatAmount(amount: number, isLegacy: boolean) {
+  function formatAmount(amount: number, isLegacy: boolean, isV2: boolean, isV3: boolean) {
     if (isLegacy) {
       return `Ξ ${amount.toFixed(3)}`;
+    } else if (isV2) {
+      return `${formatQRAmount(amount)} $QR`;
+    } else if (isV3) {
+      // Always show 2 decimal places for dollar amounts
+      return `$${amount.toFixed(2)}`;
     }
-    return `${formatQRAmount(amount)} $QR`;
   }
 
   function formatURL(url: string) {
@@ -167,7 +177,7 @@ export function BidCellView({
         </div>
       </div>
       <p className="font-mono text-sm font-medium whitespace-nowrap ml-4">
-        {formatAmount(amount, isLegacyAuction)}
+        {formatAmount(amount, isLegacyAuction, isV2Auction, isV3Auction)}
       </p>
     </div>
   );

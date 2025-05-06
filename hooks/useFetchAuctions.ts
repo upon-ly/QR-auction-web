@@ -5,7 +5,7 @@ import { useEffect, useReducer, useCallback } from "react";
 import { ethers, FallbackProvider, JsonRpcProvider } from "ethers";
 import { useWatchContractEvent, useClient } from "wagmi";
 import QRAuction from "../abi/QRAuction.json";
-import { config } from "../config/config";
+import { wagmiConfig } from "@/config/wagmiConfig";
 import { auctionReducer } from "../utils/auctionreducer";
 import { Address } from "viem";
 
@@ -42,8 +42,24 @@ export function useFetchAuctions(tokenId?: bigint) {
   const initialState: AuctionState = { auctions: [], historicalLoaded: false };
   const [state, dispatch] = useReducer(auctionReducer, initialState);
   const isLegacyAuction = tokenId && tokenId <= 22n;
+  const isV2Auction = tokenId && tokenId >= 23n && tokenId <= 35n;
+  const isV3Auction = tokenId && tokenId >= 36n;
 
-  const client = useClient({ config });
+  const client = useClient({ config: wagmiConfig });
+
+  // Determine the correct contract address based on tokenId
+  const getContractAddress = useCallback(() => {
+    if (isLegacyAuction) {
+      return process.env.NEXT_PUBLIC_QRAuction as string;
+    } else if (isV2Auction) {
+      return process.env.NEXT_PUBLIC_QRAuctionV2 as string;
+    } else if (isV3Auction) {
+      return process.env.NEXT_PUBLIC_QRAuctionV3 as string;
+    } else {
+      // Default to V3 contract
+      return process.env.NEXT_PUBLIC_QRAuctionV3 as string;
+    }
+  }, [isLegacyAuction, isV2Auction, isV3Auction]);
 
   // Create a fetchHistoricalAuctions function that we can re-use
   const fetchHistoricalAuctions = useCallback(async () => {
@@ -51,8 +67,9 @@ export function useFetchAuctions(tokenId?: bigint) {
     
     try {
       const provider = clientToProvider(client);
+      const contractAddress = getContractAddress();
       const contract = new ethers.Contract(
-        isLegacyAuction ? process.env.NEXT_PUBLIC_QRAuction as string : process.env.NEXT_PUBLIC_QRAuctionV2 as string,
+        contractAddress,
         QRAuction.abi,
         provider
       );
@@ -84,7 +101,7 @@ export function useFetchAuctions(tokenId?: bigint) {
     } catch (error) {
       console.error("Error fetching historical auctions:", error);
     }
-  }, [client, isLegacyAuction]);
+  }, [client, getContractAddress]);
 
   // Fetch historical events and initialize state on mount
   useEffect(() => {
@@ -93,7 +110,7 @@ export function useFetchAuctions(tokenId?: bigint) {
 
   // Listen for new events and update state
   useWatchContractEvent({
-    address: process.env.NEXT_PUBLIC_QRAuction as Address,
+    address: getContractAddress() as Address,
     abi: QRAuction.abi,
     eventName: "AuctionCreated",
     onLogs(logs) {
@@ -128,11 +145,15 @@ export function useFetchAuctions(tokenId?: bigint) {
         dispatch({ type: "ADD_EVENT", auction: newEvent });
       });
     },
-    config,
+    config: wagmiConfig,
   });
 
   return { 
     auctions: state.auctions,
-    refetch: fetchHistoricalAuctions 
+    refetch: fetchHistoricalAuctions,
+    forceRefetch: async () => {
+      console.log('Force refetching auctions list, bypassing cache');
+      return await fetchHistoricalAuctions();
+    }
   };
 }

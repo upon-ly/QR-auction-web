@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Link from "next/link";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useBaseColors } from "@/hooks/useBaseColors";
-import { useRouter } from "next/navigation";
-import { ConnectionIndicator } from "@/components/ConnectionIndicator";
-import { QRContextMenu } from "@/components/QRContextMenu";
 import { ThemeDialog } from "@/components/ThemeDialog";
 import { TweetEmbed } from "@/components/TweetEmbed";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAccount } from 'wagmi';
 import { XLogo } from "@/components/XLogo";
 import { DexscreenerLogo } from "@/components/DexScannerLogo";
 import { UniswapLogo } from "@/components/UniswapLogo";
@@ -46,9 +40,7 @@ export default function WallOfLovePage() {
   const loaderRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 10;
   
-  const { isConnected } = useAccount();
   const isBaseColors = useBaseColors();
-  const router = useRouter();
 
   const fetchTestimonials = useCallback(async (pageNumber: number) => {
     try {
@@ -152,10 +144,6 @@ export default function WallOfLovePage() {
     console.log('Page changed to:', page);
     fetchTestimonials(page);
   }, [page, fetchTestimonials]);
-  
-  const handleLogoClick = () => {
-    router.push('/');
-  };
   
   // Open Warpcast compose URL
   const handleCastClick = () => {
@@ -266,86 +254,6 @@ export default function WallOfLovePage() {
 
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mb-8 mt-8 md:mt-4 lg:mt-4 lg:mb-8">
-        <QRContextMenu className="inline-block" isHeaderLogo>
-          <h1
-            onClick={handleLogoClick}
-            className="text-2xl font-bold cursor-pointer"
-          >
-            $QR
-          </h1>
-        </QRContextMenu>
-        <div className="flex items-center gap-1 md:gap-3">
-          <Link href="/about">
-            <Button
-              variant="outline"
-              className={isConnected ? "h-10 px-3 text-sm font-medium" : "h-10 w-10 md:w-auto md:px-3 md:text-sm md:font-medium"}
-            >
-              <span className="md:hidden text-lg">{isConnected ? "What is this?" : "?"}</span>
-              <span className="hidden md:inline">What is this?</span>
-            </Button>
-          </Link>
-
-          <Link href="/winners">
-            <Button
-                variant="outline"
-                size="icon"
-                className={
-                isBaseColors
-                    ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                    : "h-10 w-10"
-                }
-            >
-                <div className="h-5 w-5 flex items-center justify-center">
-                🏆
-                </div>
-                </Button>
-          </Link>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10"
-                : "h-10 w-10"
-            }
-            onClick={() => setThemeDialogOpen(true)}
-          >
-            <div className="h-5 w-5 flex items-center justify-center">
-              {isBaseColors ? (
-                <img 
-                  src="/basecolors2.jpeg" 
-                  alt="Theme toggle - base colors"
-                  className="h-5 w-5 object-cover"
-                />
-              ) : (
-                <img 
-                  src="/basecolors.jpeg" 
-                  alt="Theme toggle - light/dark" 
-                  className="h-5 w-5 object-cover border"
-                />
-              )}
-            </div>
-          </Button>
-          
-          <div className="relative">
-            <ConnectButton
-              accountStatus={{
-                smallScreen: "avatar",
-                largeScreen: "full",
-              }}
-              chainStatus="none"
-              showBalance={false}
-              label="Connect Wallet"
-            />
-            <div className="absolute right-0 top-full mt-2 pr-1">
-              <ConnectionIndicator />
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <div className="z-10 mb-8 w-full flex flex-col items-center justify-center px-4">
         <div className="max-w-6xl w-full flex flex-col space-y-6">  
           <div className="flex flex-col space-y-3 text-center">

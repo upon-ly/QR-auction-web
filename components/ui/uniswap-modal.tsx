@@ -13,13 +13,13 @@ export function UniswapModal({
   open,
   onOpenChange,
   inputCurrency = "NATIVE",
-  outputCurrency = "0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF", // QR token address
+  outputCurrency = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // USDC token address on Base
 }: UniswapModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
         <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle>Buy $QR</DialogTitle>
+          <DialogTitle>Buy USDC</DialogTitle>
         </DialogHeader>
         <div className="h-[500px] md:h-[500px]">
           <UniswapWidget 

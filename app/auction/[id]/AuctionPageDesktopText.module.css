@@ -1,0 +1,31 @@
+.desktopHeading {
+  position: absolute;
+  top: -22px;
+  left: 40;
+  width: 345px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  color: #fff dark(black, 0.5);
+  z-index: 2;
+}
+
+.desktopSubheading {
+  position: absolute;
+  top: 345px;
+  left: 30px;
+  width: 345px;
+  text-align: left;
+  font-size: 0.9rem;
+  color: #fff dark(black, 0.5);
+  letter-spacing: 0.01em;
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .desktopHeading, .desktopSubheading {
+    display: none;
+  }
+}
