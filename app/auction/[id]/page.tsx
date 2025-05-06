@@ -329,7 +329,7 @@ export default function AuctionPage() {
           <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full">
             <div className="flex flex-col w-full">
               {/* Mobile Winner Display - displayed as block on mobile, hidden on desktop */}
-              {isLatestAuction && ogImage && !isAuction22 && (
+              {isLatestAuction && ogImage && !isAuction22 && !isAuction61 && (
                 <div className="block md:hidden">
                   <div className="flex flex-col justify-center items-center w-[calc(100vw-32px)] max-w-[376px] mx-auto gap-1">
                     <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
