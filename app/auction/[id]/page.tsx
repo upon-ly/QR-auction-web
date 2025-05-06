@@ -521,7 +521,7 @@ export default function AuctionPage() {
       </div>
 
       {/* Love Carousel - add this before the footer */}
-      {isLatestAuction && (
+      {isLatestAuction && !isAuction61 && (
         <div className="md:mt-0">
           <EndorsementsCarousel />
         </div>
