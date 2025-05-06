@@ -144,6 +144,30 @@ export default function AuctionPage() {
 
   const fetchOgImage = useCallback(async () => {
     try {
+      // Special case for auction #62 - use data from auction #61 (V2 contract)
+      const isAuction62 = currentAuctionId === 62;
+      
+      if (isAuction62) {
+        console.log('Special case: Fetching auction #61 URL for auction #62');
+        // Define the V2 contract URL/data instead of using current auction
+        const hardcodedUrl = "https://www.clanker.world/";
+        setOgUrl(hardcodedUrl);
+        
+        try {
+          const ogRes = await fetch(`/api/og?url=${encodeURIComponent(hardcodedUrl)}`);
+          const data = await ogRes.json();
+          if (data.error || !data.image) {
+            setOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+          } else {
+            setOgImage(data.image);
+          }
+        } catch (err) {
+          setOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+        }
+        return;
+      }
+      
+      // Normal case - fetch current auction settings
       const res = await refetchSettings() as SettingsResponse;
       const url = res?.data[6]?.urlString ?? `${process.env.NEXT_PUBLIC_DEFAULT_REDIRECT}`;
 
@@ -163,7 +187,7 @@ export default function AuctionPage() {
     } catch (err) {
       console.error("Error fetching OG image:", err);
     }
-  }, [refetchSettings]);
+  }, [refetchSettings, currentAuctionId]);
 
   useEffect(() => {
     if (isLatestAuction) {
@@ -266,7 +290,7 @@ export default function AuctionPage() {
         57: "https://i.postimg.cc/NfXMQDtR/55winner.jpg",
         58: "https://i.postimg.cc/GhFSqpM7/57winner.jpg",
         60: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW1rY216bmtidnAwcDgzcHYwdTNmYTB2dDhnM3BxbW43cDZ5bmV3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZmCWjB3utyyAN61pAj/giphy.gif",
-        62: "https://i.ibb.co/JWWcQyJ4/60winner.jpg"
+        61: "https://i.ibb.co/JWWcQyJ4/60winner.jpg",
     }),
     []
   );
