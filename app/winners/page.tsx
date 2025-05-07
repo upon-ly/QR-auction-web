@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../types/database";
 import { getFarcasterProfilePicture } from "@/utils/farcaster";
+import { frameSdk } from "@/lib/frame-sdk";
 
 // Initialize Supabase client once, outside the component
 const supabase = createClient<Database>(
@@ -68,12 +69,39 @@ export default function WinnersPage() {
   const [isLoading, setIsLoading] = useState(!cachedWinners);
   const [copied, setCopied] = useState(false);
   const [profilePictures, setProfilePictures] = useState<Record<string, string | null>>(cachedProfilePics || {});
+  const isFrameRef = useRef(false);
   
   // Sorting state
   const [sortColumn, setSortColumn] = useState<SortColumn>('auction');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   const isBaseColors = useBaseColors();
+
+  // Check if we're running in a Farcaster frame context
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrameRef.current = !!context?.user;
+        console.log("Winners page frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
+      } catch (error) {
+        console.error("Error checking frame context:", error);
+      }
+    }
+    checkFrameContext();
+  }, []);
+  
+  // Add a general handler for external links
+  const handleExternalLink = async (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+    if (isFrameRef.current) {
+      e.preventDefault();
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    }
+  };
 
   // Fetch winners from Supabase
   const fetchWinners = useCallback(async () => {
@@ -200,7 +228,7 @@ export default function WinnersPage() {
   };
 
   // Function to handle user name click - open Warpcast profile if it exists
-  const handleNameClick = (winner: WinnerData) => {
+  const handleNameClick = async (winner: WinnerData, e?: React.MouseEvent) => {
     if (winner.farcaster_username) {
       // Open Warpcast profile in new tab
       let username = winner.farcaster_username;
@@ -208,7 +236,19 @@ export default function WinnersPage() {
       // Quick temp fix - replace !217978 with softwarecurator (copied from WarpcastLogo component)
       username = username === "!217978" ? "softwarecurator" : username;
       
-      window.open(`https://warpcast.com/${username}`, '_blank');
+      const url = `https://warpcast.com/${username}`;
+      
+      if (e) e.preventDefault();
+      
+      if (isFrameRef.current) {
+        try {
+          await frameSdk.redirectToUrl(url);
+        } catch (error) {
+          console.error("Error opening Warpcast profile in frame:", error);
+        }
+      } else {
+        window.open(url, '_blank', "noopener,noreferrer");
+      }
     }
   };
 
@@ -413,7 +453,7 @@ export default function WinnersPage() {
                           <div className="flex items-center truncate max-w-[110px] md:max-w-full">
                             <span 
                               className={`truncate ${winner.farcaster_username ? 'hover:underline cursor-pointer' : ''}`}
-                              onClick={() => handleNameClick(winner)}
+                              onClick={(e) => winner.farcaster_username ? handleNameClick(winner, e as React.MouseEvent) : undefined}
                             >
                               {getDisplayName(winner)}
                             </span>
@@ -441,6 +481,7 @@ export default function WinnersPage() {
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="flex items-center hover:underline text-[#0000FF] dark:text-[#00FF00] max-w-[100px] md:max-w-[300px] truncate"
+                            onClick={(e) => handleExternalLink(e, winner.url!)}
                           >
                             <span className="truncate">{winner.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 ml-1 flex-shrink-0 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -468,6 +509,7 @@ export default function WinnersPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="X (formerly Twitter)"
+            onClick={(e) => handleExternalLink(e, "https://x.com/QRcoindotfun")}
           >
             <XLogo />
           </a>
@@ -477,6 +519,7 @@ export default function WinnersPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Dexscreener"
+            onClick={(e) => handleExternalLink(e, "https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0")}
           >
             <DexscreenerLogo />
           </a>
@@ -486,6 +529,7 @@ export default function WinnersPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Uniswap"
+            onClick={(e) => handleExternalLink(e, "https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base")}
           >
             <UniswapLogo />
           </a>

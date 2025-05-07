@@ -15,6 +15,7 @@ import { FarcasterEmbed } from "react-farcaster-embed/dist/client";
 import "react-farcaster-embed/dist/styles.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { frameSdk } from "@/lib/frame-sdk";
 
 interface Testimonial {
   id: number;
@@ -38,6 +39,7 @@ export default function WallOfLovePage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const loaderRef = useRef<HTMLDivElement>(null);
+  const isFrameRef = useRef(false);
   const PAGE_SIZE = 10;
   
   const isBaseColors = useBaseColors();
@@ -145,19 +147,86 @@ export default function WallOfLovePage() {
     fetchTestimonials(page);
   }, [page, fetchTestimonials]);
   
+  // Check if we're running in a Farcaster frame context
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrameRef.current = !!context?.user;
+        console.log("Frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
+      } catch (error) {
+        console.error("Error checking frame context:", error);
+      }
+    }
+    checkFrameContext();
+  }, []);
+  
   // Open Warpcast compose URL
-  const handleCastClick = () => {
-    window.open('https://warpcast.com/~/compose?text=we%20like%20%40qrcoindotfun', '_blank');
+  const handleCastClick = async () => {
+    const url = 'https://warpcast.com/~/compose?text=we%20like%20%40qrcoindotfun';
+    
+    if (isFrameRef.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening Warpcast in frame:", error);
+      }
+    } else {
+      window.open(url, '_blank', "noopener,noreferrer");
+    }
   };
 
   // Open Twitter compose URL
-  const handleTweetClick = () => {
-    window.open('https://twitter.com/intent/tweet?text=we%20like%20%40qrcoindotfun', '_blank');
+  const handleTweetClick = async () => {
+    const url = 'https://twitter.com/intent/tweet?text=we%20like%20%40qrcoindotfun';
+    
+    if (isFrameRef.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening Twitter in frame:", error);
+      }
+    } else {
+      window.open(url, '_blank', "noopener,noreferrer");
+    }
   };
   
   // Handle click on a Farcaster embed to open the original URL
-  const handleFarcasterEmbedClick = (url: string) => {
-    window.open(url, '_blank');
+  const handleFarcasterEmbedClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const url = e.currentTarget.getAttribute('data-url');
+    if (!url) return;
+    
+    if (isFrameRef.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    } else {
+      window.open(url, '_blank', "noopener,noreferrer");
+    }
+  };
+  
+  // Handle tweet embed click
+  const handleTweetEmbedClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const url = e.currentTarget.getAttribute('data-url');
+    if (!url) return;
+    
+    if (isFrameRef.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    } else {
+      window.open(url, '_blank', "noopener,noreferrer");
+    }
   };
   
   const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
@@ -251,6 +320,18 @@ export default function WallOfLovePage() {
       document.head.removeChild(style);
     };
   }, []);
+
+  // Add a general handler for external links
+  const handleExternalLink = async (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+    if (isFrameRef.current) {
+      e.preventDefault();
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    }
+  };
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -415,18 +496,24 @@ export default function WallOfLovePage() {
                 <div key={testimonial.id} className="w-full flex justify-center">
                   <div className="max-w-xl w-full px-0 md:px-[50px]">
                     {testimonial.type === 'warpcast' ? (
-                      <div 
+                      <div
                         className="cursor-pointer" 
-                        onClick={() => handleFarcasterEmbedClick(testimonial.url)}
+                        onClick={handleFarcasterEmbedClick}
+                        data-url={testimonial.url}
                       >
                         <FarcasterEmbed url={testimonial.url} />
                       </div>
                     ) : (
-                      <div className="overflow-hidden">
+                      <div className="relative overflow-hidden">
+                        {/* Transparent overlay to capture clicks */}
+                        <div 
+                          className="absolute inset-0 z-10 cursor-pointer"
+                          onClick={handleTweetEmbedClick}
+                          data-url={testimonial.url}
+                        ></div>
                         <TweetEmbed 
                           tweetUrl={testimonial.url} 
-                          showLoader={true} 
-                          onClick={() => window.open(testimonial.url, '_blank')}
+                          showLoader={true}
                         />
                       </div>
                     )}
@@ -459,6 +546,7 @@ export default function WallOfLovePage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="X (formerly Twitter)"
+            onClick={(e) => handleExternalLink(e, "https://x.com/QRcoindotfun")}
           >
             <XLogo />
           </a>
@@ -468,6 +556,7 @@ export default function WallOfLovePage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Dexscreener"
+            onClick={(e) => handleExternalLink(e, "https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0")}
           >
             <DexscreenerLogo />
           </a>
@@ -477,6 +566,7 @@ export default function WallOfLovePage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Uniswap"
+            onClick={(e) => handleExternalLink(e, "https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base")}
           >
             <UniswapLogo />
           </a>

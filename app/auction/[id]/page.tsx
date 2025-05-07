@@ -557,6 +557,12 @@ export default function AuctionPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="X (formerly Twitter)"
+            onClick={(e) => {
+              if (isFrame.current) {
+                e.preventDefault();
+                handleFrameOpenUrl("https://x.com/qrcoindotfun");
+              }
+            }}
           >
             <XLogo />
           </a>
@@ -566,6 +572,12 @@ export default function AuctionPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Dexscreener"
+            onClick={(e) => {
+              if (isFrame.current) {
+                e.preventDefault();
+                handleFrameOpenUrl("https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0");
+              }
+            }}
           >
             <DexscreenerLogo />
           </a>
@@ -575,6 +587,12 @@ export default function AuctionPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="Uniswap"
+            onClick={(e) => {
+              if (isFrame.current) {
+                e.preventDefault();
+                handleFrameOpenUrl("https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base");
+              }
+            }}
           >
             <UniswapLogo />
           </a>

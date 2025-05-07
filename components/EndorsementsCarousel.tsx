@@ -8,6 +8,7 @@ import "react-farcaster-embed/dist/styles.css";
 import { FarcasterEmbed } from "react-farcaster-embed/dist/client";
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { frameSdk } from "@/lib/frame-sdk";
 
 interface Testimonial {
   id: number;
@@ -24,10 +25,39 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isFrameRef = useRef(false);
+  
+  // Check if we're running in a Farcaster frame context
+  useEffect(() => {
+    async function checkFrameContext() {
+      try {
+        const context = await frameSdk.getContext();
+        isFrameRef.current = !!context?.user;
+        console.log("Carousel frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
+      } catch (error) {
+        console.error("Error checking frame context:", error);
+      }
+    }
+    checkFrameContext();
+  }, []);
 
   // Handle click on any embed to open the original URL
-  const handleEmbedClick = (url: string) => {
-    window.open(url, '_blank');
+  const handleEmbedClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const url = e.currentTarget.getAttribute('data-url');
+    if (!url) return;
+    
+    if (isFrameRef.current) {
+      try {
+        await frameSdk.redirectToUrl(url);
+      } catch (error) {
+        console.error("Error opening URL in frame:", error);
+      }
+    } else {
+      window.open(url, '_blank', "noopener,noreferrer");
+    }
   };
 
   useEffect(() => {
@@ -73,7 +103,8 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
     return (
       <div 
         className="flex flex-col items-center justify-center p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 cursor-pointer h-full"
-        onClick={() => handleEmbedClick(testimonial.url)}
+        onClick={handleEmbedClick}
+        data-url={testimonial.url}
       >
         <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -91,19 +122,27 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
       return (
         <div 
           className="cursor-pointer" 
-          onClick={() => handleEmbedClick(testimonial.url)}
+          onClick={handleEmbedClick}
+          data-url={testimonial.url}
         >
           <FarcasterEmbed url={testimonial.url} />
         </div>
       );
     } else {
       return (
-        <TweetEmbed 
-          tweetUrl={testimonial.url} 
-          onError={() => setHasError(true)}
-          showLoader={false}
-          onClick={() => handleEmbedClick(testimonial.url)}
-        />
+        <div className="relative overflow-hidden">
+          {/* Transparent overlay to capture clicks */}
+          <div 
+            className="absolute inset-0 z-10 cursor-pointer"
+            onClick={handleEmbedClick}
+            data-url={testimonial.url}
+          ></div>
+          <TweetEmbed 
+            tweetUrl={testimonial.url} 
+            onError={() => setHasError(true)}
+            showLoader={false}
+          />
+        </div>
       );
     }
   } catch (error) {
@@ -112,7 +151,8 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
     return (
       <div 
         className="flex flex-col items-center justify-center p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 cursor-pointer h-full"
-        onClick={() => handleEmbedClick(testimonial.url)}
+        onClick={handleEmbedClick}
+        data-url={testimonial.url}
       >
         <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
         <p className="text-sm text-gray-600 dark:text-gray-400">
