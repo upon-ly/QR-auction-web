@@ -32,8 +32,8 @@ import { EndorsementsCarousel } from "@/components/EndorsementsCarousel";
 import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
 
-// Key for storing the latest auction ID in localStorage
-const LATEST_AUCTION_KEY = 'qrcoin_latest_auction_id';
+// Key for storing auction cache data in localStorage
+const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
 
 // Helper function to safely access localStorage
 const safeLocalStorage = {
@@ -50,6 +50,29 @@ const safeLocalStorage = {
       localStorage.setItem(key, value);
     } catch (e) {
       console.warn('Error setting localStorage:', e);
+    }
+  },
+  // Get the auction cache as an object
+  getAuctionCache: (): { latestAuctionId: number, latestV3AuctionId: number } => {
+    try {
+      const cacheStr = localStorage.getItem(AUCTION_CACHE_KEY);
+      if (cacheStr) {
+        return JSON.parse(cacheStr);
+      }
+    } catch (e) {
+      console.warn('Error accessing localStorage cache:', e);
+    }
+    return { latestAuctionId: 0, latestV3AuctionId: 0 };
+  },
+  // Update the auction cache
+  updateAuctionCache: (latestAuctionId: number, latestV3AuctionId: number): void => {
+    try {
+      localStorage.setItem(AUCTION_CACHE_KEY, JSON.stringify({ 
+        latestAuctionId, 
+        latestV3AuctionId 
+      }));
+    } catch (e) {
+      console.warn('Error updating localStorage cache:', e);
     }
   }
 };
@@ -143,7 +166,7 @@ export default function AuctionPage() {
       
       // Update the cached latest auction ID if this is indeed the latest
       if (latestId > 0) {
-        safeLocalStorage.setItem(LATEST_AUCTION_KEY, latestId.toString());
+        safeLocalStorage.updateAuctionCache(latestId, latestV3Id);
       }
     } else if (auctions) {
       setIsLoading(false);
@@ -248,19 +271,26 @@ export default function AuctionPage() {
       forceRefetchAuctions().then(() => {
         const newLatestId = Number(tokenId);
         
-        // Update the cached latest auction ID when a new auction is created
-        safeLocalStorage.setItem(LATEST_AUCTION_KEY, newLatestId.toString());
-        
         // Check if this is a V3 auction (ID >= 62)
         const isV3Auction = newLatestId >= 62;
         
+        // Update the latest V3 auction ID if this is a V3 auction
+        let updatedV3AuctionId = latestV3AuctionId;
+        if (isV3Auction && newLatestId > latestV3AuctionId) {
+          updatedV3AuctionId = newLatestId;
+          setLatestV3AuctionId(newLatestId);
+        }
+        
+        // Update the cached auction data
+        safeLocalStorage.updateAuctionCache(newLatestId, updatedV3AuctionId);
+        
         if (isLatestAuction || currentAuctionId === newLatestId - 1) {
           // Only redirect to new auction if it's a V3 auction or we don't have V3 auctions yet
-          if (isV3Auction || latestV3AuctionId === 0) {
+          if (isV3Auction || updatedV3AuctionId === 0) {
             router.push(`/auction/${newLatestId}`);
           } else {
             // If not a V3 auction but we have V3 auctions, stay on latest V3
-            router.push(`/auction/${latestV3AuctionId}`);
+            router.push(`/auction/${updatedV3AuctionId}`);
           }
         }
         fetchOgImage();
