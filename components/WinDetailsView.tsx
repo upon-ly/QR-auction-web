@@ -17,15 +17,8 @@ import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import useEthPrice from "@/hooks/useEthPrice";
 import { getAuctionVersion } from "@/utils/auctionPriceData";
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "../types/database";
+import { useWinnerData } from "@/hooks/useWinnerData";
 import { frameSdk } from "@/lib/frame-sdk";
-
-// Initialize Supabase client
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 
 type AuctionType = {
@@ -44,18 +37,19 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
-
-  const [winnerDbData, setWinnerDbData] = useState<{ usd_value: number | null, is_v1_auction: boolean | null } | null>(null);
+  
+  // Use the new TanStack Query hook to fetch and cache winner data
+  const { 
+    data: winnerDbData, 
+    isLoading: isWinnerDataLoading, 
+    isError: isWinnerDataError 
+  } = useWinnerData(winnerdata.tokenId);
   
   // Determine auction version
   const auctionVersion = useMemo(() => getAuctionVersion(winnerdata.tokenId), [winnerdata.tokenId]);
   
-  // Fallback to current prices if database data isn't available
-
-  
   // Initialize isFrame from props or determine via useRef
   const isFrame = useRef(!!winnerdata.isFrame);
-
 
   const { priceUsd: qrPrice } = useTokenPrice();
   const { ethPrice } = useEthPrice();
@@ -72,32 +66,6 @@ export function WinDetailsView(winnerdata: AuctionType) {
     }
     return Number(formatEther(winnerdata.amount)); // ETH and QR have 18 decimals
   }, [winnerdata.amount, isV3Auction]);
-
-  // Fetch winner data from database
-  useEffect(() => {
-    const fetchWinnerData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('winners')
-          .select('usd_value, is_v1_auction')
-          .eq('token_id', winnerdata.tokenId.toString())
-          .single();
-        
-        if (error) {
-          console.error('Error fetching winner data:', error);
-          return;
-        }
-        
-        if (data) {
-          setWinnerDbData(data);
-        }
-      } catch (error) {
-        console.error('Error in database query:', error);
-      }
-    };
-    
-    fetchWinnerData();
-  }, [winnerdata.tokenId]);
 
   // Check if we're in Farcaster frame context if not passed in props
   useEffect(() => {
@@ -245,17 +213,22 @@ export function WinDetailsView(winnerdata: AuctionType) {
 
   // Helper function to format value in USD
   const formatUsdValueDisplay = (): string => {
+    // Don't show USD value for V3 auctions since amount is already in USD
+    if (isV3Auction) {
+      return '';
+    }
+    
+    // If we're still loading data, don't show anything yet
+    if (isWinnerDataLoading) {
+      return '';
+    }
+    
     // If we have database value, use it
     if (winnerDbData?.usd_value) {
       return `($${winnerDbData.usd_value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
     } 
     
-    // Don't show USD value for V3 since amount is already in USD
-    if (isV3Auction) {
-      return '';
-    }
-    
-    // Fallback to calculating with current prices
+    // If we tried to load but there's no data, fall back to current prices
     if (isV1Auction && ethPrice?.ethereum?.usd) {
       const currentUsdValue = tokenAmount * ethPrice.ethereum.usd;
       return `($${currentUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
@@ -282,7 +255,10 @@ export function WinDetailsView(winnerdata: AuctionType) {
           </div>
           <div className="inline-flex flex-row justify-center items-center gap-1">
             <div className="text-xl font-bold">
-              {formatBidAmount()} {formatUsdValueDisplay()}
+              {formatBidAmount()}
+              {!isV3Auction && (
+                <span className="ml-1">{formatUsdValueDisplay()}</span>
+              )}
             </div>
           </div>
         </div>

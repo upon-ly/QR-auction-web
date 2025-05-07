@@ -37,6 +37,7 @@ import { Address } from "viem";
 import { frameSdk } from "@/lib/frame-sdk";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
+import { queryClient } from "@/providers/provider";
 
 interface AuctionDetailsProps {
   id: number;
@@ -311,6 +312,21 @@ export function AuctionDetails({
                 console.error('[Settle] Error inserting winner to database:', error);
               } else {
                 console.log('[Settle] Successfully added winner to database');
+                
+                // Manually update TanStack Query cache if possible
+                try {
+                  if (queryClient) {
+                    // Update the cache with our new winner data
+                    queryClient.setQueryData(['winner', id.toString()], {
+                      usd_value: winnerData.usd_value,
+                      is_v1_auction: winnerData.is_v1_auction,
+                    });
+                    
+                    console.log('[Settle] Updated TanStack Query cache with new winner data');
+                  }
+                } catch (cacheError) {
+                  console.error('[Settle] Error updating query cache:', cacheError);
+                }
               }
             }
           } catch (dbError) {

@@ -16,7 +16,8 @@ import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { getPrivyConfig } from "../config/privyConfig";
 import { wagmiConfig } from "../config/wagmiConfig";
 
-const queryClient = new QueryClient();
+// Create a singleton instance of QueryClient that can be imported elsewhere
+export const queryClient = new QueryClient();
 
 export function Provider(props: { children: ReactNode }) {
   // Get current theme
