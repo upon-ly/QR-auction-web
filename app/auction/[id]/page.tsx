@@ -129,22 +129,28 @@ export default function AuctionPage() {
     checkFrameContext();
   }, []);
   
-  // Function to handle URL opening specifically for Frame environments
-  const handleFrameOpenUrl = async (url: string) => {
-    if (isFrame.current) {
-      try {
-        await frameSdk.redirectToUrl(url);
-      } catch (error) {
-        console.error("Error opening URL in frame:", error);
-        // Fallback to regular navigation
-        window.open(url, "_blank");
+  // Function to handle URL opening, always using safety dialog first
+  const handleFrameOpenUrl = async (url: string, e?: React.MouseEvent) => {
+    // If event provided, prevent default behavior
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Always try to show the safety dialog first
+    const showingDialog = openDialog(url);
+    
+    // If the dialog isn't showing (user disabled it), handle direct navigation
+    if (!showingDialog) {
+      if (isFrame.current) {
+        try {
+          await frameSdk.redirectToUrl(url);
+        } catch (error) {
+          console.error("Error opening URL in frame:", error);
+        }
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
       }
-    } else {
-      // For non-frame environments, use the safety dialog or normal navigation
-      if (openDialog(url)) {
-        return; // Safety dialog is handling it
-      }
-      window.open(url, "_blank");
     }
   };
 
@@ -423,8 +429,8 @@ export default function AuctionPage() {
                           src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
                           alt="Open Graph"
                           className="object-cover w-full h-full cursor-pointer"
-                          onClick={() => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl);
+                          onClick={(e) => {
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e);
                           }}
                         />
                       </div>
@@ -435,7 +441,9 @@ export default function AuctionPage() {
                         </span>
                         <div className="w-full flex justify-center">
                           <button
-                            onClick={() => handleFrameOpenUrl(ogUrl)}
+                            onClick={(e) => {
+                              if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                            }}
                             className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                             title={ogUrl}
                             aria-label="redirect"
@@ -471,8 +479,8 @@ export default function AuctionPage() {
                         src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
                         alt="Open Graph"
                         className="object-cover w-full h-full cursor-pointer"
-                        onClick={() => {
-                          if (ogUrl) handleFrameOpenUrl(ogUrl);
+                        onClick={(e) => {
+                          if (ogUrl) handleFrameOpenUrl(ogUrl, e);
                         }}
                       />
                     </div>
@@ -483,7 +491,9 @@ export default function AuctionPage() {
                       </span>
                       <div className="w-full flex justify-center">
                         <button
-                          onClick={() => handleFrameOpenUrl(ogUrl)}
+                          onClick={(e) => {
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                          }}
                           className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                           title={ogUrl}
                           aria-label="redirect"
@@ -590,7 +600,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://x.com/qrcoindotfun");
+                handleFrameOpenUrl("https://x.com/qrcoindotfun", e);
               }
             }}
           >
@@ -605,7 +615,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0");
+                handleFrameOpenUrl("https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0", e);
               }
             }}
           >
@@ -620,7 +630,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base");
+                handleFrameOpenUrl("https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base", e);
               }
             }}
           >
