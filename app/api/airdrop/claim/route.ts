@@ -56,6 +56,51 @@ const ERC20_ABI = [
   }
 ];
 
+// Simple delay function
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Function to retry transactions with exponential backoff
+async function executeWithRetry<T>(
+  operation: (attempt: number) => Promise<T>,
+  maxRetries: number = 3,
+  initialDelayMs: number = 1000
+): Promise<T> {
+  let attempt = 0;
+  let lastError: Error | unknown;
+
+  while (attempt <= maxRetries) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      lastError = error;
+      
+      // Check if this is a retryable error
+      const isRetryable = error instanceof Error && (
+        error.message?.includes('replacement fee too low') ||
+        error.message?.includes('nonce has already been used') ||
+        error.message?.includes('transaction underpriced') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('network error')
+      );
+      
+      // Don't retry if error is not retryable
+      if (!isRetryable || attempt >= maxRetries) {
+        throw error;
+      }
+      
+      // Log retry attempt
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`Transaction failed (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${initialDelayMs * 2 ** attempt}ms. Error: ${errorMessage}`);
+      
+      // Wait with exponential backoff
+      await delay(initialDelayMs * 2 ** attempt);
+      attempt++;
+    }
+  }
+  
+  throw lastError;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
@@ -189,50 +234,81 @@ export async function POST(request: NextRequest) {
     
     console.log('Executing airdrop...');
     
-    // Get current nonce for transaction
-    const nonce = await provider.getTransactionCount(adminWallet.address, 'latest');
-    console.log(`Using nonce: ${nonce} for airdrop transaction`);
-
-    // Execute the airdrop with explicit nonce and higher gas limit
-    const airdropTx = await airdropContract.airdropERC20(
-      QR_TOKEN_ADDRESS,
-      airdropContent,
-      {
-        nonce,
-        gasLimit: 500000 // Higher gas limit for safety
-      }
-    );
-
-    console.log(`Airdrop tx submitted: ${airdropTx.hash}`);
-    const receipt = await airdropTx.wait();
-    console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
-    
-    // Record the claim in the database
-    const { error: insertError } = await supabase
-      .from('airdrop_claims')
-      .insert({
-        fid: fid,
-        eth_address: address,
-        amount: 10000, // 10,000 QR tokens
-        tx_hash: receipt.hash,
-        success: true,
-        username: username || null
+    // Execute the airdrop with retry logic
+    try {
+      // Wrap the transaction in the retry function
+      const receipt = await executeWithRetry(async (attempt) => {
+        // Get fresh nonce each time
+        const nonce = await provider.getTransactionCount(adminWallet.address, 'latest');
+        console.log(`Using nonce: ${nonce} for airdrop transaction, attempt: ${attempt}`);
+        
+        // Increase gas price with each retry attempt
+        const gasPrice = await provider.getFeeData().then(feeData => 
+          feeData.gasPrice ? feeData.gasPrice * BigInt(130 + attempt * 20) / BigInt(100) : undefined
+        );
+        
+        // Execute the airdrop with explicit nonce and higher gas limit
+        const tx = await airdropContract.airdropERC20(
+          QR_TOKEN_ADDRESS,
+          airdropContent,
+          {
+            nonce,
+            gasLimit: 500000, // Higher gas limit for safety
+            gasPrice // Increasing gas price with each retry
+          }
+        );
+        
+        console.log(`Airdrop tx submitted: ${tx.hash}`);
+        const receipt = await tx.wait();
+        console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
+        
+        return receipt;
       });
       
-    if (insertError) {
-      console.error('Error recording claim:', insertError);
+      // Record the claim in the database
+      const { error: insertError } = await supabase
+        .from('airdrop_claims')
+        .insert({
+          fid: fid,
+          eth_address: address,
+          amount: 10000, // 10,000 QR tokens
+          tx_hash: receipt.hash,
+          success: true,
+          username: username || null
+        });
+        
+      if (insertError) {
+        console.error('Error recording claim:', insertError);
+        return NextResponse.json({ 
+          success: true, 
+          warning: 'Airdrop successful but failed to record claim',
+          tx_hash: receipt.hash
+        });
+      }
+      
       return NextResponse.json({ 
         success: true, 
-        warning: 'Airdrop successful but failed to record claim',
+        message: 'Airdrop claimed successfully',
         tx_hash: receipt.hash
       });
+    } catch (error: unknown) {
+      console.error('Airdrop claim error:', error);
+      
+      // Try to provide more specific error messages for common issues
+      let errorMessage = 'Failed to process airdrop claim';
+      if (error instanceof Error) {
+        if (error.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds in admin wallet for gas';
+        } else if (error.message.includes('execution reverted')) {
+          errorMessage = 'Contract execution reverted: ' + error.message.split('execution reverted:')[1]?.trim() || 'unknown reason';
+        }
+      }
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: errorMessage
+      }, { status: 500 });
     }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Airdrop claimed successfully',
-      tx_hash: receipt.hash
-    });
   } catch (error: unknown) {
     console.error('Airdrop claim error:', error);
     
