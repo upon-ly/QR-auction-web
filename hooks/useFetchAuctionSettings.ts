@@ -8,6 +8,9 @@ import { Address } from "viem";
 import { wagmiConfig } from "@/config/wagmiConfig";
 import { useEffect, useState } from "react";
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 type QRData = {
   validUntil: bigint;
   urlString: string;
@@ -53,9 +56,11 @@ export function useFetchAuctionSettings(tokenId?: bigint) {
       ? QRAuctionV2.abi 
       : QRAuctionV3.abi;
 
-  console.log(`Settings: Using contract for auction #${tokenId}: ${contractAddress}, version: ${
-    isLegacyAuction ? 'V1' : isV2Auction ? 'V2' : 'V3'
-  }`);
+  if (DEBUG) {
+    console.log(`Settings: Using contract for auction #${tokenId}: ${contractAddress}, version: ${
+      isLegacyAuction ? 'V1' : isV2Auction ? 'V2' : 'V3'
+    }`);
+  }
 
   const { data: settingDetails, refetch: refetchSettings, error } = useReadContract({
     address: contractAddress,
@@ -73,14 +78,18 @@ export function useFetchAuctionSettings(tokenId?: bigint) {
 
   useEffect(() => {
     const fetchDetails = async () => {
-      console.log(`Fetching settings for auction #${tokenId}`);
+      if (DEBUG) {
+        console.log(`Fetching settings for auction #${tokenId}`);
+      }
       try {
         await refetchSettings();
 
         if (settingDetails) {
           const details = settingDetails as AuctionSettingsResponse;
 
-          console.log(`Settings data for auction #${tokenId}:`, details);
+          if (DEBUG) {
+            console.log(`Settings data for auction #${tokenId}:`, details);
+          }
 
           if (isV3Auction && details.length > 7) {
             setSettingdetails({
@@ -105,10 +114,14 @@ export function useFetchAuctionSettings(tokenId?: bigint) {
             });
           }
         } else {
-          console.log(`No settings data returned for auction #${tokenId}`);
+          if (DEBUG) {
+            console.log(`No settings data returned for auction #${tokenId}`);
+          }
         }
       } catch (fetchError) {
-        console.error(`Error fetching settings for auction #${tokenId}:`, fetchError);
+        if (DEBUG) {
+          console.error(`Error fetching settings for auction #${tokenId}:`, fetchError);
+        }
       }
     };
 

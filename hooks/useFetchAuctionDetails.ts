@@ -10,6 +10,9 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { base } from "viem/chains";
 import { getName } from "@coinbase/onchainkit/identity";
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 type QRData = {
   validUntil: bigint;
   urlString: string;
@@ -65,9 +68,11 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
   const shouldFetch = !!tokenId && tokenId !== lastFetchedTokenId.current;
 
   if (process.env.NODE_ENV === "development") {
-    console.log(`Using contract for auction #${tokenId}: ${contractAddress}, version: ${
-      isLegacyAuction ? 'V1' : isV2Auction ? 'V2' : 'V3'
-    }`);
+    if (DEBUG) {
+      console.log(`Using contract for auction #${tokenId}: ${contractAddress}, version: ${
+        isLegacyAuction ? 'V1' : isV2Auction ? 'V2' : 'V3'
+      }`);
+    }
   }
   
   const { data: auctionDetails, refetch, error: contractReadError } = useReadContract({
@@ -98,7 +103,9 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
     
     // Check if we have cached data for this auction
     if (auctionCache.has(cacheKey)) {
-      console.log(`Using cached data for auction #${tokenId}`);
+      if (DEBUG) {
+        console.log(`Using cached data for auction #${tokenId}`);
+      }
       setAuctiondetails(auctionCache.get(cacheKey));
     }
   }, [tokenId, contractAddress]);
@@ -115,14 +122,18 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
         return;
       }
       
-      console.log(`Fetching auction details for token #${tokenId} from contract ${contractAddress}`);
+      if (DEBUG) {
+        console.log(`Fetching auction details for token #${tokenId} from contract ${contractAddress}`);
+      }
       
       try {
         // If we need fresh data, refetch
         const result = await refetch();
         
         if (!result.data) {
-          console.log(`No auction details returned for #${tokenId}`);
+          if (DEBUG) {
+            console.log(`No auction details returned for #${tokenId}`);
+          }
           return;
         }
         
@@ -130,14 +141,16 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
         const details = result.data as AuctionResponse;
         const bidderAddress = details[2];
         
-        console.log(`Auction data for #${tokenId}:`, {
-          tokenId: details[0].toString(),
-          highestBid: details[1].toString(),
-          highestBidder: bidderAddress,
-          startTime: details[3].toString(),
-          endTime: details[4].toString(),
-          settled: details[5]
-        });
+        if (DEBUG) {
+          console.log(`Auction data for #${tokenId}:`, {
+            tokenId: details[0].toString(),
+            highestBid: details[1].toString(),
+            highestBidder: bidderAddress,
+            startTime: details[3].toString(),
+            endTime: details[4].toString(),
+            settled: details[5]
+          });
+        }
 
         // Start with basic auction data
         const auctionData: Auction = {
@@ -175,10 +188,14 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
           setAuctiondetails(updatedData);
           auctionCache.set(cacheKey, updatedData);
         } catch (nameError) {
-          console.error("Error fetching name:", nameError);
+          if (DEBUG) {
+            console.error("Error fetching name:", nameError);
+          }
         }
       } catch (error) {
-        console.error("Error fetching auction details:", error);
+        if (DEBUG) {
+          console.error("Error fetching auction details:", error);
+        }
       }
     };
 
@@ -189,7 +206,9 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
   const forceRefetch = useCallback(async () => {
     if (!tokenId) return undefined;
     
-    console.log(`Force refetching auction #${tokenId} data, bypassing cache`);
+    if (DEBUG) {
+      console.log(`Force refetching auction #${tokenId} data, bypassing cache`);
+    }
     
     // Clear cache for this auction
     const cacheKey = `${tokenId}-${contractAddress}`;

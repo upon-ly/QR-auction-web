@@ -44,6 +44,9 @@ const TOKENS_TO_DISPLAY = [
   'HIGHER', 'QR', 'CLANKER',  'DEGEN',  // Base tokens
 ];
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 export const useCryptoTicker = () => {
   const [tokens, setTokens] = useState<TokenPrice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +60,9 @@ export const useCryptoTicker = () => {
       
       // Use the correct DexScreener API endpoint
       const url = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddresses}`;
-      console.log(`Fetching Base tokens from: ${url}`);
+      if (DEBUG) {
+        console.log(`Fetching Base tokens from: ${url}`);
+      }
       
       const response = await fetch(url);
       
@@ -67,7 +72,9 @@ export const useCryptoTicker = () => {
       }
       
       const data = await response.json();
-      console.log('DexScreener response:', data);
+      if (DEBUG) {
+        console.log('DexScreener response:', data);
+      }
       
       const results: Record<string, TokenPrice> = {};
       
@@ -134,7 +141,9 @@ export const useCryptoTicker = () => {
               priceChange24h: isNaN(priceChange24h) ? 0 : priceChange24h,
               color: TOKEN_COLORS[symbol as keyof typeof TOKEN_COLORS] || '#ffffff'
             };
-            console.log(`Found ${symbol} price: $${price} (${priceChange24h}%)`);
+            if (DEBUG) {
+              console.log(`Found ${symbol} price: $${price} (${priceChange24h}%)`);
+            }
           }
         });
       }

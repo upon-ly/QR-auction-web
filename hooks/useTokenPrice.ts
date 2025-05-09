@@ -10,6 +10,9 @@ interface PriceCache {
   timestamp: number;
 }
 
+// Debug mode - set to true for verbose logging
+const DEBUG = false;
+
 // LocalStorage key for persisting price data
 const PRICE_STORAGE_KEY = 'qr_price_cache';
 
@@ -26,7 +29,9 @@ const loadCachedPrice = (): PriceCache | null => {
     
     // Only use cache if it's not too old
     if (now - data.timestamp < 30 * 60 * 1000) { // 30 minutes max
-      console.log('Loaded price data from localStorage:', data);
+      if (DEBUG) {
+        console.log('Loaded price data from localStorage:', data);
+      }
       return data;
     }
     return null;
@@ -65,7 +70,9 @@ export const useTokenPrice = () => {
     // Check if we have a valid cached price
     const now = Date.now();
     if (!force && tokenPriceCache && (now - tokenPriceCache.timestamp < CACHE_DURATION)) {
-      console.log('Using cached token price:', tokenPriceCache.price);
+      if (DEBUG) {
+        console.log('Using cached token price:', tokenPriceCache.price);
+      }
       setPriceUsd(tokenPriceCache.price);
       setMarketCap(tokenPriceCache.marketCap);
       return { price: tokenPriceCache.price, marketCap: tokenPriceCache.marketCap };
@@ -78,7 +85,9 @@ export const useTokenPrice = () => {
     try {
       // Using the correct API endpoint with the proper QR token address
       const apiUrl = `https://api.dexscreener.com/latest/dex/tokens/${QR_TOKEN_ADDRESS}`;
-      console.log('Fetching QR token price from:', apiUrl);
+      if (DEBUG) {
+        console.log('Fetching QR token price from:', apiUrl);
+      }
       
       const response = await fetch(apiUrl);
       
@@ -87,7 +96,9 @@ export const useTokenPrice = () => {
       }
       
       const data = await response.json();
-      console.log('DexScreener API response data received');
+      if (DEBUG) {
+        console.log('DexScreener API response data received');
+      }
       
       if (data && data.pairs && data.pairs.length > 0) {
         // Get the price and market cap from the first pair (likely the most liquid)
@@ -104,7 +115,9 @@ export const useTokenPrice = () => {
         }
         
         if (!isNaN(price) && price > 0) {
-          console.log('Setting QR token price:', price, 'Market Cap:', marketCapValue);
+          if (DEBUG) {
+            console.log('Setting QR token price:', price, 'Market Cap:', marketCapValue);
+          }
           setPriceUsd(price);
           setMarketCap(marketCapValue);
           
@@ -142,7 +155,9 @@ export const useTokenPrice = () => {
       
       // If we have a cached price but it's expired, use it as fallback on error
       if (tokenPriceCache && !force) {
-        console.log('Using expired cache as fallback after API error');
+        if (DEBUG) {
+          console.log('Using expired cache as fallback after API error');
+        }
         setPriceUsd(tokenPriceCache.price);
         setMarketCap(tokenPriceCache.marketCap);
         return { price: tokenPriceCache.price, marketCap: tokenPriceCache.marketCap };
@@ -205,7 +220,9 @@ export const useTokenPrice = () => {
       
       const retryTimers = retryTimes.map((delay, index) => {
         return setTimeout(() => {
-          console.log(`Retry ${index + 1} for token price fetch after ${delay}ms`);
+          if (DEBUG) {
+            console.log(`Retry ${index + 1} for token price fetch after ${delay}ms`);
+          }
           fetchTokenPrice(true);
         }, delay);
       });

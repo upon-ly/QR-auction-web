@@ -72,6 +72,9 @@ function formatAddress(address?: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 // --- Component ---
 export function CustomWallet() {
   const [isClient, setIsClient] = useState(false);
@@ -114,7 +117,9 @@ export function CustomWallet() {
   const { logout } = useLogout();
   const { login } = useLogin({
     onComplete: () => {
+      if (DEBUG) {
       console.log("Login complete");
+      }
       setIsConnecting(false); // Reset connecting state on completion
     },
     onError: (error: Error) => {
@@ -128,7 +133,9 @@ export function CustomWallet() {
   const { connectWallet } = useConnectWallet({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSuccess: ({ wallet }: { wallet: any }) => {
+      if (DEBUG) {
       console.log("Wallet connected successfully:", wallet);
+      }
       // Note: don't reset connecting state yet
     },
     onError: (error: Error) => {
@@ -162,7 +169,9 @@ export function CustomWallet() {
       try {
         const context = await frameSdk.getContext();
         if (context && context.user) {
+          if (DEBUG) {
           console.log("Running in Farcaster frame context", context);
+          }
           setIsFrame(true);
           
           // Store frame user data with correct typing
@@ -190,7 +199,9 @@ export function CustomWallet() {
             const accounts = await frameSdk.connectWallet();
             if (accounts.length > 0) {
               setFrameWalletAddress(accounts[0]);
+              if (DEBUG) {
               console.log("Frame wallet already connected:", accounts[0]);
+              }
             }
           }
           
@@ -198,7 +209,9 @@ export function CustomWallet() {
           setIsFrame(false);
         }
       } catch (error) {
+        if (DEBUG) {
         console.log("Not in a Farcaster frame context:", error);
+        }
         setIsFrame(false);
       }
     };
@@ -261,13 +274,14 @@ export function CustomWallet() {
   
   // Debug logging
   useEffect(() => {
+    if (DEBUG) {
     console.log("Smart wallet client:", smartWalletClient?.account?.address);
     console.log("Smart wallet address:", smartWalletAddress);
     console.log("Smart wallet address from user:", smartWalletAddressFromUser);
     console.log("Final smart wallet address:", finalSmartWalletAddress);
     console.log("EOA address:", eoaAddress);
     console.log("Display address:", displayAddress);
-    
+    }
     if (smartWalletClient && !finalSmartWalletAddress) {
       console.warn("Smart wallet client exists but no address found - check initialization");
     }
@@ -322,7 +336,9 @@ export function CustomWallet() {
       const browserInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
       
       // Broadcast the wallet connection event
+      if (DEBUG) {
       console.log('Broadcasting wallet connection for address:', eoaAddress);
+      }
       broadcastConnection(eoaAddress, browserInstanceId);
     }
   }, [authenticated, eoaAddress]);
@@ -385,7 +401,9 @@ export function CustomWallet() {
       const isInconsistentState = authenticated && !eoaAddress && !finalSmartWalletAddress;
       
       if (isInconsistentState) {
+        if (DEBUG) {
         console.log("Detected inconsistent authentication state on mount, cleaning up...");
+        }
         // Auto-reset bad state
         logout().catch((e: Error) => console.error("Auto-logout failed:", e));
       }
@@ -398,25 +416,33 @@ export function CustomWallet() {
   // Handle connect wallet properly in drawer for frames
   const handleConnectInDrawer = async () => {
     // Do not close the drawer yet
-    console.log("Starting wallet connection from drawer...", { authenticated, hasConnectedWallet });
+    if (DEBUG) {
+      console.log("Starting wallet connection from drawer...", { authenticated, hasConnectedWallet });
+    }
     
     try {
       if (isFrame) {
-        // In frame context, use Frame SDK's connect wallet function directly
-        console.log("Using Frame SDK connect for frame context");
+        if (DEBUG) {
+          // In frame context, use Frame SDK's connect wallet function directly
+          console.log("Using Frame SDK connect for frame context");
+        }
         
         // Direct call to Frame SDK's connect wallet
         const accounts = await frameSdk.connectWallet();
         if (accounts.length > 0) {
           setFrameWalletAddress(accounts[0]);
-          console.log("Frame wallet connected via SDK:", accounts[0]);
+          if (DEBUG) {
+            console.log("Frame wallet connected via SDK:", accounts[0]);
+          }
           
           // If connected but on wrong chain, try to switch to Base
           if (!isOnBase) {
             switchChain({ chainId: BASE_MAINNET_ID });
           }
         } else {
-          console.log("No accounts returned from frame wallet connect");
+          if (DEBUG) {
+            console.log("No accounts returned from frame wallet connect");
+          }
         }
       } else {
         // Regular Privy flow for non-frame context
@@ -430,12 +456,16 @@ export function CustomWallet() {
           // We don't have a connected wallet
           if (authenticated) {
             // If authenticated but no wallet, force logout then login in one step
-            console.log("Authenticated but no wallet detected, forcing reset");
+            if (DEBUG) {
+              console.log("Authenticated but no wallet detected, forcing reset");
+            }
             await logout();
           }
           
           // Always call login after handling potential logout
-          console.log("Showing login modal");
+          if (DEBUG) {
+            console.log("Showing login modal");
+          }
           login();
         }
       }
@@ -521,7 +551,9 @@ export function CustomWallet() {
 
   const handleDisconnect = async () => {
     try {
-      console.log("Logging out from Privy and clearing session...");
+      if (DEBUG) {
+        console.log("Logging out from Privy and clearing session...");
+      }
       
       // Close drawer first
       setIsDrawerOpen(false);
@@ -640,7 +672,9 @@ export function CustomWallet() {
             throw new Error("Smart wallet client not available");
         }
         
-        console.log("Using smart wallet client for transaction:", smartWalletClient.account?.address);
+        if (DEBUG) {
+          console.log("Using smart wallet client for transaction:", smartWalletClient.account?.address);
+        }
             
         // Setup UI options for better user experience
         const uiOptions = {
@@ -670,7 +704,9 @@ export function CustomWallet() {
         // This works around the issue with Privy's promise resolution
         smartWalletClient.sendTransaction(txParams, { uiOptions })
             .then(txHash => {
-                console.log("Transaction sent with hash:", txHash);
+                if (DEBUG) {
+                  console.log("Transaction sent with hash:", txHash);
+                }
                 
                 // Update the toast when we have the hash
                 toast.success(`Sent ${amount} ${selectedToken}!`, {
@@ -735,39 +771,55 @@ export function CustomWallet() {
       (window.localStorage.getItem('LAST_ACTIVE_CONNECTOR') === 'rainbow' ||
        navigator.userAgent.toLowerCase().includes('rainbow'));
     
-    console.log("Starting wallet connection flow", { isRainbowWallet });
+    if (DEBUG) {
+      console.log("Starting wallet connection flow", { isRainbowWallet });
+    }
     
     // For Rainbow wallet, use the two-step authentication process to fix issues
     if (isRainbowWallet) {
-      console.log("Using two-step authentication for Rainbow wallet");
+      if (DEBUG) {
+        console.log("Using two-step authentication for Rainbow wallet");
+      }
       
       // Step 1: Connect the wallet first
       connectWallet().then(() => {
-        console.log("Rainbow wallet connected, waiting to authenticate...");
+        if (DEBUG) {
+          console.log("Rainbow wallet connected, waiting to authenticate...");
+        }
         
         // Wait a moment for the wallet to be properly connected
         setTimeout(() => {
           // Check if we have a wallet available
           if (wallets && wallets.length > 0) {
-            console.log("Wallet available, triggering authentication:", wallets[0]);
+            if (DEBUG) {
+              console.log("Wallet available, triggering authentication:", wallets[0]);
+            }
             
             // Step 2: Authenticate the connected wallet
             wallets[0].loginOrLink().then(() => {
-              console.log("Rainbow wallet authenticated successfully");
+              if (DEBUG) {
+                console.log("Rainbow wallet authenticated successfully");
+              }
               setIsConnecting(false);
             }).catch((error: Error) => {
-              console.error("Rainbow wallet authentication error:", error);
+              if (DEBUG) {
+                console.error("Rainbow wallet authentication error:", error);
+              }
               toast.error("Authentication failed. Please try again.");
               setIsConnecting(false);
             });
           } else {
-            console.error("Wallet connected but not found in wallet list");
+            if (DEBUG) {
+              console.error("Wallet connected but not found in wallet list");
+            }
             toast.error("Wallet connection issue. Please try again.");
             setIsConnecting(false);
           }
         }, 2000); // 1 second delay before trying to authenticate
       }).catch((error: Error) => {
-        console.error("Rainbow wallet connection error:", error);
+        if (DEBUG) {
+          console.error("Rainbow wallet connection error:", error);
+        }
         toast.error("Failed to connect wallet. Please try again.");
         setIsConnecting(false);
       });
@@ -829,14 +881,16 @@ export function CustomWallet() {
 
   // Improve debugging by logging state changes
   useEffect(() => {
-    console.log("Authentication state change:", { 
-      authenticated, 
-      ready, 
-      hasEOA: Boolean(eoaAddress), 
-      hasSmartWallet: Boolean(finalSmartWalletAddress),
-      chain: chain?.id,
-      isOnBase
-    });
+    if (DEBUG) {
+      console.log("Authentication state change:", { 
+        authenticated, 
+        ready, 
+        hasEOA: Boolean(eoaAddress), 
+        hasSmartWallet: Boolean(finalSmartWalletAddress),
+        chain: chain?.id,
+        isOnBase
+      });
+    }
   }, [authenticated, ready, eoaAddress, finalSmartWalletAddress, chain, isOnBase]);
 
   // If we're in a Farcaster frame, use the slide-up drawer

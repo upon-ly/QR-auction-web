@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { FarcasterFrameProvider } from "./FrameProvider";
 import { SupabaseProvider } from "./SupabaseProvider";
+import { AirdropProvider } from "./AirdropProvider";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useMemo } from "react"; // Import useMemo
 
@@ -67,7 +68,9 @@ export function Provider(props: { children: ReactNode }) {
         <SmartWalletsProvider>
           <QueryClientProvider client={queryClient}>
             <WagmiProvider config={wagmiConfig}>
-              <SupabaseProvider>{props.children}</SupabaseProvider>
+              <SupabaseProvider>
+                <AirdropProvider>{props.children}</AirdropProvider>
+              </SupabaseProvider>
             </WagmiProvider>
           </QueryClientProvider>
         </SmartWalletsProvider>

@@ -66,7 +66,7 @@ const formatAddress = (address: string): string => {
 };
 
 // Debug mode - set to true for verbose logging
-const DEBUG = true;
+const DEBUG = false;
 
 // Helper for debug logging
 const debugLog = (...args: unknown[]) => {

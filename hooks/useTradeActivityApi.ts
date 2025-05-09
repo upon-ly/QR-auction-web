@@ -12,6 +12,9 @@ let lastFetchFailed = false;
 let lastFetchTime = 0;
 const RETRY_INTERVAL = 10000; // 10 seconds between retries after failure
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 // Hook that fetches trade activity from our API
 export const useTradeActivityApi = (
   onUpdate: (message: string, txHash?: string, messageKey?: string) => void
@@ -21,14 +24,18 @@ export const useTradeActivityApi = (
     // Don't retry too frequently if previous requests failed
     const now = Date.now();
     if (lastFetchFailed && now - lastFetchTime < RETRY_INTERVAL) {
-      console.log('Skipping trade activity fetch (throttled after failure)');
+      if (DEBUG) {
+        console.log('Skipping trade activity fetch (throttled after failure)');
+      }
       return;
     }
     
     lastFetchTime = now;
     
     try {
-      console.log('Fetching trade activity...');
+      if (DEBUG) {
+        console.log('Fetching trade activity...');
+      }
       const response = await fetch('/api/trade-activity');
       
       if (!response.ok) {
@@ -45,7 +52,9 @@ export const useTradeActivityApi = (
           return;
         }
         
+        if (DEBUG) {
         console.log(`Processing ${data.activities.length} trade activities`);
+        }
         
         // Process each activity and call the update function
         // Sort activities by timestamp (newest first) before processing

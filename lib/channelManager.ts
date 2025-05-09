@@ -1,5 +1,8 @@
 import { RealtimeChannel, createClient } from '@supabase/supabase-js';
 
+// --- Debug Mode ---
+const DEBUG = false;
+
 // Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -87,7 +90,9 @@ const checkChannelHealth = () => {
   const auctionChannelState = auctionChannel?.state;
   const presenceChannelState = presenceChannel?.state;
   
-  console.log('Channel health check - Auction:', auctionChannelState, 'Presence:', presenceChannelState);
+  if (DEBUG) {
+    console.log('Channel health check - Auction:', auctionChannelState, 'Presence:', presenceChannelState);
+  }
   
   // If either channel is closed or errored, reinitialize
   if (
@@ -98,7 +103,9 @@ const checkChannelHealth = () => {
     auctionChannelState === 'errored' || 
     presenceChannelState === 'errored'
   ) {
-    console.log('Channels need reconnection, reinitializing...');
+    if (DEBUG) {
+      console.log('Channels need reconnection, reinitializing...');
+    }
     if (!isReconnecting) {
       isReconnecting = true;
       safeReconnect(user, browserInstanceId);
@@ -119,7 +126,9 @@ const safeReconnect = (user: string, browserInstanceId: string) => {
   
   // If we're already reconnecting, don't start another reconnection
   if (isReconnecting) {
-    console.log('Already reconnecting, skipping duplicate request');
+    if (DEBUG) {
+      console.log('Already reconnecting, skipping duplicate request');
+    }
     return;
   }
   
@@ -131,13 +140,17 @@ const safeReconnect = (user: string, browserInstanceId: string) => {
   reconnectDebounceTimer = setTimeout(() => {
     // Only try reconnection if we haven't exceeded max attempts
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.log(`Reached max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}), waiting for manual action`);
+      if (DEBUG) {
+        console.log(`Reached max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}), waiting for manual action`);
+      }
       isReconnecting = false;
       reconnectAttempts = 0;
       return;
     }
     
-    console.log(`Attempting to reconnect channels (attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+    if (DEBUG) {
+      console.log(`Attempting to reconnect channels (attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+    }
     isReconnecting = true;
     
     // Exponential backoff
@@ -168,7 +181,9 @@ const startHeartbeat = () => {
   // Use longer intervals to reduce API traffic
   const interval = (isMobile || isSafari) ? 60000 : 120000; // 1 or 2 minutes
   
-  console.log(`Starting heartbeat with interval: ${interval}ms (${isMobile ? 'mobile' : 'desktop'}, ${isSafari ? 'Safari' : 'not Safari'})`);
+  if (DEBUG) {
+    console.log(`Starting heartbeat with interval: ${interval}ms (${isMobile ? 'mobile' : 'desktop'}, ${isSafari ? 'Safari' : 'not Safari'})`);
+  }
   
   // Check channel health regularly
   heartbeatInterval = setInterval(checkChannelHealth, interval);
@@ -185,14 +200,18 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
   if (auctionChannel) auctionChannel.unsubscribe();
   if (presenceChannel) presenceChannel.unsubscribe();
 
-  console.log('Initializing Supabase Realtime channels for user:', user, 'instance:', browserInstanceId);
+  if (DEBUG) {
+    console.log('Initializing Supabase Realtime channels for user:', user, 'instance:', browserInstanceId);
+  }
 
   // Create auction channel for broadcasting typing events
   auctionChannel = supabase.channel('auction');
   auctionChannel
     .on('broadcast', { event: 'typing' }, (payload) => {
       const typingEvent = payload.payload as TypingEvent;
-      console.log('Received typing event:', typingEvent);
+      if (DEBUG) {
+        console.log('Received typing event:', typingEvent);
+      }
       
       // Notify all listeners
       typingListeners.forEach(listener => {
@@ -201,7 +220,9 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
     })
     .on('broadcast', { event: 'connection' }, (payload) => {
       const connectionEvent = payload.payload as ConnectionEvent;
-      console.log('Received connection event:', connectionEvent);
+      if (DEBUG) {
+        console.log('Received connection event:', connectionEvent);
+      }
       
       // Notify all connection listeners
       connectionListeners.forEach(listener => {
@@ -209,11 +230,15 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
       });
     })
     .subscribe((status) => {
-      console.log('Auction channel status:', status);
+      if (DEBUG) {
+        console.log('Auction channel status:', status);
+      }
       
       // Add extra monitoring for connection state using subscription callback
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        console.log('Auction channel closed or errored, will check health soon');
+        if (DEBUG) {
+          console.log('Auction channel closed or errored, will check health soon');
+        }
         if (!isReconnecting && lastUserInfo) {
           isReconnecting = true;
           safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
@@ -225,12 +250,16 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
   presenceChannel = supabase.channel('presence');
   presenceChannel
     .on('presence', { event: 'join' }, ({ newPresences }) => {
-      console.log(`${newPresences.length} user(s) joined presence channel`);
+      if (DEBUG) {
+        console.log(`${newPresences.length} user(s) joined presence channel`);
+      }
       
       // Notify all listeners for each new presence
       newPresences.forEach((presence) => {
         if (!presence) {
-          console.warn('Received empty presence object');
+          if (DEBUG) {
+            console.warn('Received empty presence object');
+          }
           return;
         }
         
@@ -252,7 +281,9 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
       });
     })
     .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-      console.log(`${leftPresences.length} user(s) left presence channel`);
+      if (DEBUG) {
+        console.log(`${leftPresences.length} user(s) left presence channel`);
+      }
       
       // Notify all listeners for each left presence
       leftPresences.forEach((presence) => {
@@ -274,15 +305,21 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
             listener(presenceData.user, presenceData.source, false);
           });
         } else {
-          console.warn('Incomplete presence data', presenceData);
+          if (DEBUG) {
+            console.warn('Incomplete presence data', presenceData);
+          }
         }
       });
     })
     .subscribe(async (status) => {
-      console.log('Presence channel status:', status);
+      if (DEBUG) {
+        console.log('Presence channel status:', status);
+      }
       
       if (status === 'SUBSCRIBED') {
-        console.log('Presence channel subscribed, tracking presence for:', user);
+        if (DEBUG) {
+          console.log('Presence channel subscribed, tracking presence for:', user);
+        }
         
         // Track user presence with the browser instance ID to distinguish between sessions
         await presenceChannel?.track({
@@ -297,7 +334,9 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
         // Reset reconnecting flag
         isReconnecting = false;
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        console.log('Presence channel closed or errored, will check health soon');
+        if (DEBUG) {
+          console.log('Presence channel closed or errored, will check health soon');
+        }
         if (!isReconnecting && lastUserInfo) {
           isReconnecting = true;
           safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
@@ -372,7 +411,9 @@ const handlePageVisibilityChange = () => {
  * Handle page hiding (user navigating away or closing tab)
  */
 const handlePageHide = () => {
-  console.log('Page hidden or being unloaded');
+  if (DEBUG) {
+    console.log('Page hidden or being unloaded');
+  }
   
   // Clean up gracefully
   if (heartbeatInterval) {
@@ -391,7 +432,9 @@ const handlePageHide = () => {
  */
 const handleNetworkChange = (isOnline?: boolean) => {
   const networkStatus = isOnline !== undefined ? isOnline : navigator.onLine;
-  console.log('Network status changed:', networkStatus);
+  if (DEBUG) {
+    console.log('Network status changed:', networkStatus);
+  }
   
   // Only handle transitions to online from offline
   if (networkStatus && !lastNetworkStatus && lastUserInfo) {
@@ -412,7 +455,9 @@ export const broadcastJoin = (user: string, browserInstanceId: string = 'unknown
     return;
   }
 
-  console.log('Broadcasting join event for user:', user);
+  if (DEBUG) {
+    console.log('Broadcasting join event for user:', user);
+  }
   
   auctionChannel.send({
     type: 'broadcast',
@@ -430,7 +475,9 @@ export const broadcastTyping = (user: string, action: TypingAction, browserInsta
     return;
   }
 
-  console.log('Broadcasting typing event:', { user, action, source: browserInstanceId });
+  if (DEBUG) {
+    console.log('Broadcasting typing event:', { user, action, source: browserInstanceId });
+  }
   
   // Include browser instance ID to identify the source
   auctionChannel.send({
@@ -439,10 +486,14 @@ export const broadcastTyping = (user: string, action: TypingAction, browserInsta
     payload: { user, action, source: browserInstanceId },
   })
   .then(() => {
-    console.log('Typing event broadcast successfully');
+    if (DEBUG) {
+      console.log('Typing event broadcast successfully');
+    }
   })
   .catch((error) => {
-    console.error('Error broadcasting typing event:', error);
+    if (DEBUG) {
+      console.error('Error broadcasting typing event:', error);
+    }
   });
 };
 
@@ -500,7 +551,9 @@ const sendConnectionBroadcast = (user: string, browserInstanceId: string, retrie
     return;
   }
   
-  console.log('Broadcasting connection event:', { user, action: 'wallet-connected', source: browserInstanceId });
+  if (DEBUG) {
+    console.log('Broadcasting connection event:', { user, action: 'wallet-connected', source: browserInstanceId });
+  }
   
   auctionChannel.send({
     type: 'broadcast',
@@ -508,14 +561,18 @@ const sendConnectionBroadcast = (user: string, browserInstanceId: string, retrie
     payload: { user, action: 'wallet-connected', source: browserInstanceId }
   })
   .then(() => {
-    console.log('Connection event broadcast successfully');
+    if (DEBUG) {
+      console.log('Connection event broadcast successfully');
+    }
   })
   .catch((error) => {
     console.error('Error broadcasting connection event:', error);
     
     // Significantly reduced retry count
     if (retries > 0) {
-      console.log(`Broadcast failed, retrying once more`);
+      if (DEBUG) {
+        console.log(`Broadcast failed, retrying once more`);
+      }
       setTimeout(() => sendConnectionBroadcast(user, browserInstanceId, retries - 1), 2000);
     }
   });
@@ -574,14 +631,18 @@ export const forceReconnect = () => {
   const now = Date.now();
   // Only allow force reconnect once per minute
   if (now - lastForceReconnectTime < 60000) {
-    console.log('Ignoring force reconnect request, too soon since last attempt');
+    if (DEBUG) {
+      console.log('Ignoring force reconnect request, too soon since last attempt');
+    }
     return;
   }
   
   lastForceReconnectTime = now;
   
   if (lastUserInfo) {
-    console.log('Forcing reconnection of channels');
+    if (DEBUG) {
+      console.log('Forcing reconnection of channels');
+    }
     safeReconnect(lastUserInfo.user, lastUserInfo.browserInstanceId);
   }
 };

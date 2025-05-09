@@ -29,6 +29,9 @@ type InfoUpdate = {
   showCount: number; // Track how many times it's been shown
 };
 
+// Debug mode - set to true for verbose logging
+const DEBUG = false;
+
 // Store a browser instance ID to distinguish between local and remote events
 // const BROWSER_INSTANCE_ID = Math.random().toString(36).substring(2, 15);
 
@@ -168,7 +171,9 @@ export const useInfoBarUpdates = () => {
   
   // Add update to the list
   const addUpdate = useCallback((message: string, txHash?: string, messageKey?: string) => {
-    console.log(`Adding/updating trade info:`, message, txHash ? `(tx: ${txHash})` : '', messageKey ? `(key: ${messageKey})` : '');
+    if (DEBUG) {
+      console.log(`Adding/updating trade info:`, message, txHash ? `(tx: ${txHash})` : '', messageKey ? `(key: ${messageKey})` : '');
+    }
     
     // Create a unique ID based on provided messageKey or the message content
     const messageId = messageKey || (message.replace(/\s+/g, '-').toLowerCase() + '-' + Date.now().toString().slice(-4));
@@ -188,7 +193,9 @@ export const useInfoBarUpdates = () => {
       if (messageKey) {
         const existingIndex = prev.findIndex(item => item.id === messageKey);
         if (existingIndex >= 0) {
-          console.log('Replacing existing message with updated version:', message);
+          if (DEBUG) {
+            console.log('Replacing existing message with updated version:', message);
+          }
           const newUpdates = [...prev];
           
           // Keep the original timestamp but update the message content and reset show count
@@ -208,7 +215,9 @@ export const useInfoBarUpdates = () => {
       );
       
       if (isDuplicate) {
-        console.log('Duplicate message detected, skipping:', message);
+        if (DEBUG) {
+          console.log('Duplicate message detected, skipping:', message);
+        }
         return prev;
       }
       
@@ -257,7 +266,9 @@ export const useInfoBarUpdates = () => {
   useEffect(() => {
     if (!isConnected || !address) return;
     
-    console.log('Setting up InfoBar channels for user:', address);
+    if (DEBUG) {
+      console.log('Setting up InfoBar channels for user:', address);
+    }
     
     // Initialize channels via the manager (still needed for wallet connections elsewhere)
     // initializeChannels(address, BROWSER_INSTANCE_ID);
