@@ -168,8 +168,8 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
   // Handle share to Warpcast
   const handleShare = async () => {
     // Create Warpcast URL with the share text and embed the website URL
-    const shareText = encodeURIComponent("just got paid 10,000 $QR to add this mini app");
-    const embedUrl = encodeURIComponent("https://qrcoin.fun");
+    const shareText = encodeURIComponent("free money");
+    const embedUrl = encodeURIComponent("https://warpcast.com/jake/0xc2ce8258");
     const shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
     
     if (isFrameRef.current) {
