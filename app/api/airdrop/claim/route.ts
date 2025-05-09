@@ -189,12 +189,20 @@ export async function POST(request: NextRequest) {
     
     console.log('Executing airdrop...');
     
-    // Execute the airdrop
+    // Get current nonce for transaction
+    const nonce = await provider.getTransactionCount(adminWallet.address, 'latest');
+    console.log(`Using nonce: ${nonce} for airdrop transaction`);
+
+    // Execute the airdrop with explicit nonce and higher gas limit
     const airdropTx = await airdropContract.airdropERC20(
       QR_TOKEN_ADDRESS,
-      airdropContent
+      airdropContent,
+      {
+        nonce,
+        gasLimit: 500000 // Higher gas limit for safety
+      }
     );
-    
+
     console.log(`Airdrop tx submitted: ${airdropTx.hash}`);
     const receipt = await airdropTx.wait();
     console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
