@@ -80,7 +80,8 @@ async function executeWithRetry<T>(
         error.message?.includes('nonce has already been used') ||
         error.message?.includes('transaction underpriced') ||
         error.message?.includes('timeout') ||
-        error.message?.includes('network error')
+        error.message?.includes('network error') ||
+        error.message?.includes('transaction execution reverted')
       );
       
       // Don't retry if error is not retryable
