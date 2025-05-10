@@ -168,7 +168,8 @@ export function WinDetailsView(winnerdata: AuctionType) {
           "59": "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW1rY216bmtidnAwcDgzcHYwdTNmYTB2dDhnM3BxbW43cDZ5bmV3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZmCWjB3utyyAN61pAj/giphy.gif",
           "60": "https://i.ibb.co/JWWcQyJ4/60winner.jpg",
           "63": "https://i.postimg.cc/KzBYyrMy/63winner.jpg",
-          "64": "https://i.postimg.cc/kMyLJhFj/64winner.jpg"
+          "64": "https://i.postimg.cc/kMyLJhFj/64winner.jpg",
+          "65": "https://i.postimg.cc/wTDHNwnp/43winner.jpg"
         };
 
         // Check if we have a custom image override for this auction
