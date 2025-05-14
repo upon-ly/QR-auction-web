@@ -403,24 +403,32 @@ export function AuctionDetails({
               
               // Step 2: Send the broadcast notification to all users EXCEPT the winner (if we have their FID)
               console.log(`[Settle] Sending auction-settled notification to all users${winnerFid ? ` (excluding winner FID: ${winnerFid})` : ''}`);
-              const settledResponse = await fetch('/api/notifications/auction-settled', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  auctionId: id,
-                  winnerAddress: auctionDetail.highestBidder,
-                  winnerName: winnerName,
-                  excludeFid: winnerFid, // Pass the winner's FID to exclude them from broadcast
-                }),
-              });
               
-              if (settledResponse.ok) {
-                console.log(`[Settle] ✅ Successfully sent auction-settled notification to all users`);
+              // IMPORTANT: Completely disable auction-settled broadcast notifications
+              const disableSettledNotifications = true;
+              
+              if (disableSettledNotifications) {
+                console.log(`[Settle] ℹ️ Auction-settled broadcast notifications are disabled`);
               } else {
-                const settledErrorData = await settledResponse.text().catch(() => 'Unknown error');
-                console.error(`[Settle] ❌ Failed to send auction-settled notification: ${settledResponse.status}`, settledErrorData);
+                const settledResponse = await fetch('/api/notifications/auction-settled', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    auctionId: id,
+                    winnerAddress: auctionDetail.highestBidder,
+                    winnerName: winnerName,
+                    excludeFid: winnerFid, // Pass the winner's FID to exclude them from broadcast
+                  }),
+                });
+                
+                if (settledResponse.ok) {
+                  console.log(`[Settle] ✅ Successfully sent auction-settled notification to all users`);
+                } else {
+                  const settledErrorData = await settledResponse.text().catch(() => 'Unknown error');
+                  console.error(`[Settle] ❌ Failed to send auction-settled notification: ${settledResponse.status}`, settledErrorData);
+                }
               }
             }
           } catch (notifError) {
