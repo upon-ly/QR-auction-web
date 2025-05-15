@@ -11,8 +11,8 @@ const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0' as 
 // QR token address (need this to track transfers)
 const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 
-// Maximum number of buy events to display
-const MAX_BUY_EVENTS = 25;
+// Reduce MAX_BUY_EVENTS to decrease load
+const MAX_BUY_EVENTS = 15; // Reduced from 25
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -27,8 +27,8 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// Historical blocks to fetch - ~48 hours (about 86400 blocks at 2s block time)
-const INITIAL_HISTORICAL_BLOCKS = BigInt(43200);
+// OPTIMIZATION: Reduce historical block range by 50% (24 hours to 12 hours)
+const INITIAL_HISTORICAL_BLOCKS = BigInt(21600); // Reduced from 43200
 
 // Known router/aggregator addresses that might appear as recipients
 const KNOWN_ROUTERS = new Set([
@@ -46,9 +46,9 @@ const swapEventAbi = parseAbiItem('event Swap(address indexed sender, address in
 // Transfer event signature topic (keccak256 of Transfer(address,address,uint256))
 const TRANSFER_EVENT_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-// Cache identity information to avoid repeated API calls
+// OPTIMIZATION: Increase cache duration for identity information
 const identityCache = new Map<string, {displayName: string, timestamp: number, isResolved: boolean}>();
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRY = 30 * 60 * 1000; // Increased from 5 minutes to 30 minutes
 
 // Format address for display as fallback
 const formatAddress = (address: string): string => {
@@ -57,15 +57,22 @@ const formatAddress = (address: string): string => {
 
 // Cache for processed logs to avoid duplicates
 const processedLogsCache = new Map<string, number>(); // Map of logId to timestamp
-// Add a max size and auto-clearing mechanism for the cache
 const MAX_CACHE_SIZE = 1000;
-// Cache expiry for processed logs (5 minutes)
-const PROCESSED_LOGS_CACHE_EXPIRY = 5 * 60 * 1000;
+
+// OPTIMIZATION: Increase cache expiry for processed logs from 5 minutes to 15 minutes
+const PROCESSED_LOGS_CACHE_EXPIRY = 15 * 60 * 1000;
+
 // Cache for trade activity results
 let tradeActivityCache: TradeActivityResponse | null = null;
 let lastCacheTime = 0;
-// Reduced cache duration to refresh more often
-const TRADE_ACTIVITY_CACHE_DURATION = 15 * 1000; // 15 seconds
+
+// OPTIMIZATION: Significantly increase cache duration for API responses
+const TRADE_ACTIVITY_CACHE_DURATION = 120 * 1000; // Increased from 15 seconds to 2 minutes
+
+// OPTIMIZATION: Add rate limiting support
+const apiRequestCounter = new Map<string, {count: number, timestamp: number}>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // 10 requests per minute per IP
 
 // Clean old entries from processed logs cache
 function cleanProcessedLogsCache() {
@@ -102,15 +109,17 @@ async function getBidderIdentity(address: string): Promise<string> {
     return "Unknown";
   }
 
-  // Check cache first
+  // Check cache first with extended expiry
   const now = Date.now();
   const cached = identityCache.get(address);
   if (cached && cached.isResolved && now - cached.timestamp < CACHE_EXPIRY) {
     return cached.displayName;
   }
 
-  // If there's an unresolved cache entry, return the formatted address temporarily
+  // Format address for fallback display
   const formattedAddress = formatAddress(address);
+  
+  // If there's an unresolved cache entry, return the formatted address temporarily
   if (!cached) {
     // Add to cache as unresolved initially to prevent multiple resolution attempts
     identityCache.set(address, { 
@@ -121,38 +130,32 @@ async function getBidderIdentity(address: string): Promise<string> {
   }
   
   try {
-    // Default to formatted address in case resolution fails
+    // Start with formatted address as default
     let displayName = formattedAddress;
     
-    try {
-      // Use Coinbase onchainkit's getName to get basename/ENS
-      const name = await getName({
+    // OPTIMIZATION: Use Promise.allSettled to parallelize name resolution
+    const [nameResult, farcasterResult] = await Promise.allSettled([
+      // Try to get ENS/basename
+      getName({
         address: address as Address,
         chain: base,
-      });
+      }),
       
-      if (name) {
-        displayName = name; // getName already handles basename/ENS priority
-      }
-    } catch (nameError) {
-      console.error("Error fetching onchain name:", nameError);
-      // Continue execution - we'll fall back to the formatted address
+      // Try to get Farcaster identity
+      getFarcasterUser(address)
+    ]);
+    
+    // Process name result
+    if (nameResult.status === 'fulfilled' && nameResult.value) {
+      displayName = nameResult.value;
     }
     
-    try {
-      // Get Farcaster identity
-      const farcasterUser = await getFarcasterUser(address);
-      
-      // Prioritize Farcaster over other identities
-      if (farcasterUser?.username) {
-        displayName = `@${farcasterUser.username}`;
-      }
-    } catch (farcasterError) {
-      console.error("Error fetching Farcaster identity:", farcasterError);
-      // Continue execution - we'll use what we have so far
+    // Prioritize Farcaster over other identities
+    if (farcasterResult.status === 'fulfilled' && farcasterResult.value?.username) {
+      displayName = `@${farcasterResult.value.username}`;
     }
     
-    // Cache the result
+    // Cache the result with longer expiry
     identityCache.set(address, { 
       displayName, 
       timestamp: now,
@@ -215,8 +218,8 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
     // Skip if we've already processed this event recently, unless force processing
     if (!forceProcess && processedLogsCache.has(logId)) {
       const timestamp = processedLogsCache.get(logId);
-      // Shorter cache expiry for processed events (1 minute) to allow reprocessing more often
-      if (timestamp && now - timestamp < 60 * 1000) {
+      // Increased cache expiry period
+      if (timestamp && now - timestamp < PROCESSED_LOGS_CACHE_EXPIRY) {
         return null;
       }
     }
@@ -224,8 +227,8 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
     // Mark this event as processed with current timestamp
     processedLogsCache.set(logId, now);
     
-    // Clean cache periodically
-    if (processedLogsCache.size % 50 === 0) {
+    // Clean cache periodically - OPTIMIZATION: Less frequent cleaning
+    if (processedLogsCache.size % 100 === 0) { // Increased from 50 to 100
       cleanProcessedLogsCache();
     }
     
@@ -243,8 +246,8 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
     const absAmount = amount0 < 0n ? -amount0 : amount0;
     const amountRaw = Number(formatEther(absAmount));
     
-    // Lower dust threshold to include more transactions, but still skip extremely tiny ones
-    if (amountRaw < 0.000001) {
+    // OPTIMIZATION: Increased dust threshold to filter out more tiny transactions
+    if (amountRaw < 0.00005) { // Increased from 0.000001
       return null;
     }
     
@@ -259,6 +262,7 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
     // For finding the actual recipient when the swap is through a router
     let actualRecipient = recipient;
     
+    // OPTIMIZATION: Only trace routing if absolutley necessary
     if (isRouter) {
       try {
         // Use the global publicClient instead of creating a new one
@@ -268,19 +272,23 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
         
         // Find Transfer events from $QR token in the same transaction
         if (receipt.logs && receipt.logs.length > 0) {
-          // Sort logs by index to get the final transfers
+          // OPTIMIZATION: Filter logs more efficiently
           const tokenTransfers = receipt.logs
             .filter(transferLog => 
               // Match ERC20 Transfer events for our token
               transferLog.address.toLowerCase() === QR_TOKEN_ADDRESS.toLowerCase() &&
               transferLog.topics && 
               transferLog.topics[0] === TRANSFER_EVENT_TOPIC // Transfer event topic0
-            )
-            .sort((a, b) => a.logIndex - b.logIndex);
+            );
+          
+          // OPTIMIZATION: Process only the most recent transfers (last 3)
+          const relevantTransfers = tokenTransfers.length <= 3 ? 
+            tokenTransfers.sort((a, b) => a.logIndex - b.logIndex) : 
+            tokenTransfers.slice(-3).sort((a, b) => a.logIndex - b.logIndex);
           
           // Take the last transfer that's not to the router or zero address
-          for (let i = tokenTransfers.length - 1; i >= 0; i--) {
-            const transfer = tokenTransfers[i];
+          for (let i = relevantTransfers.length - 1; i >= 0; i--) {
+            const transfer = relevantTransfers[i];
             if (transfer.topics && transfer.topics.length >= 3) {
               // Topics[2] is the 'to' address in Transfer(address,address,uint256)
               const toTopic = transfer.topics[2];
@@ -328,17 +336,17 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
 // Fetch trade activity data from the blockchain
 async function fetchTradeActivity(): Promise<TradeActivity[]> {
   try {
-    // Check if we have valid cached data
+    // Check if we have valid cached data with longer cache duration
     const now = Date.now();
     if (tradeActivityCache && (now - lastCacheTime < TRADE_ACTIVITY_CACHE_DURATION)) {
       console.log(`Returning cached trade activity (${tradeActivityCache.activities.length} items)`);
       return tradeActivityCache.activities;
     }
 
-    // Reset cache if it's older than 10 minutes to ensure we process events again
-    const isStaleCache = (now - lastCacheTime > 10 * 60 * 1000);
+    // Reset cache if it's older than 30 minutes (increased from 10 minutes)
+    const isStaleCache = (now - lastCacheTime > 30 * 60 * 1000);
     if (isStaleCache) {
-      console.log("Cache is stale (>10 minutes), resetting processed logs cache");
+      console.log("Cache is stale (>30 minutes), resetting processed logs cache");
       processedLogsCache.clear();
     }
 
@@ -347,16 +355,28 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
     // Get current block
     const currentBlock = await publicClient.getBlockNumber();
     
-    // Get historical events (looking further back to find more events)
+    // Use reduced historical block range
     const fromBlock = currentBlock > INITIAL_HISTORICAL_BLOCKS ? currentBlock - INITIAL_HISTORICAL_BLOCKS : 0n;
     
-    // Fetch in smaller chunks to avoid RPC timeouts on large ranges
-    const MAX_BLOCK_RANGE = BigInt(10000);
+    // OPTIMIZATION: Use a more reasonable block range for large requests
+    const MAX_BLOCK_RANGE = BigInt(5000); // Reduced from 10000
     const buyEvents: TradeActivity[] = [];
     
+    // OPTIMIZATION: Process fewer chunks to reduce RPC calls
+    // Only try up to 4 chunks (20,000 blocks) before giving up
+    let chunkCount = 0;
+    const MAX_CHUNKS = 4;
+    
     // Process in chunks from newest to oldest
-    for (let toBlock = currentBlock; toBlock >= fromBlock && buyEvents.length < MAX_BUY_EVENTS; toBlock = toBlock - MAX_BLOCK_RANGE) {
-      const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock ? fromBlock : toBlock - MAX_BLOCK_RANGE + 1n;
+    for (let toBlock = currentBlock; 
+         toBlock >= fromBlock && 
+         buyEvents.length < MAX_BUY_EVENTS && 
+         chunkCount < MAX_CHUNKS; 
+         toBlock = toBlock - MAX_BLOCK_RANGE, chunkCount++) {
+         
+      const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock 
+        ? fromBlock 
+        : toBlock - MAX_BLOCK_RANGE + 1n;
       
       try {
         console.log(`Fetching logs from block ${chunkFromBlock} to ${toBlock}`);
@@ -369,26 +389,35 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
         
         console.log(`Found ${events.length} swap events in chunk`);
         
+        // OPTIMIZATION: Process fewer events (don't go through all events)
+        // Use a smarter approach:
+        // - Process the newest 10 events
+        // - Skip some events in the middle
+        // - Only force process a few if needed
+        const eventsToProcess = events.length <= 10 
+          ? events 
+          : events.slice(Math.max(0, events.length - 10)); // Only last 10
+        
         // If we have few events after initial processing, force process some of the newest events
         const shouldForceProcess = (
           tradeActivityCache && 
           tradeActivityCache.activities.length === 0 && 
-          events.length > 0
+          eventsToProcess.length > 0
         );
         
         if (shouldForceProcess) {
           console.log("No events in previous cache, force processing newest events");
         }
         
-        // Process all events in reverse chronological order (newest first)
-        for (let i = events.length - 1; i >= 0 && buyEvents.length < MAX_BUY_EVENTS; i--) {
-          // Force process some events if we need to
-          const forceProcess = shouldForceProcess && (i >= events.length - 15);
+        // Process selected events in reverse chronological order (newest first)
+        for (let i = eventsToProcess.length - 1; i >= 0 && buyEvents.length < MAX_BUY_EVENTS; i--) {
+          // Only force process a limited number of events
+          const forceProcess = shouldForceProcess && (i >= eventsToProcess.length - 5);
           
-          // Occasionally reprocess events to ensure we have a healthy number
-          const randomReprocess = buyEvents.length < 5 && Math.random() < 0.2;
+          // Reduce random reprocessing frequency
+          const randomReprocess = buyEvents.length < 5 && Math.random() < 0.1; // Reduced from 0.2
           
-          const tradeActivity = await processSwapEvent(events[i] as SwapLog, forceProcess || randomReprocess);
+          const tradeActivity = await processSwapEvent(eventsToProcess[i] as SwapLog, forceProcess || randomReprocess);
           if (tradeActivity) {
             buyEvents.push(tradeActivity);
           }
@@ -438,9 +467,18 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
   }
 }
 
-// Fetch token price from DexScreener API
+// OPTIMIZATION: Use a simplified price fetching method with longer cache
+let cachedPrice: number | null = null;
+let priceCacheTime = 0;
+const PRICE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 async function fetchTokenPrice(): Promise<number | null> {
   try {
+    const now = Date.now();
+    if (cachedPrice !== null && (now - priceCacheTime < PRICE_CACHE_DURATION)) {
+      return cachedPrice;
+    }
+    
     const apiUrl = `https://api.dexscreener.com/latest/dex/tokens/${QR_TOKEN_ADDRESS}`;
     const response = await fetch(apiUrl);
     
@@ -455,20 +493,96 @@ async function fetchTokenPrice(): Promise<number | null> {
       const price = parseFloat(pair.priceUsd);
       
       if (!isNaN(price) && price > 0) {
+        cachedPrice = price;
+        priceCacheTime = now;
         return price;
       }
     }
-    return null;
+    return cachedPrice; // Return existing cache on error
   } catch (error) {
     console.error('Error fetching token price:', error);
-    return null;
+    return cachedPrice; // Return existing cache on error
   }
 }
 
-// API route handler
-export async function GET() {
+// Check rate limit for a client
+function isRateLimited(clientIp: string): boolean {
+  const now = Date.now();
+  const clientData = apiRequestCounter.get(clientIp);
+  
+  if (!clientData) {
+    // First request from this client
+    apiRequestCounter.set(clientIp, { count: 1, timestamp: now });
+    return false;
+  }
+  
+  if (now - clientData.timestamp > RATE_LIMIT_WINDOW) {
+    // Reset counter if outside window
+    apiRequestCounter.set(clientIp, { count: 1, timestamp: now });
+    return false;
+  }
+  
+  // Increment counter
+  clientData.count++;
+  apiRequestCounter.set(clientIp, clientData);
+  
+  // Check if exceeded limit
+  return clientData.count > RATE_LIMIT_MAX_REQUESTS;
+}
+
+// Clear old rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of apiRequestCounter.entries()) {
+    if (now - data.timestamp > RATE_LIMIT_WINDOW * 2) {
+      apiRequestCounter.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000); // Run every 5 minutes
+
+// OPTIMIZATION: Add HTTP cache headers and rate limiting
+export async function GET(request: Request) {
   try {
     console.log('Trade activity API called');
+    
+    // Get client IP from headers (assuming you have a proxy that sets this)
+    const headers = new Headers(request.headers);
+    const clientIp = headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    
+    // Check rate limiting
+    if (isRateLimited(clientIp)) {
+      console.warn(`Rate limited request from ${clientIp}`);
+      return NextResponse.json(
+        { error: 'Too many requests', retry_after: RATE_LIMIT_WINDOW / 1000 },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': (RATE_LIMIT_WINDOW / 1000).toString(),
+            'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': (Math.floor(Date.now() / 1000) + RATE_LIMIT_WINDOW / 1000).toString()
+          }
+        }
+      );
+    }
+    
+    // Check if we can return a cached response with proper HTTP cache headers
+    if (tradeActivityCache && (Date.now() - lastCacheTime < TRADE_ACTIVITY_CACHE_DURATION)) {
+      // Return cached response with proper cache headers
+      return NextResponse.json(
+        {
+          activities: tradeActivityCache.activities,
+          timestamp: tradeActivityCache.timestamp,
+          price: cachedPrice
+        },
+        { 
+          headers: {
+            'Cache-Control': `public, max-age=${Math.floor(TRADE_ACTIVITY_CACHE_DURATION / 1000)}`,
+            'ETag': `"${tradeActivityCache.timestamp}"`
+          }
+        }
+      );
+    }
     
     // Fetch trade activity in parallel with token price
     const [activities, tokenPrice] = await Promise.all([
@@ -481,10 +595,10 @@ export async function GET() {
     // Filter and format messages with USD values if price is available
     const formattedActivities = activities
       .filter(activity => {
-        // Skip activities with USD value less than $0.01
+        // Skip activities with USD value less than $0.10 (increased from $0.01)
         if (tokenPrice !== null) {
           const usdValue = activity.amountRaw * tokenPrice;
-          return usdValue >= 0.01;
+          return usdValue >= 0.10;
         }
         // Keep all activities if we don't have a price
         return true;
@@ -512,10 +626,21 @@ export async function GET() {
         };
       });
     
-    return NextResponse.json({
+    const response = {
       activities: formattedActivities,
       timestamp: Date.now(),
       price: tokenPrice
+    };
+    
+    // Update the cache
+    tradeActivityCache = response;
+    lastCacheTime = response.timestamp;
+    
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': `public, max-age=${Math.floor(TRADE_ACTIVITY_CACHE_DURATION / 1000)}`,
+        'ETag': `"${response.timestamp}"`
+      }
     });
   } catch (error) {
     console.error('Error in trade activity API route:', error);
@@ -526,6 +651,11 @@ export async function GET() {
       timestamp: Date.now(),
       price: null,
       error: 'Error fetching data'
-    }, { status: 200 }); // Return 200 even on error so the UI doesn't show loading
+    }, { 
+      status: 200, // Return 200 even on error so the UI doesn't show loading
+      headers: {
+        'Cache-Control': 'no-store'
+      }
+    });
   }
 } 

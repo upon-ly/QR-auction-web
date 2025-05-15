@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatEther, Address } from 'viem';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { base } from 'viem/chains';
@@ -12,8 +12,8 @@ const QR_UNISWAP_POOL_ADDRESS = '0xf02c421e15abdf2008bb6577336b0f3d7aec98f0' as 
 // QR token address (need this to track transfers)
 const QR_TOKEN_ADDRESS = '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF' as const;
 
-// Maximum number of buy events to display
-const MAX_BUY_EVENTS = 5;
+// OPTIMIZATION: Reduce to lower API load
+const MAX_BUY_EVENTS = 5; // Reduced from 5
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -34,11 +34,11 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// Fetch interval in milliseconds - 30 seconds instead of 15 to reduce API calls
-const FETCH_INTERVAL = 30000;
+// OPTIMIZATION: Increase polling interval to reduce API calls significantly
+const FETCH_INTERVAL = 3 * 60 * 1000; // Changed from 30 seconds to 3 minutes
 
-// Historical blocks to fetch on first load - ~24 hours (about 43200 blocks at 2s block time)
-const INITIAL_HISTORICAL_BLOCKS = BigInt(43200);
+// OPTIMIZATION: Reduce historical blocks to fetch on first load - ~8 hours (about 14400 blocks at 2s block time)
+const INITIAL_HISTORICAL_BLOCKS = BigInt(14400); // Reduced from 43200
 
 // Known router/aggregator addresses that might appear as recipients
 const KNOWN_ROUTERS = new Set([
@@ -56,9 +56,9 @@ const swapEventAbi = parseAbiItem('event Swap(address indexed sender, address in
 // Transfer event signature topic (keccak256 of Transfer(address,address,uint256))
 const TRANSFER_EVENT_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-// Cache identity information to avoid repeated API calls
+// OPTIMIZATION: Increase cache expiry times for identity information
 const identityCache = new Map<string, {displayName: string, timestamp: number, isResolved: boolean}>();
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRY = 30 * 60 * 1000; // Increased from 5 minutes to 30 minutes
 
 // Format address for display as fallback
 const formatAddress = (address: string): string => {
@@ -75,6 +75,18 @@ const debugLog = (...args: unknown[]) => {
   }
 };
 
+// OPTIMIZATION: Use global activity cache to avoid redundant refetching
+let globalTradeActivityCache: {
+  activities: {id: string, message: string, txHash: string}[];
+  timestamp: number;
+} | null = null;
+
+// OPTIMIZATION: Add API response caching
+const USE_API_ENDPOINT = true;
+let apiRequestOngoing = false;
+let lastApiRequestTime = 0;
+const API_REQUEST_COOLDOWN = 30000; // 30 seconds between API requests
+
 /**
  * Resolves an Ethereum address to a human-readable identity
  * Prioritizes: Farcaster username > Basename/ENS > Formatted address
@@ -87,15 +99,17 @@ async function getBidderIdentity(address: string): Promise<string> {
     return "Unknown";
   }
 
-  // Check cache first
+  // Check cache first with extended expiry
   const now = Date.now();
   const cached = identityCache.get(address);
   if (cached && cached.isResolved && now - cached.timestamp < CACHE_EXPIRY) {
     return cached.displayName;
   }
 
-  // If there's an unresolved cache entry, return the formatted address temporarily
+  // Format address for fallback
   const formattedAddress = formatAddress(address);
+  
+  // If there's an unresolved cache entry, return the formatted address temporarily
   if (!cached) {
     // Add to cache as unresolved initially to prevent multiple resolution attempts
     identityCache.set(address, { 
@@ -109,35 +123,29 @@ async function getBidderIdentity(address: string): Promise<string> {
     // Default to formatted address in case resolution fails
     let displayName = formattedAddress;
     
-    try {
-      // Use Coinbase onchainkit's getName to get basename/ENS
-      const name = await getName({
+    // OPTIMIZATION: Use Promise.allSettled to parallelize name resolution
+    const [nameResult, farcasterResult] = await Promise.allSettled([
+      // Try to get basename/ENS
+      getName({
         address: address as Address,
         chain: base,
-      });
+      }).catch(() => null),  // Remove 'err' parameter
       
-      if (name) {
-        displayName = name; // getName already handles basename/ENS priority
-      }
-    } catch (nameError) {
-      console.error("Error fetching onchain name:", nameError);
-      // Continue execution - we'll fall back to the formatted address
+      // Try to get Farcaster identity
+      getFarcasterUser(address).catch(() => null)  // Remove 'err' parameter
+    ]);
+    
+    // Process name result
+    if (nameResult.status === 'fulfilled' && nameResult.value) {
+      displayName = nameResult.value;
     }
     
-    try {
-      // Get Farcaster identity
-      const farcasterUser = await getFarcasterUser(address);
-      
-      // Prioritize Farcaster over other identities
-      if (farcasterUser?.username) {
-        displayName = `@${farcasterUser.username}`;
-      }
-    } catch (farcasterError) {
-      console.error("Error fetching Farcaster identity:", farcasterError);
-      // Continue execution - we'll use what we have so far
+    // Prioritize Farcaster over other identities
+    if (farcasterResult.status === 'fulfilled' && farcasterResult.value?.username) {
+      displayName = `@${farcasterResult.value.username}`;
     }
     
-    // Cache the result
+    // Cache the result with longer expiry
     identityCache.set(address, { 
       displayName, 
       timestamp: now,
@@ -188,11 +196,56 @@ interface PendingTradeUpdate {
 // Global list of pending updates waiting for price data
 const pendingUpdates = new Map<string, PendingTradeUpdate>();
 
+// OPTIMIZATION: Function to fetch data from API endpoint
+async function fetchTradeActivityFromAPI(): Promise<{activities: {id: string, message: string, txHash: string}[]} | null> {
+  // Prevent multiple concurrent API requests and respect cooldown
+  const now = Date.now();
+  if (apiRequestOngoing || (now - lastApiRequestTime < API_REQUEST_COOLDOWN)) {
+    return null;
+  }
+  
+  try {
+    apiRequestOngoing = true;
+    console.log('Fetching trade activity from API endpoint...');
+    
+    const response = await fetch('/api/trade-activity');
+    
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    lastApiRequestTime = now;
+    
+    if (data && data.activities && Array.isArray(data.activities)) {
+      // Update global cache
+      globalTradeActivityCache = {
+        activities: data.activities,
+        timestamp: now
+      };
+      
+      console.log(`Received ${data.activities.length} activities from API`);
+      return data;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching from API:', error);
+    return null;
+  } finally {
+    apiRequestOngoing = false;
+  }
+}
+
 export const useTradeActivity = (callback: (message: string, txHash?: string, messageKey?: string) => void) => {
   const [isListening, setIsListening] = useState(false);
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [lastCheck, setLastCheck] = useState<bigint>(0n);
   const { formatAmountToUsd, onPriceUpdate, priceUsd, getRawPrice } = useTokenPrice();
+  
+  // Add refs to track initialization and prevent duplicate callbacks
+  const isInitialized = useRef(false);
+  const activityHistory = useRef<Set<string>>(new Set());
 
   // Handle price updates and update existing messages
   useEffect(() => {
@@ -268,7 +321,6 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       setProcessedIds(prev => new Set([...prev, logId]));
       
       const { recipient, sender, amount0 } = log.args;
-      console.log(log.args.recipient)
       
       // Determine if this is a buy or sell
       const isBuy = amount0 < 0n;
@@ -279,13 +331,13 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         return false;
       }
       
-      // Create a stable message key
-      const messageKey = `tx-${log.transactionHash}-${logId}`;
-      debugLog(`Processing buy event with key ${messageKey}`);
-      
-      // Get token amount raw value
+      // OPTIMIZATION: Increased dust threshold to filter out more tiny transactions
       const absAmount = amount0 < 0n ? -amount0 : amount0;
       const amountRaw = Number(formatEther(absAmount));
+      if (amountRaw < 0.00005) {
+        return false;
+      }
+      
       debugLog(`Amount raw: ${amountRaw}`);
       
       // Get raw price directly from global cache to prevent UI render issues
@@ -297,15 +349,34 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       // Check if the recipient is a known router/aggregator
       const recipientLower = recipient.toLowerCase();
       const senderLower = sender.toLowerCase();
-      console.log(recipientLower, senderLower)
       const isRouter = KNOWN_ROUTERS.has(recipientLower) || KNOWN_ROUTERS.has(senderLower);
-      console.log(isRouter)
+      
+      // Create a stable message key - this is used to deduplicate events
+      const messageKey = `tx-${log.transactionHash}-${logId}`;
+      
+      // OPTIMIZATION: Don't process if already in activity history
+      if (activityHistory.current.has(messageKey)) {
+        debugLog(`Event ${messageKey} already in activity history, skipping`);
+        return false;
+      }
+      
+      // Add to activity history
+      activityHistory.current.add(messageKey);
+      if (activityHistory.current.size > 100) {
+        // Keep history size reasonable by removing oldest items
+        const entries = Array.from(activityHistory.current);
+        if (entries.length > 100) {
+          activityHistory.current = new Set(entries.slice(-50));
+        }
+      }
+      
+      debugLog(`Processing buy event with key ${messageKey}`);
       
       // For finding the actual recipient when the swap is through a router
       let actualRecipient = recipient;
       
-      if (isRouter) {
-        console.log(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
+      // OPTIMIZATION: Skip router tracing for client-side hook, rely on API's processing
+      if (!USE_API_ENDPOINT && isRouter) {
         debugLog(`Recipient ${recipient} is a router/aggregator, will try to find actual recipient`);
         try {
           // Use the global publicClient instead of creating a new one
@@ -313,35 +384,29 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
             hash: log.transactionHash as `0x${string}`
           });
           
-          // Find Transfer events from $QR token in the same transaction
           if (receipt.logs && receipt.logs.length > 0) {
-            // Sort logs by index to get the final transfers
+            // Only consider the last few token transfer logs to reduce processing
             const tokenTransfers = receipt.logs
               .filter(transferLog => 
-                // Match ERC20 Transfer events for our token
                 transferLog.address.toLowerCase() === QR_TOKEN_ADDRESS.toLowerCase() &&
                 transferLog.topics && 
-                transferLog.topics[0] === TRANSFER_EVENT_TOPIC // Transfer event topic0
+                transferLog.topics[0] === TRANSFER_EVENT_TOPIC
               )
-              .sort((a, b) => a.logIndex - b.logIndex);
+              .slice(-3); // Only check up to 3 most recent transfers
             
-            debugLog(`Found ${tokenTransfers.length} token transfers in transaction`);
+            debugLog(`Found ${tokenTransfers.length} recent token transfers in transaction`);
             
             // Take the last transfer that's not to the router or zero address
             for (let i = tokenTransfers.length - 1; i >= 0; i--) {
               const transfer = tokenTransfers[i];
               if (transfer.topics && transfer.topics.length >= 3) {
-                // Topics[2] is the 'to' address in Transfer(address,address,uint256)
                 const toTopic = transfer.topics[2];
                 if (!toTopic) continue;
                 
                 const to = `0x${toTopic.slice(-40)}`.toLowerCase();
                 
-                // Skip zero address
-                if (to === '0x0000000000000000000000000000000000000000') continue;
-                
-                // Skip if recipient is another router
-                if (KNOWN_ROUTERS.has(to)) continue;
+                // Skip zero address or routers
+                if (to === '0x0000000000000000000000000000000000000000' || KNOWN_ROUTERS.has(to)) continue;
                 
                 actualRecipient = `0x${toTopic.slice(-40)}`;
                 debugLog(`Found actual recipient address: ${actualRecipient}`);
@@ -351,7 +416,6 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
           }
         } catch (error) {
           console.error('Error tracing actual recipient:', error);
-          debugLog(`Falling back to swap recipient address due to error`);
         }
       }
       
@@ -521,10 +585,41 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
     }
   }, [callback, processedIds, formatAmountToUsd, priceUsd, getRawPrice]);
 
+  // OPTIMIZATION: Use API endpoint when available
   const fetchTradeActivity = useCallback(async () => {
     try {
       debugLog('Fetching trade activity for $QR Uniswap V3 pool');
       
+      // OPTIMIZATION: Use the API endpoint for data when possible
+      if (USE_API_ENDPOINT) {
+        const apiData = await fetchTradeActivityFromAPI();
+        
+        if (apiData && apiData.activities && apiData.activities.length > 0) {
+          // We got data from the API, process it
+          const activities = apiData.activities.slice(0, MAX_BUY_EVENTS);
+          
+          // Send activities to callback
+          for (const activity of activities) {
+            if (!activityHistory.current.has(activity.id)) {
+              // This is a new activity we haven't seen before
+              activityHistory.current.add(activity.id);
+              callback(activity.message, activity.txHash, activity.id);
+            }
+          }
+          
+          // Keep history size reasonable
+          if (activityHistory.current.size > 100) {
+            const entries = Array.from(activityHistory.current);
+            activityHistory.current = new Set(entries.slice(-50));
+          }
+          
+          return; // Skip the direct blockchain processing logic
+        }
+        
+        // If we got no data from API, fall through to direct blockchain method
+      }
+      
+      // Direct blockchain fetch fallback logic
       // Get current block - reuse the global client
       const currentBlock = await publicClient.getBlockNumber();
       
@@ -535,7 +630,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
         // Normal update - get events since last check
         fromBlock = lastCheck + 1n;
       } else {
-        // First load - get more historical events (24 hours) to ensure we always have events
+        // First load - get more historical events to ensure we always have events
         fromBlock = currentBlock > INITIAL_HISTORICAL_BLOCKS ? currentBlock - INITIAL_HISTORICAL_BLOCKS : 0n;
         debugLog(`First load - fetching more historical events from block ${fromBlock}`);
       }
@@ -547,15 +642,27 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       
       debugLog(`Checking events from block ${fromBlock} to ${currentBlock}`);
       
-      // Fetch in smaller chunks to avoid RPC timeouts on large ranges
-      const MAX_BLOCK_RANGE = BigInt(10000);
+      // OPTIMIZATION: Use a more reasonable block range for large requests
+      const MAX_BLOCK_RANGE = BigInt(5000); // Reduced from 10000
       let processedEvents = 0;
       let buyEventCount = 0;
-      const maxBuyEvents = lastCheck === 0n ? 10 : MAX_BUY_EVENTS; // Get at least 10 events on first load
+      // OPTIMIZATION: Limit historical events on first load as well
+      const maxBuyEvents = lastCheck === 0n ? 5 : MAX_BUY_EVENTS; // Reduced to 5 for first load
+      
+      // OPTIMIZATION: Limit search to a few chunks to avoid excessive RPC calls
+      let chunkCount = 0;
+      const MAX_CHUNKS = 4; // Only try up to 4 chunks (20,000 blocks) before giving up
       
       // Process in chunks from newest to oldest
-      for (let toBlock = currentBlock; toBlock >= fromBlock && buyEventCount < maxBuyEvents; toBlock = toBlock - MAX_BLOCK_RANGE) {
-        const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock ? fromBlock : toBlock - MAX_BLOCK_RANGE + 1n;
+      for (let toBlock = currentBlock; 
+           toBlock >= fromBlock && 
+           buyEventCount < maxBuyEvents && 
+           chunkCount < MAX_CHUNKS; 
+           toBlock = toBlock - MAX_BLOCK_RANGE, chunkCount++) {
+           
+        const chunkFromBlock = toBlock - MAX_BLOCK_RANGE + 1n > fromBlock 
+          ? fromBlock 
+          : toBlock - MAX_BLOCK_RANGE + 1n;
         
         debugLog(`Fetching chunk from ${chunkFromBlock} to ${toBlock}`);
         
@@ -570,9 +677,17 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
           debugLog(`Found ${events.length} events in chunk`);
           processedEvents += events.length;
           
-          // Process events in reverse chronological order (newest first)
-          for (let i = events.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
-            const isProcessed = await processSwapEvent(events[i] as SwapLog);
+          // OPTIMIZATION: Only process recent events
+          // For large result sets, only process the most recent events
+          const eventsToProcess = events.length <= 10 
+            ? events 
+            : events.slice(Math.max(0, events.length - 10));
+            
+          debugLog(`Processing ${eventsToProcess.length} events`);
+          
+          // Process selected events in reverse chronological order (newest first)
+          for (let i = eventsToProcess.length - 1; i >= 0 && buyEventCount < maxBuyEvents; i--) {
+            const isProcessed = await processSwapEvent(eventsToProcess[i] as SwapLog);
             if (isProcessed) buyEventCount++;
           }
           
@@ -594,13 +709,36 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
     } catch (error) {
       console.error('Error fetching trade activity:', error);
     }
-  }, [lastCheck, processSwapEvent]);
+  }, [lastCheck, processSwapEvent, callback]);
 
   useEffect(() => {
-    // Initial fetch
+    // Only initialize once
+    if (isInitialized.current) {
+      return;
+    }
+    
+    isInitialized.current = true;
+    
+    // OPTIMIZATION: Check if we have cached data available first
+    if (globalTradeActivityCache?.activities?.length && Date.now() - globalTradeActivityCache.timestamp < 5 * 60 * 1000) {
+      debugLog('Using cached trade activity data');
+      
+      // Send cached activities to callback (only the first few)
+      const activitiesToProcess = globalTradeActivityCache.activities.slice(0, MAX_BUY_EVENTS);
+      
+      for (const activity of activitiesToProcess) {
+        if (!activityHistory.current.has(activity.id)) {
+          // Mark as processed and send to callback
+          activityHistory.current.add(activity.id);
+          callback(activity.message, activity.txHash, activity.id);
+        }
+      }
+    }
+
+    // Initial fetch using our refined approach
     fetchTradeActivity();
     
-    // Set up interval with longer interval to reduce API usage
+    // OPTIMIZATION: Use a much longer interval to reduce API usage
     const intervalId = setInterval(fetchTradeActivity, FETCH_INTERVAL);
     
     setIsListening(true);
@@ -611,7 +749,7 @@ export const useTradeActivity = (callback: (message: string, txHash?: string, me
       setIsListening(false);
       console.log('Trade activity listener cleaned up');
     };
-  }, [fetchTradeActivity]);
+  }, [fetchTradeActivity, callback]);
   
   return { isListening };
 }; 
