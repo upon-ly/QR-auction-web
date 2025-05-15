@@ -167,7 +167,7 @@ export function useAirdropEligibility() {
         .insert({
           fid: frameContext.user.fid,
           eth_address: walletAddress,
-          amount: 10000, // 10,000 QR tokens
+          amount: 2000, // 2,000 QR tokens
           tx_hash: txHash,
           success: !!txHash
         });
