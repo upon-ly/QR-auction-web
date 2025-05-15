@@ -171,6 +171,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
           "64": "https://i.postimg.cc/kMyLJhFj/64winner.jpg",
           "65": "https://i.postimg.cc/wTDHNwnp/43winner.jpg",
           "67": "https://i.postimg.cc/3Jmz8MzD/67winner.jpg",
+          "69": "https://i.postimg.cc/02dgY6j9/69winner.jpg",
           "70": "https://i.postimg.cc/0Nh72ypw/70winner.jpg"
         };
 
