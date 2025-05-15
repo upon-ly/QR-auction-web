@@ -336,7 +336,7 @@ export function AuctionDetails({
           // After successful transaction, send notifications
           try {
             // Skip notifications in development environment
-            const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview' || process.env.VERCEL_ENV === 'production';
+            const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview' || process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
             
             if (isDev) {
               console.log('[DEV MODE] Skipping notifications in development environment');
@@ -373,9 +373,14 @@ export function AuctionDetails({
                   // Step 1: Send the winner-specific notification first
                   console.log(`[Settle] Sending auction-won notification to winner (FID: ${winnerFid})`);
                   
-                  try {
-                    const wonResponse = await fetch('/api/notifications/auction-won', {
-                      method: 'POST',
+                  const disableSettledNotifications = true;
+
+                  if (disableSettledNotifications) {
+                    console.log(`[Settle] ℹ️ Auction-won broadcast notifications are disabled`);
+                  } else {
+                    try {
+                      const wonResponse = await fetch('/api/notifications/auction-won', {
+                        method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
                       },
@@ -394,7 +399,8 @@ export function AuctionDetails({
                   } catch (wonError) {
                     console.error(`[Settle] ❌ Error sending auction-won notification:`, wonError);
                   }
-                } else {
+                }
+               } else {
                   console.log(`[Settle] ℹ️ No Farcaster account found for winner address ${auctionDetail.highestBidder}, proceeding with broadcast only`);
                 }
               } catch (fidLookupError) {
