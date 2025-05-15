@@ -18,7 +18,7 @@ const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY || '';
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
-const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || '';
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY2 || '';
 const RPC_URL = ALCHEMY_API_KEY ? 
   `${ALCHEMY_RPC_URL}${ALCHEMY_API_KEY}` : 
   'https://mainnet.base.org';
