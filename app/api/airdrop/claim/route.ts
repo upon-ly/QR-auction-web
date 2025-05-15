@@ -16,10 +16,11 @@ const QR_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_QR_COIN || '';
 const AIRDROP_CONTRACT_ADDRESS = process.env.AIRDROP_CONTRACT_ADDRESS || '';
 const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY || '';
 
-// Infura API key
-const INFURA_API_KEY = process.env.INFURA_API_KEY || '';
-const RPC_URL = INFURA_API_KEY ? 
-  `https://base-mainnet.infura.io/v3/${INFURA_API_KEY}` : 
+// Alchemy RPC URL for Base
+const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY2 || '';
+const RPC_URL = ALCHEMY_API_KEY ? 
+  `${ALCHEMY_RPC_URL}${ALCHEMY_API_KEY}` : 
   'https://mainnet.base.org';
 
 // ERC20 ABI for approval
