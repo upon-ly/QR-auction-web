@@ -321,12 +321,12 @@ export function WinDetailsView(winnerdata: AuctionType) {
               </button>
             </div>
           </div>
-          <div className={`${isBaseColors ? "bg-background" : "bg-white"} flex flex-col rounded-md justify-center items-center h-full mt-1 w-full overflow-hidden aspect-[2/1]`}>
+          <div className={`${isBaseColors ? "bg-background" : "bg-white"} flex rounded-md h-full mt-1 w-full overflow-hidden aspect-[2/1]`}>
             {ogImage && (
               <img
                 src={ogImage}
                 alt="Open Graph"
-                className="h-auto w-full cursor-pointer"
+                className="h-full w-full object-cover cursor-pointer" 
                 onClick={() => handleOpenUrl(winnerdata.url)}
               />
             )}
