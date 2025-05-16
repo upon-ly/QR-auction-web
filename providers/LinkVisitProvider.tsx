@@ -22,6 +22,7 @@ interface LinkVisitContextType {
   winningUrl: string;
   winningImage: string;
   isLatestWonAuction: boolean;
+  latestWonAuctionId: number | null;
 }
 
 // Create context with default values
@@ -34,7 +35,8 @@ const LinkVisitContext = createContext<LinkVisitContextType>({
   auctionId: 0,
   winningUrl: '',
   winningImage: '',
-  isLatestWonAuction: false
+  isLatestWonAuction: false,
+  latestWonAuctionId: null
 });
 
 // Hook to use the link visit context
@@ -55,6 +57,7 @@ export function LinkVisitProvider({
   const [hasCheckedEligibility, setHasCheckedEligibility] = useState(false);
   const [isLatestWonAuction, setIsLatestWonAuction] = useState(false);
   const [isCheckingLatestAuction, setIsCheckingLatestAuction] = useState(true);
+  const [latestWonAuctionId, setLatestWonAuctionId] = useState<number | null>(null);
   
   // Get access to AirdropProvider context to show the airdrop popup later
   const { setShowAirdropPopup, isEligible, hasClaimed: hasAirdropClaimed } = useAirdrop();
@@ -65,9 +68,11 @@ export function LinkVisitProvider({
     isLoading, 
     walletAddress, 
     frameContext
-  } = useLinkVisitEligibility(auctionId);
+  } = useLinkVisitEligibility(latestWonAuctionId !== null ? latestWonAuctionId : auctionId);
   
-  const { claimTokens } = useLinkVisitClaim(auctionId);
+  // Use the latestWonAuctionId when available, otherwise fall back to the current auctionId
+  const claimAuctionId = latestWonAuctionId !== null ? latestWonAuctionId : auctionId;
+  const { claimTokens } = useLinkVisitClaim(claimAuctionId);
   
   // Check if this auction is the latest won auction using Supabase
   useEffect(() => {
@@ -89,12 +94,16 @@ export function LinkVisitProvider({
         
         if (latestWinner && latestWinner.length > 0) {
           const latestTokenId = parseInt(latestWinner[0].token_id);
+          setLatestWonAuctionId(latestTokenId);
+          
+          // Current auction is eligible if it's the won auction or the next one
           const isLatest = auctionId === latestTokenId || auctionId === latestTokenId + 1;
-          console.log(`Auction ${auctionId} is${isLatest ? '' : ' not'} the latest won auction (${latestTokenId})`);
+          console.log(`Auction ${auctionId} is${isLatest ? '' : ' not'} eligible (latest won auction: ${latestTokenId})`);
           setIsLatestWonAuction(isLatest);
         } else {
           console.log('No won auctions found');
           setIsLatestWonAuction(false);
+          setLatestWonAuctionId(null);
         }
       } catch (error) {
         console.error('Error checking latest won auction:', error);
@@ -119,6 +128,8 @@ export function LinkVisitProvider({
   useEffect(() => {
     console.log('===== LINK VISIT PROVIDER DEBUG =====');
     console.log('auctionId:', auctionId);
+    console.log('claimAuctionId (for recording claims):', claimAuctionId);
+    console.log('latestWonAuctionId:', latestWonAuctionId);
     console.log('hasClicked:', hasClicked);
     console.log('hasClaimed:', hasClaimed);
     console.log('isLoading:', isLoading);
@@ -131,7 +142,7 @@ export function LinkVisitProvider({
     console.log('isCheckingLatestAuction:', isCheckingLatestAuction);
     console.log('airdrop isEligible:', isEligible);
     console.log('airdrop hasClaimed:', hasAirdropClaimed);
-  }, [auctionId, hasClicked, hasClaimed, isLoading, hasCheckedEligibility, walletAddress, showClaimPopup, winningUrl, frameContext, isLatestWonAuction, isCheckingLatestAuction, isEligible, hasAirdropClaimed]);
+  }, [auctionId, claimAuctionId, latestWonAuctionId, hasClicked, hasClaimed, isLoading, hasCheckedEligibility, walletAddress, showClaimPopup, winningUrl, frameContext, isLatestWonAuction, isCheckingLatestAuction, isEligible, hasAirdropClaimed]);
   
   // Show popup when user can interact with it
   useEffect(() => {
@@ -177,7 +188,7 @@ export function LinkVisitProvider({
   
   // Handle claim action
   const handleClaim = async () => {
-    console.log('Handling claim in provider...');
+    console.log('Handling claim in provider...', { claimAuctionId });
     // Wallet should already be connected
     return await claimTokens();
   };
@@ -210,7 +221,8 @@ export function LinkVisitProvider({
         auctionId,
         winningUrl,
         winningImage,
-        isLatestWonAuction
+        isLatestWonAuction,
+        latestWonAuctionId
       }}
     >
       {children}
@@ -221,7 +233,7 @@ export function LinkVisitProvider({
         hasClicked={hasClicked}
         winningUrl={winningUrl}
         winningImage={winningImage}
-        auctionId={auctionId}
+        auctionId={claimAuctionId}
         onClaim={handleClaim}
       />
     </LinkVisitContext.Provider>
