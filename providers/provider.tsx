@@ -78,3 +78,27 @@ export function Provider(props: { children: ReactNode }) {
     </FarcasterFrameProvider>
   );
 }
+
+// LinkVisitProvider needs auction details, so we create a special provider to use in the auction page
+export interface LinkVisitProviderProps {
+  children: ReactNode;
+  auctionId: number;
+  winningUrl: string;
+  winningImage: string;
+}
+
+// Import dynamically to avoid circular dependencies
+import dynamic from 'next/dynamic';
+const LinkVisitProvider = dynamic(() => import('./LinkVisitProvider').then(mod => mod.LinkVisitProvider));
+
+export function AuctionProvider({ children, auctionId, winningUrl, winningImage }: LinkVisitProviderProps) {
+  return (
+    <LinkVisitProvider
+      auctionId={auctionId}
+      winningUrl={winningUrl}
+      winningImage={winningImage}
+    >
+      {children}
+    </LinkVisitProvider>
+  );
+}

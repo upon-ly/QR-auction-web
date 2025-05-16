@@ -32,6 +32,7 @@ export const useAirdrop = () => useContext(AirdropContext);
 export function AirdropProvider({ children }: { children: React.ReactNode }) {
   const [showAirdropPopup, setShowAirdropPopup] = useState(false);
   const [hasCheckedEligibility, setHasCheckedEligibility] = useState(false);
+  const [autoShowDisabled, setAutoShowDisabled] = useState(true); // Default to true - disable auto-showing
   
   const { 
     isEligible, 
@@ -66,6 +67,15 @@ export function AirdropProvider({ children }: { children: React.ReactNode }) {
       setHasCheckedEligibility(false);
     }
   }, [isEligible]);
+
+  // When setShowAirdropPopup is called directly (e.g., from LinkVisitProvider),
+  // we want to update our state accordingly
+  useEffect(() => {
+    if (showAirdropPopup) {
+      console.log('Airdrop popup is showing, auto-show will remain disabled');
+      setAutoShowDisabled(true);
+    }
+  }, [showAirdropPopup]);
   
   // Debug logs
   useEffect(() => {
@@ -79,10 +89,17 @@ export function AirdropProvider({ children }: { children: React.ReactNode }) {
     console.log('hasCheckedEligibility:', hasCheckedEligibility);
     console.log('walletAddress:', walletAddress);
     console.log('showAirdropPopup:', showAirdropPopup);
-  }, [isTestUser, isEligible, isLoading, hasClaimed, hasAddedFrame, hasNotifications, hasCheckedEligibility, walletAddress, showAirdropPopup]);
+    console.log('autoShowDisabled:', autoShowDisabled);
+  }, [isTestUser, isEligible, isLoading, hasClaimed, hasAddedFrame, hasNotifications, hasCheckedEligibility, walletAddress, showAirdropPopup, autoShowDisabled]);
   
   // Show popup when user is eligible and has not claimed yet
   useEffect(() => {
+    // Skip if auto-showing is disabled
+    if (autoShowDisabled) {
+      console.log('Auto-showing disabled, airdrop popup will only show when triggered explicitly');
+      return;
+    }
+    
     // Only check once and when user has wallet connected
     if (hasCheckedEligibility || isLoading || !walletAddress) {
       console.log('Early return from popup check:', { 
@@ -117,7 +134,7 @@ export function AirdropProvider({ children }: { children: React.ReactNode }) {
       console.log('NOT showing popup - One or more conditions failed');
       setHasCheckedEligibility(true);
     }
-  }, [isEligible, isLoading, hasClaimed, hasCheckedEligibility, walletAddress, hasAddedFrame, hasNotifications, isTestUser]);
+  }, [isEligible, isLoading, hasClaimed, hasCheckedEligibility, walletAddress, hasAddedFrame, hasNotifications, isTestUser, autoShowDisabled]);
   
   // Handle claim action
   const handleClaim = async () => {

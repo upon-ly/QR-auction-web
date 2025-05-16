@@ -31,6 +31,8 @@ import BidStats from "@/components/BidStats";
 import { EndorsementsCarousel } from "@/components/EndorsementsCarousel";
 import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
+import { AuctionProvider } from "@/providers/provider";
+import { useLinkVisit } from "@/providers/LinkVisitProvider";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -359,11 +361,19 @@ export default function AuctionPage() {
     []
   );
 
+  // Get the winning image for the auction (using override if available)
+  const currentWinningImage = useMemo(() => {
+    return auctionImageOverrides[currentAuctionId] || ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`;
+  }, [auctionImageOverrides, currentAuctionId, ogImage]);
+
+  // Only enable LinkVisitProvider for latest auction that has valid links and isn't from older contracts
+  const enableLinkVisitClaims = isLatestAuction && !isAuction22 && !isAuction61 && !!ogUrl;
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  return (
+  const pageContent = (
     <main className="min-h-screen p-4 md:p-8">
       <div className="max-w-3xl mx-auto mt-3 md:mt-0 lg:mt-0">
         <div className="md:hidden text-center w-full mb-1">
@@ -417,7 +427,7 @@ export default function AuctionPage() {
           <div className="grid grid-cols-1 gap-4 md:gap-8 w-full">
             <div className="flex flex-col w-full">
               {/* Mobile Winner Display - displayed as block on mobile, hidden on desktop */}
-              {isLatestAuction && ogImage && !isAuction22 && !isAuction61 && (
+              {isLatestAuction && currentWinningImage && !isAuction22 && !isAuction61 && (
                 <div className="block md:hidden">
                   <div className="flex flex-col justify-center items-center w-[calc(100vw-32px)] max-w-[376px] mx-auto gap-1">
                     <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
@@ -433,7 +443,7 @@ export default function AuctionPage() {
                       {/* Image with no padding */}
                       <div className="w-full bg-white aspect-[2/1] overflow-hidden">
                         <img
-                          src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
+                          src={currentWinningImage}
                           alt="Open Graph"
                           className="object-cover w-full h-full cursor-pointer"
                           onClick={(e) => {
@@ -468,7 +478,7 @@ export default function AuctionPage() {
               )}
               
               {/* Desktop Winner Display - hidden on mobile, displayed on desktop */}
-              {isLatestAuction && ogImage && !isAuction22 && !isAuction61 && (
+              {isLatestAuction && currentWinningImage && !isAuction22 && !isAuction61 && (
                 <div className="hidden md:flex flex-col justify-center items-center gap-1 w-full max-w-[376px] mx-auto">
                   <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
                     <span className="hidden md:inline">🏆</span>
@@ -483,7 +493,7 @@ export default function AuctionPage() {
                     {/* Image with no padding */}
                     <div className="w-full bg-white aspect-[2/1] overflow-hidden">
                       <img
-                        src={auctionImageOverrides[currentAuctionId] || ogImage || ''}
+                        src={currentWinningImage}
                         alt="Open Graph"
                         className="object-cover w-full h-full cursor-pointer"
                         onClick={(e) => {
@@ -697,5 +707,18 @@ export default function AuctionPage() {
         onContinue={handleContinue}
       />
     </main>
+  );
+
+  // Wrap the page content with AuctionProvider only for latest auction with valid links
+  return enableLinkVisitClaims ? (
+    <AuctionProvider
+      auctionId={currentAuctionId}
+      winningUrl={ogUrl}
+      winningImage={currentWinningImage}
+    >
+      {pageContent}
+    </AuctionProvider>
+  ) : (
+    pageContent
   );
 } 

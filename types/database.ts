@@ -56,6 +56,50 @@ export interface Database {
           created_at?: string | null
         }
       }
+      link_visit_claims: {
+        Row: {
+          id: number
+          fid: number
+          eth_address: string
+          auction_id: number
+          winning_url: string
+          link_visited_at: string | null
+          claimed_at: string | null
+          shared_at: string | null
+          amount: number
+          tx_hash: string | null
+          success: boolean | null
+          username: string | null
+        }
+        Insert: {
+          id?: number
+          fid: number
+          eth_address: string
+          auction_id: number
+          winning_url: string
+          link_visited_at?: string | null
+          claimed_at?: string | null
+          shared_at?: string | null
+          amount?: number
+          tx_hash?: string | null
+          success?: boolean | null
+          username?: string | null
+        }
+        Update: {
+          id?: number
+          fid?: number
+          eth_address?: string
+          auction_id?: number
+          winning_url?: string
+          link_visited_at?: string | null
+          claimed_at?: string | null
+          shared_at?: string | null
+          amount?: number
+          tx_hash?: string | null
+          success?: boolean | null
+          username?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

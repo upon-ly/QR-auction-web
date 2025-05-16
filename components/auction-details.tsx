@@ -288,14 +288,13 @@ export function AuctionDetails({
               
               // Prepare values for database insert
               const winnerData = {
-                token_id: id.toString(),
+                token_id: Number(id),
                 winner_address: auctionDetail.highestBidder,
-                amount: formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18),
+                amount: Number(formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18)),
                 url: auctionDetail.qrMetadata?.urlString || null,
                 display_name: bidderNameInfo.displayName || null,
                 farcaster_username: bidderNameInfo.farcasterUsername || null,
                 basename: bidderNameInfo.basename || null,
-                pfp_url: bidderNameInfo.pfpUrl || null,
                 usd_value: isV3Auction 
                   ? Number(formatUnits(auctionDetail.highestBid, 6)) // USDC is already in USD
                   : qrPrice ? Number(formatEther(auctionDetail.highestBid)) * qrPrice : null,
