@@ -18,6 +18,52 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
+    // Validate that this is the latest settled auction
+    try {
+      // Get the latest won auction from winners table
+      const { data: latestWinner, error } = await supabase
+        .from('winners')
+        .select('token_id')
+        .order('token_id', { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error('Error fetching latest won auction:', error);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Error validating auction ID' 
+        }, { status: 500 });
+      }
+      
+      if (!latestWinner || latestWinner.length === 0) {
+        console.error('No won auctions found');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'No won auctions found' 
+        }, { status: 400 });
+      }
+      
+      const latestWonId = parseInt(latestWinner[0].token_id);
+      const requestedId = parseInt(auctionId);
+      
+      // Only allow clicks for the latest won auction or the next auction
+      const isValidAuction = requestedId === latestWonId || requestedId === latestWonId + 1;
+      
+      console.log(`Validating auction link click: requested=${requestedId}, latest won=${latestWonId}, isValid=${isValidAuction}`);
+      
+      if (!isValidAuction) {
+        const errorMessage = `Invalid auction ID - can only click from latest won auction (${latestWonId}) or the next one (${latestWonId + 1})`;
+        console.error(errorMessage);
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+      }
+    } catch (error) {
+      console.error('Error validating auction ID:', error);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Error validating auction ID' 
+      }, { status: 500 });
+    }
+    
     // If no FID (not in a frame context), still record the click but with null FID
     // This handles visitors from outside of frames
     

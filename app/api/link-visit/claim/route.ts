@@ -177,6 +177,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
     }
     
+    // Validate that this is the latest settled auction
+    try {
+      // Get the latest won auction from winners table
+      const { data: latestWinner, error } = await supabase
+        .from('winners')
+        .select('token_id')
+        .order('token_id', { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error('Error fetching latest won auction:', error);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Error validating auction ID' 
+        }, { status: 500 });
+      }
+      
+      if (!latestWinner || latestWinner.length === 0) {
+        console.error('No won auctions found');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'No won auctions found' 
+        }, { status: 400 });
+      }
+      
+      const latestWonId = parseInt(latestWinner[0].token_id);
+      const requestedId = parseInt(auction_id);
+      
+      // Only allow claims for the latest won auction or the next auction
+      const isValidAuction = requestedId === latestWonId || requestedId === latestWonId + 1;
+      
+      console.log(`Validating auction claim: requested=${requestedId}, latest won=${latestWonId}, isValid=${isValidAuction}`);
+      
+      if (!isValidAuction) {
+        const errorMessage = `Invalid auction ID - can only claim from latest won auction (${latestWonId}) or the next one (${latestWonId + 1})`;
+        
+        // Log validation error
+        await logFailedTransaction({
+          fid,
+          eth_address: address,
+          auction_id,
+          username,
+          error_message: errorMessage,
+          error_code: 'INVALID_AUCTION_ID',
+          request_data: requestData as Record<string, unknown>
+        });
+        
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+      }
+    } catch (error) {
+      console.error('Error validating auction ID:', error);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Error validating auction ID' 
+      }, { status: 500 });
+    }
+    
     // Default winning URL if not provided
     const winningUrl = winning_url || `https://qrcoin.fun/auction/${auction_id}`;
     
