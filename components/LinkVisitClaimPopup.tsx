@@ -227,7 +227,7 @@ export function LinkVisitClaimPopup({
     
     // Add a quote cast as an additional embed (hardcoded example for now)
     // Can replace this with an actual quote cast URL when needed
-    const quoteCastUrl = "https://warpcast.com/qrcoindotfun/0xa5cc54cd"; // Empty for now, add a real URL when needed
+    const quoteCastUrl = "https://warpcast.com/qrcoindotfun/0xe03f2289"; // Empty for now, add a real URL when needed
     if (quoteCastUrl) {
       shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
     }
