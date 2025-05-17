@@ -157,7 +157,7 @@ export function useLinkVisitEligibility(auctionId: number) {
           auction_id: auctionId,
           eth_address: walletAddress,
           claimed_at: new Date().toISOString(),
-          amount: 5000, // 5,000 QR tokens
+          amount: 2000, // 2,000 QR tokens
           tx_hash: txHash,
           success: !!txHash,
           username: frameContext.user.username || null

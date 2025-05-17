@@ -197,7 +197,7 @@ export function LinkVisitClaimPopup({
     setClaimState('success');
     
     // Show success toast
-    toast.success('5,000 $QR has been sent to your wallet.', {
+    toast.success('2,000 $QR has been sent to your wallet.', {
       style: {
         background: 'var(--primary)',
         color: 'var(--primary-foreground)',
@@ -219,7 +219,7 @@ export function LinkVisitClaimPopup({
   
   // Handle share to Warpcast
   const handleShare = async () => {
-    const shareText = encodeURIComponent(`I just got paid 5,000 $QR for checking out today's winner @qrcoindotfun`);
+    const shareText = encodeURIComponent(`I just got paid 2,000 $QR for checking out today's winner @qrcoindotfun`);
     const embedUrl = encodeURIComponent(`https://qrcoin.fun/auction/${auctionId}`);
     
     // Add the main auction URL embed
@@ -304,7 +304,7 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                Click to claim 5,000 $QR!
+                Click to claim 2,000 $QR!
               </motion.h2>
             )}
             
@@ -315,7 +315,7 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                Claim 5,000 $QR
+                Claim 2,000 $QR
               </motion.h2>
             )}
             
@@ -386,7 +386,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  5,000 $QR sent to your wallet.
+                  2,000 $QR sent to your wallet.
                 </motion.p>
                 
                 <motion.div
