@@ -18,6 +18,7 @@ interface Testimonial {
   is_approved?: boolean;
   is_featured?: boolean;
   priority?: number;
+  is_tall?: boolean;
 }
 
 // Component to safely render embeds with error handling
@@ -333,9 +334,13 @@ export function EndorsementsCarousel() {
           <div className="overflow-hidden">
             <div className="flex justify-center">
               <div className="h-[440px] lg:h-[420px] md:h-[420px] w-full max-w-xl relative">
-                <div className="lg:p-4 py-4 w-full h-full overflow-y-auto flex items-center justify-center">
+                <div 
+                  className={`lg:p-4 py-4 w-full h-full overflow-y-auto flex justify-center ${
+                    testimonials[currentIndex]?.is_tall ? 'items-start pt-0' : 'items-center'
+                  }`}
+                >
                   <div 
-                    className={`transition-opacity duration-400 ease-in-out ${isTransitioning ? 'opacity-0' : 'opacity-100'} w-full`} 
+                    className={`transition-opacity duration-400 ease-in-out ${isTransitioning ? 'opacity-0' : 'opacity-100'} w-full`}
                   >
                     {testimonials[currentIndex] && (
                       <SafeEmbed testimonial={testimonials[currentIndex]} />
