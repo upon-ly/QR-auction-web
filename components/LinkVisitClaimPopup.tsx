@@ -368,7 +368,7 @@ export function LinkVisitClaimPopup({
                 >
                   <Button 
                     variant="default" 
-                    className="bg-black text-primary-foreground px-6 py-2 rounded-md focus:outline-none focus:ring-0 h-9"
+                    className="light:bg-black dark:bg-white text-primary-foreground dark:text-black px-6 py-2 rounded-md focus:outline-none focus:ring-0 h-9"
                     onClick={handleClaimAction}
                     disabled={isClaimLoading}
                   >
