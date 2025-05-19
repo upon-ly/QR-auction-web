@@ -66,6 +66,9 @@ interface LinkVisitRequestData {
 // Simple delay function
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Import queue functionality
+import { queueFailedClaim } from '@/lib/queue/failedClaims';
+
 // Function to log errors to the database
 async function logFailedTransaction(params: {
   fid: number | string;
@@ -83,7 +86,8 @@ async function logFailedTransaction(params: {
   retry_count?: number;
 }) {
   try {
-    const { error } = await supabase
+    // Your existing database insert code
+    const { data, error } = await supabase
       .from('link_visit_claim_failures')
       .insert({
         fid: params.fid,
@@ -99,10 +103,25 @@ async function logFailedTransaction(params: {
         gas_limit: params.gas_limit || null,
         network_status: params.network_status || null,
         retry_count: params.retry_count || 0
-      });
+      })
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Failed to log error to database:', error);
+      return;
+    }
+    
+    // Now also queue for retry (if eligible for retry)
+    if (!['DUPLICATE_CLAIM', 'INVALID_AUCTION_ID'].includes(params.error_code || '')) {
+      await queueFailedClaim({
+        id: data.id,
+        fid: params.fid as number,
+        eth_address: params.eth_address,
+        auction_id: params.auction_id,
+        username: params.username as string | null,
+        winning_url: params.winning_url as string | null,
+      });
     }
   } catch (logError) {
     console.error('Error while logging to failure table:', logError);
