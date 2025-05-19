@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface TradeActivity {
   id: string;
@@ -10,7 +10,17 @@ interface TradeActivity {
 // Track error state globally to avoid repeated retries causing UI thrashing
 let lastFetchFailed = false;
 let lastFetchTime = 0;
-const RETRY_INTERVAL = 10000; // 10 seconds between retries after failure
+const RETRY_INTERVAL = 30000; // Increased from 10 seconds to 30 seconds between retries after failure
+
+// Global cache to prevent redundant data fetching across components
+interface GlobalCache {
+  activities: TradeActivity[];
+  timestamp: number;
+}
+let globalActivityCache: GlobalCache | null = null;
+
+// Longer cache expiry - 10 minutes
+const CACHE_EXPIRY = 10 * 60 * 1000;
 
 // --- Debug Mode ---
 const DEBUG = false;
@@ -19,6 +29,11 @@ const DEBUG = false;
 export const useTradeActivityApi = (
   onUpdate: (message: string, txHash?: string, messageKey?: string) => void
 ) => {
+  // Track mounted state to avoid memory leaks
+  const isMounted = useRef(true);
+  // Track processed activities to avoid duplicates
+  const processedActivities = useRef(new Set<string>());
+  
   // Fetch trade activity data from the API
   const fetchTradeActivity = useCallback(async () => {
     // Don't retry too frequently if previous requests failed
@@ -27,6 +42,23 @@ export const useTradeActivityApi = (
       if (DEBUG) {
         console.log('Skipping trade activity fetch (throttled after failure)');
       }
+      return;
+    }
+    
+    // Check if we have recent cached data
+    if (globalActivityCache && now - globalActivityCache.timestamp < CACHE_EXPIRY) {
+      if (DEBUG) {
+        console.log('Using global cache data', globalActivityCache.activities.length);
+      }
+      
+      // Only process activities we haven't seen before
+      globalActivityCache.activities.forEach((activity) => {
+        if (!processedActivities.current.has(activity.id)) {
+          processedActivities.current.add(activity.id);
+          onUpdate(activity.message, activity.txHash, activity.id);
+        }
+      });
+      
       return;
     }
     
@@ -53,10 +85,15 @@ export const useTradeActivityApi = (
         }
         
         if (DEBUG) {
-        console.log(`Processing ${data.activities.length} trade activities`);
+          console.log(`Processing ${data.activities.length} trade activities`);
         }
         
-        // Process each activity and call the update function
+        // Update global cache
+        globalActivityCache = {
+          activities: data.activities,
+          timestamp: now
+        };
+        
         // Sort activities by timestamp (newest first) before processing
         const sortedActivities = [...data.activities].sort((a, b) => {
           // Use timestamps for sorting, newest first
@@ -65,8 +102,11 @@ export const useTradeActivityApi = (
         
         // Process newest activities first
         sortedActivities.forEach((activity: TradeActivity) => {
-          if (activity.message && activity.id) {
-            onUpdate(activity.message, activity.txHash, activity.id);
+          if (activity.message && activity.id && !processedActivities.current.has(activity.id)) {
+            processedActivities.current.add(activity.id);
+            if (isMounted.current) {
+              onUpdate(activity.message, activity.txHash, activity.id);
+            }
           }
         });
       }
@@ -85,20 +125,24 @@ export const useTradeActivityApi = (
     }
   }, [onUpdate]);
   
-  // Fetch data on mount and every 15 seconds
+  // Fetch data on mount and with reduced polling frequency
   useEffect(() => {
+    // Set mounted flag
+    isMounted.current = true;
+    
     // Initial fetch with a slight delay to ensure component is mounted
     const initialTimer = setTimeout(() => {
       fetchTradeActivity();
     }, 1000);
     
-    // Set up interval for polling - more frequent updates
+    // Set up interval for polling - less frequent updates
     const interval = setInterval(() => {
       fetchTradeActivity();
-    }, 15000); // Every 15 seconds
+    }, 60000); // Increased from 15 seconds to 60 seconds
     
     // Clean up interval on unmount
     return () => {
+      isMounted.current = false;
       clearTimeout(initialTimer);
       clearInterval(interval);
     };
@@ -112,7 +156,20 @@ export const useTokenPriceApi = () => {
   const [price, setPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // Cache token price values
+  const priceCache = useRef<{value: number, timestamp: number} | null>(null);
+  // Cache expiry for price - 15 minutes
+  const PRICE_CACHE_EXPIRY = 15 * 60 * 1000;
+  
   const fetchTokenPrice = useCallback(async () => {
+    // Check cache first
+    const now = Date.now();
+    if (priceCache.current && now - priceCache.current.timestamp < PRICE_CACHE_EXPIRY) {
+      setPrice(priceCache.current.value);
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const response = await fetch('/api/trade-activity');
@@ -125,6 +182,11 @@ export const useTokenPriceApi = () => {
       
       if (data.price) {
         setPrice(data.price);
+        // Update cache
+        priceCache.current = {
+          value: data.price,
+          timestamp: now
+        };
       }
     } catch (error) {
       console.error('Error fetching token price:', error);
@@ -138,7 +200,7 @@ export const useTokenPriceApi = () => {
     
     const interval = setInterval(() => {
       fetchTokenPrice();
-    }, 60000); // Every minute
+    }, 5 * 60 * 1000); // Increased from every minute to every 5 minutes
     
     return () => clearInterval(interval);
   }, [fetchTokenPrice]);

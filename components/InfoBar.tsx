@@ -34,6 +34,10 @@ const DEBUG = false;
 
 // Store a browser instance ID to distinguish between local and remote events
 // const BROWSER_INSTANCE_ID = Math.random().toString(36).substring(2, 15);
+// OPTIMIZATION: Longer cleanup intervals to reduce resources
+// Keep more updates in history for variety, but clean them up less frequently
+const MAX_UPDATES = 20; // Increased from 15
+const CLEANUP_INTERVAL = 2 * 60 * 1000; // Every 2 minutes instead of 30 seconds
 
 // COMPLETELY SEPARATE PRICE TICKER COMPONENT
 // This is a fully independent component that won't re-render when trade activity changes
@@ -221,10 +225,10 @@ export const useInfoBarUpdates = () => {
         return prev;
       }
       
-      // Keep only last 15 updates instead of 5
+      // Keep only last MAX_UPDATES updates
       const newUpdates = [update, ...prev];
-      if (newUpdates.length > 15) {
-        return newUpdates.slice(0, 15);
+      if (newUpdates.length > MAX_UPDATES) {
+        return newUpdates.slice(0, MAX_UPDATES);
       }
       return newUpdates;
     });
@@ -273,8 +277,13 @@ export const useInfoBarUpdates = () => {
     // Initialize channels via the manager (still needed for wallet connections elsewhere)
     // initializeChannels(address, BROWSER_INSTANCE_ID);
     
-    // Set up cleanup interval for old updates
-    cleanupInterval.current = setInterval(cleanupOldUpdates, 5000);
+    // Set up interval to clean old updates
+    if (cleanupInterval.current) {
+      clearInterval(cleanupInterval.current);
+    }
+    
+    // OPTIMIZATION: Less frequent cleanup to reduce unnecessary operations
+    cleanupInterval.current = setInterval(cleanupOldUpdates, CLEANUP_INTERVAL);
     
     return () => {
       if (cleanupInterval.current) {

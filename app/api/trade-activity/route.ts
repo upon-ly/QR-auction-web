@@ -27,8 +27,8 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// OPTIMIZATION: Reduce historical block range by 50% (24 hours to 12 hours)
-const INITIAL_HISTORICAL_BLOCKS = BigInt(21600); // Reduced from 43200
+// OPTIMIZATION: Reduce historical block range by 75% (12 hours to 3 hours)
+const INITIAL_HISTORICAL_BLOCKS = BigInt(5400); // Reduced from 21600
 
 // Known router/aggregator addresses that might appear as recipients
 const KNOWN_ROUTERS = new Set([
@@ -67,7 +67,7 @@ let tradeActivityCache: TradeActivityResponse | null = null;
 let lastCacheTime = 0;
 
 // OPTIMIZATION: Significantly increase cache duration for API responses
-const TRADE_ACTIVITY_CACHE_DURATION = 120 * 1000; // Increased from 15 seconds to 2 minutes
+const TRADE_ACTIVITY_CACHE_DURATION = 15 * 60 * 1000; // Increased from 2 minutes to 15 minutes
 
 // OPTIMIZATION: Add rate limiting support
 const apiRequestCounter = new Map<string, {count: number, timestamp: number}>();
@@ -262,6 +262,25 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
     // For finding the actual recipient when the swap is through a router
     let actualRecipient = recipient;
     
+    // Create a unique message key
+    const messageKey = `tx-${log.transactionHash}-${logId}`;
+    
+    // Get identity for buyer
+    const trader = await getBidderIdentity(actualRecipient);
+    
+    // OPTIMIZATION: Only attempt to trace actual recipients for larger transactions
+    if (isRouter && amountRaw < 0.5) {
+      // Skip expensive recipient tracing for small transactions
+      return {
+        id: messageKey,
+        message: `${trader} bought $QR`,
+        txHash,
+        trader,
+        amountRaw,
+        timestamp: Date.now()
+      };
+    }
+    
     // OPTIMIZATION: Only trace routing if absolutley necessary
     if (isRouter) {
       try {
@@ -312,12 +331,6 @@ async function processSwapEvent(log: SwapLog, forceProcess = false): Promise<Tra
       }
     }
     
-    // Get identity for buyer
-    const trader = await getBidderIdentity(actualRecipient);
-
-    // Create a unique message key
-    const messageKey = `tx-${log.transactionHash}-${logId}`;
-    
     // Return the trade activity data
     return {
       id: messageKey,
@@ -363,9 +376,9 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
     const buyEvents: TradeActivity[] = [];
     
     // OPTIMIZATION: Process fewer chunks to reduce RPC calls
-    // Only try up to 4 chunks (20,000 blocks) before giving up
+    // Only try up to 2 chunks (10,000 blocks) before giving up
     let chunkCount = 0;
-    const MAX_CHUNKS = 4;
+    const MAX_CHUNKS = 2;
     
     // Process in chunks from newest to oldest
     for (let toBlock = currentBlock; 
@@ -470,7 +483,7 @@ async function fetchTradeActivity(): Promise<TradeActivity[]> {
 // OPTIMIZATION: Use a simplified price fetching method with longer cache
 let cachedPrice: number | null = null;
 let priceCacheTime = 0;
-const PRICE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const PRICE_CACHE_DURATION = 15 * 60 * 1000; // Increased from 5 minutes to 15 minutes
 
 async function fetchTokenPrice(): Promise<number | null> {
   try {
