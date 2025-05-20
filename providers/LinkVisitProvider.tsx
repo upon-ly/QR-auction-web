@@ -1,9 +1,10 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { LinkVisitClaimPopup } from '@/components/LinkVisitClaimPopup';
 import { useAirdrop } from './AirdropProvider';
 import { createClient } from "@supabase/supabase-js";
+import { getAuctionImage } from '@/utils/auctionImageOverrides';
 
 // Initialize Supabase client once, outside the component
 const supabase = createClient(
@@ -58,9 +59,16 @@ export function LinkVisitProvider({
   const [isLatestWonAuction, setIsLatestWonAuction] = useState(false);
   const [isCheckingLatestAuction, setIsCheckingLatestAuction] = useState(true);
   const [latestWonAuctionId, setLatestWonAuctionId] = useState<number | null>(null);
+  const [latestWinningUrl, setLatestWinningUrl] = useState<string>('');
+  const [latestWinningImage, setLatestWinningImage] = useState<string>('');
+  const [manualHasClaimedLatest, setManualHasClaimedLatest] = useState<boolean | null>(null);
+  const [explicitlyCheckedClaim, setExplicitlyCheckedClaim] = useState(false);
   
   // Get access to AirdropProvider context to show the airdrop popup later
   const { setShowAirdropPopup, isEligible, hasClaimed: hasAirdropClaimed } = useAirdrop();
+  
+  // Use the latestWonAuctionId for eligibility checks, falling back to current auction
+  const eligibilityAuctionId = latestWonAuctionId !== null ? latestWonAuctionId : auctionId;
   
   const { 
     hasClicked, 
@@ -68,22 +76,68 @@ export function LinkVisitProvider({
     isLoading, 
     walletAddress, 
     frameContext
-  } = useLinkVisitEligibility(latestWonAuctionId !== null ? latestWonAuctionId : auctionId);
+  } = useLinkVisitEligibility(eligibilityAuctionId);
   
-  // Use the latestWonAuctionId when available, otherwise fall back to the current auctionId
+  // Use the latestWonAuctionId for claim operations
   const claimAuctionId = latestWonAuctionId !== null ? latestWonAuctionId : auctionId;
   const { claimTokens } = useLinkVisitClaim(claimAuctionId);
+
+  // Explicit function to check claim status directly from database
+  const checkClaimStatusForLatestAuction = useCallback(async () => {
+    console.log('Explicitly checking claim status for latest auction');
+    
+    // Skip if no wallet, frame context, or latest auction ID
+    if (!walletAddress || !frameContext?.user?.fid || !latestWonAuctionId) {
+      console.log('Cannot check claim status: missing wallet, fid, or auctionId');
+      setManualHasClaimedLatest(false);
+      setExplicitlyCheckedClaim(true);
+      return false;
+    }
+    
+    try {
+      console.log(`Checking claim status for FID=${frameContext.user.fid}, auctionId=${latestWonAuctionId}`);
+      
+      // Direct DB query to check if claimed
+      const { data, error } = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('fid', frameContext.user.fid)
+        .eq('auction_id', latestWonAuctionId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking claim status:', error);
+        setManualHasClaimedLatest(false);
+        setExplicitlyCheckedClaim(true);
+        return false;
+      }
+      
+      // Determine if user has claimed based on claimed_at field
+      const hasClaimed = !!(data && data.claimed_at);
+      console.log('Explicit claim check result:', { hasClaimed, record: data });
+      
+      setManualHasClaimedLatest(hasClaimed);
+      setExplicitlyCheckedClaim(true);
+      return hasClaimed;
+    } catch (error) {
+      console.error('Unexpected error checking claim status:', error);
+      setManualHasClaimedLatest(false);
+      setExplicitlyCheckedClaim(true);
+      return false;
+    }
+  }, [latestWonAuctionId, walletAddress, frameContext]);
   
   // Check if this auction is the latest won auction using Supabase
   useEffect(() => {
     async function checkLatestWonAuction() {
       try {
         setIsCheckingLatestAuction(true);
+        setExplicitlyCheckedClaim(false); // Reset claim check flag when getting new auction data
         
         // Query the winners table to get the latest auction
         const { data: latestWinner, error } = await supabase
           .from('winners')
-          .select('token_id')
+          .select('token_id, url')
           .order('token_id', { ascending: false })
           .limit(1);
         
@@ -95,6 +149,35 @@ export function LinkVisitProvider({
         if (latestWinner && latestWinner.length > 0) {
           const latestTokenId = parseInt(latestWinner[0].token_id);
           setLatestWonAuctionId(latestTokenId);
+          
+          // Set the winning URL from the winner data
+          if (latestWinner[0].url) {
+            setLatestWinningUrl(latestWinner[0].url);
+          }
+          
+          // Check if we have a hardcoded image for this auction ID
+          const tokenIdStr = latestTokenId.toString();
+          // Use the utility function to get the image
+          const overrideImage = getAuctionImage(tokenIdStr);
+          if (overrideImage) {
+            setLatestWinningImage(overrideImage);
+          } else {
+            // If no override exists, fetch from OG API
+            try {
+              const url = latestWinner[0].url || '';
+              const res = await fetch(`/api/og?url=${encodeURIComponent(url)}`);
+              const data = await res.json();
+              
+              if (data.error || !data.image) {
+                setLatestWinningImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+              } else {
+                setLatestWinningImage(data.image);
+              }
+            } catch (err) {
+              console.error('Error fetching OG image:', err);
+              setLatestWinningImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+            }
+          }
           
           // Current auction is eligible if it's the won auction or the next one
           const isLatest = auctionId === latestTokenId || auctionId === latestTokenId + 1;
@@ -115,14 +198,28 @@ export function LinkVisitProvider({
     checkLatestWonAuction();
   }, [auctionId]);
   
-  // Reset eligibility check when hasClicked or hasClaimed changes
+  // Perform explicit claim check when we get latest auction ID and wallet/frame context
   useEffect(() => {
-    console.log('Link visit status changed:', { hasClicked, hasClaimed });
-    if (!hasClaimed) {
+    // Only perform check if we have all necessary data and haven't checked yet
+    if (latestWonAuctionId && walletAddress && frameContext?.user?.fid && !explicitlyCheckedClaim) {
+      console.log('Triggering explicit claim check for latest auction');
+      checkClaimStatusForLatestAuction();
+    }
+  }, [latestWonAuctionId, walletAddress, frameContext, explicitlyCheckedClaim, checkClaimStatusForLatestAuction]);
+  
+  // Reset eligibility check when hasClicked or hasClaimed or manualHasClaimedLatest changes
+  useEffect(() => {
+    console.log('Link visit status changed:', { 
+      hasClicked, 
+      hasClaimed, 
+      manualHasClaimedLatest 
+    });
+    
+    if (!hasClaimed && manualHasClaimedLatest !== true) {
       console.log('Resetting eligibility check');
       setHasCheckedEligibility(false);
     }
-  }, [hasClicked, hasClaimed]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest]);
   
   // Debug logs
   useEffect(() => {
@@ -130,22 +227,34 @@ export function LinkVisitProvider({
     console.log('auctionId:', auctionId);
     console.log('claimAuctionId (for recording claims):', claimAuctionId);
     console.log('latestWonAuctionId:', latestWonAuctionId);
+    console.log('latestWinningUrl:', latestWinningUrl);
+    console.log('latestWinningImage:', latestWinningImage);
     console.log('hasClicked:', hasClicked);
     console.log('hasClaimed:', hasClaimed);
+    console.log('manualHasClaimedLatest:', manualHasClaimedLatest);
+    console.log('explicitlyCheckedClaim:', explicitlyCheckedClaim); 
     console.log('isLoading:', isLoading);
     console.log('hasCheckedEligibility:', hasCheckedEligibility);
     console.log('walletAddress:', walletAddress);
     console.log('showClaimPopup:', showClaimPopup);
-    console.log('winningUrl:', winningUrl);
     console.log('frameContext?.user?.fid:', frameContext?.user?.fid);
     console.log('isLatestWonAuction:', isLatestWonAuction);
     console.log('isCheckingLatestAuction:', isCheckingLatestAuction);
     console.log('airdrop isEligible:', isEligible);
     console.log('airdrop hasClaimed:', hasAirdropClaimed);
-  }, [auctionId, claimAuctionId, latestWonAuctionId, hasClicked, hasClaimed, isLoading, hasCheckedEligibility, walletAddress, showClaimPopup, winningUrl, frameContext, isLatestWonAuction, isCheckingLatestAuction, isEligible, hasAirdropClaimed]);
+  }, [auctionId, claimAuctionId, latestWonAuctionId, latestWinningUrl, latestWinningImage, 
+      hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, 
+      hasCheckedEligibility, walletAddress, showClaimPopup, frameContext, isLatestWonAuction, 
+      isCheckingLatestAuction, isEligible, hasAirdropClaimed]);
   
   // Show popup when user can interact with it
   useEffect(() => {
+    // Ensure we have explicitly checked claim status before showing popup
+    if (!explicitlyCheckedClaim) {
+      console.log('Not showing popup - explicit claim check not completed yet');
+      return;
+    }
+    
     // Only check once and when data is loaded
     if (hasCheckedEligibility || isLoading || !walletAddress || isCheckingLatestAuction) {
       console.log('Early return from popup check:', { 
@@ -160,13 +269,15 @@ export function LinkVisitProvider({
     console.log('Checking if should show popup:', {
       hasClicked,
       hasClaimed,
+      manualHasClaimedLatest,
       auctionId,
-      isLatestWonAuction
+      latestWonAuctionId
     });
     
-    // Only show popup if the user hasn't claimed and this is the latest won auction
-    if (!hasClaimed && isLatestWonAuction) {
-      console.log('SHOWING POPUP - User has not claimed tokens for this auction and it is the latest won auction');
+    // Only show popup if the user hasn't claimed for the latest won auction
+    // Using our explicit DB check as the source of truth
+    if (manualHasClaimedLatest === false && latestWonAuctionId) {
+      console.log('SHOWING POPUP - User has not claimed tokens for the latest won auction');
       
       // Short delay to show popup after page loads
       const timer = setTimeout(() => {
@@ -177,20 +288,27 @@ export function LinkVisitProvider({
       
       return () => clearTimeout(timer);
     } else {
-      if (hasClaimed) {
-        console.log('NOT showing popup - User already claimed');
-      } else if (!isLatestWonAuction) {
-        console.log('NOT showing popup - This is not the latest won auction');
+      if (manualHasClaimedLatest === true) {
+        console.log('NOT showing popup - User already claimed (confirmed with DB)');
+      } else if (!latestWonAuctionId) {
+        console.log('NOT showing popup - No latest won auction found');
       }
       setHasCheckedEligibility(true);
     }
-  }, [hasClicked, hasClaimed, isLoading, hasCheckedEligibility, walletAddress, auctionId, isLatestWonAuction, isCheckingLatestAuction]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, walletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction]);
   
   // Handle claim action
   const handleClaim = async () => {
     console.log('Handling claim in provider...', { claimAuctionId });
     // Wallet should already be connected
-    return await claimTokens();
+    const result = await claimTokens();
+    
+    // Update our manual tracking state after claim
+    if (result.txHash) {
+      setManualHasClaimedLatest(true);
+    }
+    
+    return result;
   };
   
   // Close popup and show the airdrop popup if eligible
@@ -216,7 +334,7 @@ export function LinkVisitProvider({
         showClaimPopup,
         setShowClaimPopup,
         hasClicked,
-        hasClaimed,
+        hasClaimed: manualHasClaimedLatest === true || hasClaimed, // Use combined claim status
         isLoading,
         auctionId,
         winningUrl,
@@ -231,8 +349,8 @@ export function LinkVisitProvider({
         isOpen={showClaimPopup}
         onClose={handleClose}
         hasClicked={hasClicked}
-        winningUrl={winningUrl}
-        winningImage={winningImage}
+        winningUrl={latestWinningUrl || winningUrl}
+        winningImage={latestWinningImage || winningImage}
         auctionId={claimAuctionId}
         onClaim={handleClaim}
       />

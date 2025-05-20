@@ -33,6 +33,7 @@ import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
 import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
+import { getAuctionImage } from "@/utils/auctionImageOverrides";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -316,61 +317,10 @@ export default function AuctionPage() {
     toast.info("CA copied!");
   };
 
-  const auctionImageOverrides = useMemo<Record<number, string>>(
-    () => ({
-        2: "https://i.imgur.com/aZfUcoo.png",
-        5: "https://i.imgur.com/DkzUJvK.png",
-        6: "https://i.imgur.com/3KoEvNG.png",
-        8: "https://i.imgur.com/fzojQUs.png",
-        10: "https://i.imgur.com/Ryd5FD6.png",
-        14: "https://i.imgur.com/RcjPf8D.png",
-        15: "https://i.imgur.com/4KcwIzj.png",
-        16: "https://i.imgur.com/jyo2f0H.jpeg",
-        21: "https://i.imgur.com/8qNqYIV.png",
-        23: "https://i.imgur.com/21yjB2x.png",
-        24: "https://i.imgur.com/5gCWL3S.png",
-        25: "https://i.imgur.com/Q5UspzS.png",
-        26: "https://i.imgur.com/no5pC8v.png",
-        28: "https://i.postimg.cc/2SgbbqFr/qr-27-winner.png",
-        30: "https://i.postimg.cc/zDg3CxBW/elon5050.png",
-        31: "https://i.postimg.cc/tRkFGkKL/Group-424.png",
-        33: "https://i.postimg.cc/tRkFGkKL/Group-424.png",
-        34: "https://i.postimg.cc/mhWtNxTw/34winner.png",
-        35: "https://i.postimg.cc/wBfV58jL/35winner.png",
-        38: "https://i.postimg.cc/RZfJ9hsX/winner37.jpg",
-        40: "https://i.postimg.cc/rpxzhzbX/winner39.png",
-        43: "https://i.postimg.cc/bwGJ6JKy/42winner.jpg",
-        44: "https://i.postimg.cc/wTDHNwnp/43winner.jpg",
-        46: "https://i.postimg.cc/DzRKLWrW/45winner.jpg",
-        47: "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWNvYms5bXdremd6MjF4aTR0ZW4zYjB0NmlobWk1dzk1aGRlb3VzYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/RFEiTqRUBaKHLpO8Lv/giphy.gif",
-        48: "https://i.postimg.cc/RFDdTkkr/47winner.jpg",
-        49: "https://i.postimg.cc/zBwNND8N/48winner.jpg",
-        56: "https://i.postimg.cc/NfXMQDtR/55winner.jpg",
-        57: "https://i.postimg.cc/NfXMQDtR/55winner.jpg",
-        58: "https://i.postimg.cc/GhFSqpM7/57winner.jpg",
-        60: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW1rY216bmtidnAwcDgzcHYwdTNmYTB2dDhnM3BxbW43cDZ5bmV3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZmCWjB3utyyAN61pAj/giphy.gif",
-        61: "https://i.ibb.co/JWWcQyJ4/60winner.jpg",
-        64: "https://i.postimg.cc/KzBYyrMy/63winner.jpg",
-        65: "https://i.postimg.cc/kMyLJhFj/64winner.jpg",
-        66: "https://i.postimg.cc/wTDHNwnp/43winner.jpg",
-        68: "https://i.postimg.cc/3Jmz8MzD/67winner.jpg",
-        70: "https://i.postimg.cc/02dgY6j9/69winner.jpg",
-        71: "https://i.postimg.cc/0Nh72ypw/70winner.jpg",
-        72: "https://i.postimg.cc/KYY81XWF/71winner.jpg",
-        73: "https://i.postimg.cc/g2G9vWYN/72winner.jpg",
-        74: "https://i.postimg.cc/0NsMLV9j/73winner.jpg",
-        75: "https://i.postimg.cc/85DwR5m5/74winner.jpg"
-    }),
-    []
-  );
-
   // Get the winning image for the auction (using override if available)
   const currentWinningImage = useMemo(() => {
-    return auctionImageOverrides[currentAuctionId] || ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`;
-  }, [auctionImageOverrides, currentAuctionId, ogImage]);
-
-  // Only enable LinkVisitProvider for latest auction that has valid links and isn't from older contracts
-  const enableLinkVisitClaims = isLatestAuction && !isAuction22 && !isAuction61 && !!ogUrl;
+    return getAuctionImage(currentAuctionId, ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+  }, [currentAuctionId, ogImage]);
 
   useEffect(() => {
     setMounted(true);
@@ -712,8 +662,7 @@ export default function AuctionPage() {
     </main>
   );
 
-  // Wrap the page content with AuctionProvider only for latest auction with valid links
-  return enableLinkVisitClaims ? (
+  return (
     <AuctionProvider
       auctionId={currentAuctionId}
       winningUrl={ogUrl}
@@ -721,7 +670,5 @@ export default function AuctionPage() {
     >
       {pageContent}
     </AuctionProvider>
-  ) : (
-    pageContent
   );
 } 
