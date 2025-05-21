@@ -8,6 +8,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Import queue functionality
+import { queueFailedClaim } from '@/lib/queue/failedClaims';
+
 // For testing purposes
 const TEST_USERNAME = "thescoho.eth";
 
@@ -83,7 +86,8 @@ async function logFailedTransaction(params: {
   retry_count?: number;
 }) {
   try {
-    const { error } = await supabase
+    // Insert the failure record and get its ID
+    const { data, error } = await supabase
       .from('airdrop_claim_failures')
       .insert({
         fid: params.fid,
@@ -97,10 +101,25 @@ async function logFailedTransaction(params: {
         gas_limit: params.gas_limit || null,
         network_status: params.network_status || null,
         retry_count: params.retry_count || 0
-      });
+      })
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Failed to log error to database:', error);
+      return;
+    }
+    
+    // Now also queue for retry (if eligible for retry)
+    if (!['DUPLICATE_CLAIM', 'NOTIFICATIONS_DISABLED'].includes(params.error_code || '')) {
+      await queueFailedClaim({
+        id: data.id,
+        fid: params.fid as number,
+        eth_address: params.eth_address,
+        auction_id: '0', // Use '0' for airdrop since it's not auction-based
+        username: params.username as string | null,
+        winning_url: null,
+      });
     }
   } catch (logError) {
     console.error('Error while logging to failure table:', logError);

@@ -21,16 +21,24 @@ export async function queueFailedClaim(failureRecord: {
   username?: string | null;
   winning_url?: string | null;
 }) {
+  // Determine if this is an airdrop or link-visit claim
+  // For airdrop claims, we use auction_id = '0'
+  const isAirdrop = failureRecord.auction_id === '0';
+  
   // Store latest retry info in Redis
   await redis.hset(`claim:${failureRecord.id}`, {
     status: 'queued',
     attempts: 0,
+    type: isAirdrop ? 'airdrop' : 'link-visit',
     lastQueued: new Date().toISOString(),
   });
 
   // Queue message with 5 minute delay for first retry
   const response = await qstash.publishJSON({
-    url: `${process.env.NEXT_PUBLIC_HOST_URL}/api/queue/process-claim`,
+    // Use different endpoints based on claim type
+    url: isAirdrop 
+      ? `${process.env.NEXT_PUBLIC_HOST_URL}/api/queue/process-airdrop`
+      : `${process.env.NEXT_PUBLIC_HOST_URL}/api/queue/process-claim`,
     body: {
       failureId: failureRecord.id,
       attempt: 0,
@@ -38,7 +46,7 @@ export async function queueFailedClaim(failureRecord: {
     delay: 5 * 60, // 5 minute delay in seconds
   });
 
-  console.log(`Queued failed claim ${failureRecord.id} with message ID: ${response.messageId}`);
+  console.log(`Queued failed ${isAirdrop ? 'airdrop' : 'link-visit'} claim ${failureRecord.id} with message ID: ${response.messageId}`);
   
   return response.messageId;
 }

@@ -12,7 +12,7 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
-// List of admin addresses
+// List of admin addresses from app/admin/page.tsx
 const ADMIN_ADDRESSES = [
   "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
   "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
@@ -30,9 +30,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Get counts of failures
-    const { count: failureCount } = await supabase
+    // Get failure counts for both claim types
+    const { count: linkVisitFailureCount } = await supabase
       .from('link_visit_claim_failures')
+      .select('*', { count: 'exact', head: true });
+      
+    const { count: airdropFailureCount } = await supabase
+      .from('airdrop_claim_failures')
       .select('*', { count: 'exact', head: true });
     
     // Get all retry keys from Redis
@@ -41,6 +45,11 @@ export async function GET(request: NextRequest) {
     // Initialize stats object
     const stats = {
       total: keys.length,
+      byType: {
+        'link-visit': 0,
+        'airdrop': 0,
+        'unknown': 0
+      },
       byStatus: {
         queued: 0,
         processing: 0,
@@ -48,7 +57,8 @@ export async function GET(request: NextRequest) {
         success: 0,
         failed: 0,
         already_claimed: 0,
-        max_retries_exceeded: 0
+        max_retries_exceeded: 0,
+        tx_success_db_fail: 0
       }
     };
     
@@ -61,34 +71,71 @@ export async function GET(request: NextRequest) {
       const results = await pipeline.exec();
       
       for (const result of results) {
-        if (result && typeof result === 'object' && 'status' in result) {
-          const status = result.status as string;
-          stats.byStatus[status as keyof typeof stats.byStatus] = 
-            (stats.byStatus[status as keyof typeof stats.byStatus] || 0) + 1;
+        if (result && typeof result === 'object') {
+          // Count by type
+          if ('type' in result) {
+            const type = result.type as string;
+            stats.byType[type as keyof typeof stats.byType] = 
+              (stats.byType[type as keyof typeof stats.byType] || 0) + 1;
+          } else {
+            stats.byType.unknown++;
+          }
+          
+          // Count by status
+          if ('status' in result) {
+            const status = result.status as string;
+            stats.byStatus[status as keyof typeof stats.byStatus] = 
+              (stats.byStatus[status as keyof typeof stats.byStatus] || 0) + 1;
+          }
         }
       }
     }
     
-    // Get recent failures
-    const { data: recentFailures } = await supabase
+    // Get recent link-visit failures
+    const { data: recentLinkVisitFailures } = await supabase
       .from('link_visit_claim_failures')
       .select('id, fid, eth_address, auction_id, error_code, error_message, created_at')
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(5);
     
-    // Get recent claims
-    const { data: recentClaims } = await supabase
+    // Get recent airdrop failures
+    const { data: recentAirdropFailures } = await supabase
+      .from('airdrop_claim_failures')
+      .select('id, fid, eth_address, error_code, error_message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    // Get recent link-visit claims
+    const { data: recentLinkVisitClaims } = await supabase
       .from('link_visit_claims')
       .select('fid, eth_address, auction_id, claimed_at, tx_hash')
       .eq('success', true)
       .order('claimed_at', { ascending: false })
-      .limit(10);
+      .limit(5);
+    
+    // Get recent airdrop claims
+    const { data: recentAirdropClaims } = await supabase
+      .from('airdrop_claims')
+      .select('fid, eth_address, claimed_at, tx_hash')
+      .eq('success', true)
+      .order('claimed_at', { ascending: false })
+      .limit(5);
     
     return NextResponse.json({
-      failureCount,
+      failures: {
+        linkVisit: linkVisitFailureCount,
+        airdrop: airdropFailureCount,
+        total: (linkVisitFailureCount || 0) + (airdropFailureCount || 0)
+      },
       retryStats: stats,
-      recentFailures,
-      recentClaims
+      recentFailures: {
+        linkVisit: recentLinkVisitFailures,
+        airdrop: recentAirdropFailures
+      },
+      recentClaims: {
+        linkVisit: recentLinkVisitClaims, 
+        airdrop: recentAirdropClaims
+      }
     });
   } catch (error) {
     console.error('Error fetching retry stats:', error);
