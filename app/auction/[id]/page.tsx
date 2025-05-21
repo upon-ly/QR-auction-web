@@ -133,7 +133,7 @@ export default function AuctionPage() {
   }, []);
   
   // Function to handle URL opening, always using safety dialog first
-  const handleFrameOpenUrl = async (url: string, e?: React.MouseEvent) => {
+  const handleFrameOpenUrl = async (url: string, e?: React.MouseEvent, noDialog?: boolean) => {
     // If event provided, prevent default behavior
     if (e) {
       e.preventDefault();
@@ -141,7 +141,7 @@ export default function AuctionPage() {
     }
 
     // Always try to show the safety dialog first
-    const showingDialog = openDialog(url);
+    const showingDialog = noDialog ? false : openDialog(url);
     
     // If the dialog isn't showing (user disabled it), handle direct navigation
     if (!showingDialog) {
@@ -400,7 +400,7 @@ export default function AuctionPage() {
                           alt="Open Graph"
                           className="object-cover w-full h-full cursor-pointer"
                           onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
                           }}
                         />
                       </div>
@@ -412,7 +412,7 @@ export default function AuctionPage() {
                         <div className="w-full flex justify-center">
                           <button
                             onClick={(e) => {
-                              if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
                             }}
                             className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                             title={ogUrl}
@@ -450,7 +450,7 @@ export default function AuctionPage() {
                         alt="Open Graph"
                         className="object-cover w-full h-full cursor-pointer"
                         onClick={(e) => {
-                          if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                          if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
                         }}
                       />
                     </div>
@@ -462,7 +462,7 @@ export default function AuctionPage() {
                       <div className="w-full flex justify-center">
                         <button
                           onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e);
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
                           }}
                           className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                           title={ogUrl}
