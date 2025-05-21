@@ -344,7 +344,7 @@ export const InfoBar: React.FC = () => {
       {/* Higher Tooltip - Theme-aware */}
       <div 
         className={clsx(
-          'fixed h-8 flex items-center gap-2 transition-opacity duration-200 px-3',
+          'h-8 flex items-center gap-2 transition-opacity duration-200 px-3',
           showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none',
           {
             // Base Colors theme
