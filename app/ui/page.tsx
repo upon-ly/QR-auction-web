@@ -8,12 +8,8 @@ import { useReadContract, useWriteContract } from "wagmi";
 import { base, baseSepolia } from "viem/chains";
 import { toast } from "sonner";
 import { parseEther } from "viem";
-import { Palette } from "lucide-react";
 import { useBaseColors } from "@/hooks/useBaseColors";
-import { useRouter } from "next/navigation";
-import { useFetchAuctions } from "@/hooks/useFetchAuctions";
-import { QRContextMenu } from "@/components/QRContextMenu";
-import { CustomWallet } from "@/components/CustomWallet";
+import { frameSdk } from "@/lib/frame-sdk";
 
 function UI() {
   const isBaseColors = useBaseColors();
@@ -28,6 +24,8 @@ function UI() {
   const {
     writeContractAsync: mintBatchWriteContractAsync,
   } = useWriteContract();
+  // Frame environment detection
+  const [frameWalletAddress, setFrameWalletAddress] = useState<string | null>(null);
 
   const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
 
@@ -36,6 +34,32 @@ function UI() {
   >();
 
   const [numberToMint, setNumberToMint] = useState<number>(5);
+
+  // Check if we're in a Farcaster frame context
+  useEffect(() => {
+    const checkFrameContext = async () => {
+      try {
+        const context = await frameSdk.getContext();
+        if (context && context.user) {
+          // Check if wallet is connected in frame
+          const isWalletConnected = await frameSdk.isWalletConnected();
+          if (isWalletConnected) {
+            const accounts = await frameSdk.connectWallet();
+            if (accounts.length > 0) {
+              setFrameWalletAddress(accounts[0]);
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Not in a Farcaster frame context", error);
+      }
+    };
+
+    checkFrameContext();
+  }, []);
+  
+  // Determine if we have a connected wallet (either through wagmi or frame)
+  const hasConnectedWallet = frameWalletAddress || address;
 
   const abiForSetColorFunction = [
     {
@@ -114,11 +138,8 @@ function UI() {
       : basecolorsThemeSettingsContractAddress,
     abi: abiForGetColorFunction,
     functionName: "getColors",
-    args: [address],
+    args: [hasConnectedWallet],
   }) as { data: [string, string, string] | undefined };
-
-  const router = useRouter();
-  const { auctions } = useFetchAuctions();
 
   useEffect(() => {
     if (colors) {
@@ -180,6 +201,12 @@ function UI() {
       return;
     }
 
+    const walletToUse = frameWalletAddress || address;
+    if (!walletToUse) {
+      toast.error("No wallet connected");
+      return;
+    }
+
     const colors: string[] = [];
     const names: string[] = [];
     
@@ -194,12 +221,12 @@ function UI() {
         address: mintBatchContractAddress,
         abi: mintBatchABI,
         functionName: "mintBatch",
-        args: [colors, names, numberToMint, address],
+        args: [colors, names, numberToMint, walletToUse],
         chain: isTestnet ? baseSepolia : base,
         value: parseEther((0.001 * numberToMint).toString()),
       });
       toast.success(`Minted ${numberToMint} colors`);
-      setTimeout(() => window.location.reload(), 3000);
+      setTimeout(() => fetchUserNfts(), 2000);
     } catch (error) {
       toast.error("Failed to mint colors");
       console.error(error);
@@ -207,22 +234,26 @@ function UI() {
   };
 
   const fetchUserNfts = useCallback(async () => {
+    const walletToUse = frameWalletAddress || address;
+    if (!walletToUse) return;
+    
     const response = await fetch(
       `https://${
         isTestnet ? "base-sepolia" : "base-mainnet"
-      }.g.alchemy.com/nft/v2/${alchemyApiKey}/getNFTs?owner=${address}&contractAddresses[]=${
+      }.g.alchemy.com/nft/v2/${alchemyApiKey}/getNFTs?owner=${walletToUse}&contractAddresses[]=${
         isTestnet ? baseColorsContractAddressTestnet : baseColorsContractAddress
       }&withMetadata=true&pageSize=100`
     );
     const data = await response.json();
     console.log(data);
     setUserNfts(data.ownedNfts);
-  }, [address, isTestnet, alchemyApiKey, baseColorsContractAddressTestnet, baseColorsContractAddress]);
+  }, [address, frameWalletAddress, isTestnet, alchemyApiKey, baseColorsContractAddressTestnet, baseColorsContractAddress]);
 
   useEffect(() => {
-    if (!address) return;
+    const walletToUse = frameWalletAddress || address;
+    if (!walletToUse) return;
     fetchUserNfts();
-  }, [address, fetchUserNfts]);
+  }, [address, frameWalletAddress, fetchUserNfts]);
 
   const handleColorSelect = (title: string, colorType: string) => {
     switch (colorType) {
@@ -240,12 +271,17 @@ function UI() {
 
   const handleSubmitColors = async () => {
     try {
-      console.log(primaryColor, backgroundColor, textColor);
+      const walletToUse = frameWalletAddress || address;
+      if (!walletToUse) {
+        toast.error("No wallet connected");
+        return;
+      }
+      
       // Use current colors as fallback if not changed
-      const finalPrimaryColor = primaryColor || currentColors?.[0];
-      const finalBackgroundColor = backgroundColor || currentColors?.[1];
-      const finalTextColor = textColor || currentColors?.[2];
-      console.log(finalPrimaryColor, finalBackgroundColor, finalTextColor);
+      const finalPrimaryColor = primaryColor || currentColors?.[0] || "#000000";
+      const finalBackgroundColor = backgroundColor || currentColors?.[1] || "#FFFFFF";
+      const finalTextColor = textColor || currentColors?.[2] || "#000000";
+      
       await writeContractAsync({
         address: isTestnet
           ? basecolorsThemeSettingsContractAddressTestnet
@@ -255,8 +291,21 @@ function UI() {
         args: [finalPrimaryColor, finalBackgroundColor, finalTextColor],
         chain: isTestnet ? baseSepolia : base,
       });
+      
+      // Set the colors locally instead of reloading - with type assertion
+      setCurrentColors([finalPrimaryColor, finalBackgroundColor, finalTextColor] as [string, string, string]);
+      
+      // Update document colors for immediate visual change
+      document.documentElement.style.setProperty("--primary", finalPrimaryColor);
+      document.documentElement.style.setProperty("--background", finalBackgroundColor);
+      document.documentElement.style.setProperty("--foreground", finalTextColor);
+      
+      // Reset the selected colors
+      setPrimaryColor("");
+      setBackgroundColor("");
+      setTextColor("");
+      
       toast.success("Colors Updated");
-      setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error("Error updating colors:", error);
       toast.error("Failed to update colors");
@@ -273,55 +322,10 @@ function UI() {
     }
   }, [primaryColor, backgroundColor, textColor]);
 
-  const handleLogoClick = () => {
-    if (auctions && auctions.length > 0) {
-      const lastAuction = auctions[auctions.length - 1];
-      const latestId = Number(lastAuction.tokenId);
-      if (latestId > 0) {
-        router.push(`/auction/${latestId}`);
-      } else {
-        router.push('/');
-      }
-    } else {
-      router.push('/');
-    }
-  };
-
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center mb-8 mt-4">
-      <div className="flex items-center gap-3">
-
-        <QRContextMenu className="inline-block" isHeaderLogo>
-          <h1
-            onClick={handleLogoClick}
-            className="text-xl md:text-2xl font-bold cursor-pointer"
-          >
-            $QR
-          </h1>
-        </QRContextMenu>
-        <div className="flex items-center space-x-2">
-            <a href="https://www.basecolors.com" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2">
-              <img
-                src="https://www.basecolors.com/favicon.png"
-                alt="Basecolors Logo"
-                className="h-6 w-auto"
-              />
-              <h1 className="text-xl md:text-2xl font-bold">Base Colors</h1>
-            </a>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button className={`${isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : ""}`} variant="outline" onClick={() => setThemeDialogOpen(true)}>
-            <span className="hidden md:inline">Theme</span>
-            <Palette className="h-4 w-4 md:hidden" />
-          </Button>
-          <CustomWallet />
-        </div>
-      </nav>
-
       <div className="max-w-3xl mx-auto">
-        {address ? (
+        {hasConnectedWallet ? (
           <>
             <div className="flex gap-4 items-center mb-4 justify-center">
               <input

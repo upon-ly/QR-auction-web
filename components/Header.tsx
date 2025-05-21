@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CustomWallet } from '@/components/CustomWallet';
@@ -13,9 +13,13 @@ import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [latestV3Id, setLatestV3Id] = useState(0);
+  
+  // Check if we're on the Base Colors UI page
+  const isBaseColorsUI = pathname === '/ui';
   
   // Call useFetchAuctions without a tokenId parameter to get auctions from all contracts
   const { auctions } = useFetchAuctions();
@@ -41,14 +45,36 @@ export function Header() {
 
   return (
     <nav className="w-full md:max-w-3xl mx-auto flex justify-between items-center mt-18 md:mt-20 md:mb-8 lg:mt-20 lg:mb-8 px-4 md:px-0">
-      <QRContextMenu className="inline-block" isHeaderLogo>
-        <h1
-          onClick={handleLogoClick}
-          className="text-2xl font-bold cursor-pointer"
-        >
-          $QR
-        </h1>
-      </QRContextMenu>
+      {isBaseColorsUI ? (
+        <div className="flex items-center">
+          <QRContextMenu className="inline-block" isHeaderLogo>
+            <h1
+              onClick={handleLogoClick}
+              className="text-xl md:text-2xl font-bold cursor-pointer"
+            >
+              $QR
+            </h1>
+          </QRContextMenu>
+          <a href="https://www.basecolors.com" target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center">
+            <img
+              src="https://www.basecolors.com/favicon.png"
+              alt="Basecolors Logo"
+              className="h-6 w-auto"
+            />
+            <span className="ml-2 text-xl md:text-2xl font-bold">Base Colors</span>
+          </a>
+        </div>
+      ) : (
+        <QRContextMenu className="inline-block" isHeaderLogo>
+          <h1
+            onClick={handleLogoClick}
+            className="text-2xl font-bold cursor-pointer"
+          >
+            $QR
+          </h1>
+        </QRContextMenu>
+      )}
+      
       <div className="flex items-center gap-1 md:gap-3">
         <Link href="/about">
           <Button

@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { useAccount } from "wagmi";
 import { useReadContract } from "wagmi";
-import { Sun, Moon, Palette, Settings, Wallet } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Sun, Moon, Settings, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { usePrivy } from "@privy-io/react-auth";
 import { cn } from "@/lib/utils";
+import { frameSdk } from "@/lib/frame-sdk";
+import { useRouter } from "next/navigation";
 
 interface ThemeDialogProps {
   open: boolean;
@@ -20,12 +22,52 @@ interface ThemeDialogProps {
 }
 
 export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const isBaseColors = useBaseColors();
   const { address, isConnected } = useAccount();
-  const { login, authenticated, logout } = usePrivy();
+  const { login, authenticated } = usePrivy();
   const initialMount = useRef(true);
   const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
+  const [frameWalletAddress, setFrameWalletAddress] = useState<string | null>(null);
+  const [isWalletCheckComplete, setIsWalletCheckComplete] = useState(false);
+  
+  // Check if we're in a Farcaster frame context
+  useEffect(() => {
+    const checkFrameContext = async () => {
+      try {
+        const context = await frameSdk.getContext();
+        if (context && context.user) {
+          // Check if wallet is connected in frame
+          const isWalletConnected = await frameSdk.isWalletConnected();
+          if (isWalletConnected) {
+            const accounts = await frameSdk.connectWallet();
+            if (accounts.length > 0) {
+              setFrameWalletAddress(accounts[0]);
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Not in a Farcaster frame context", error);
+      } finally {
+        // Mark wallet check as complete regardless of outcome
+        setIsWalletCheckComplete(true);
+      }
+    };
+
+    // Always run the check when the dialog opens
+    if (open) {
+      checkFrameContext();
+    }
+  }, [open]);
+  
+  // For regular (non-frame) environments, mark check complete when wagmi is ready
+  useEffect(() => {
+    if (address || address === null) {
+      setIsWalletCheckComplete(true);
+    }
+  }, [address]);
+  
   const basecolorsThemeSettingsContractAddress =
     "0x711817e9a6a0a5949aea944b009f20658c8c53d0";
 
@@ -63,6 +105,9 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
       type: "function",
     },
   ];
+  
+  // Determine if we have a connected wallet (either through wagmi or frame)
+  const hasConnectedWallet = frameWalletAddress || address;
 
   const { data: colors } = useReadContract({
     address: isTestnet
@@ -70,7 +115,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
       : basecolorsThemeSettingsContractAddress,
     abi: abiForGetColorFunction,
     functionName: "getColors",
-    args: [address],
+    args: [hasConnectedWallet],
   }) as { data: [string, string, string] | undefined };
 
   useEffect(() => {
@@ -82,10 +127,12 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
       return;
     }
     
+    const walletConnected = isConnected || Boolean(frameWalletAddress);
+    
     if (savedTheme) {
-      if (savedTheme === "baseColors" && colors && isConnected) {
+      if (savedTheme === "baseColors" && colors && walletConnected) {
         handleBaseColorsMode();
-      } else if (savedTheme === "baseColors" && !isConnected) {
+      } else if (savedTheme === "baseColors" && !walletConnected) {
         // If wallet is disconnected but baseColors theme is saved, switch to light
         clearCustomColors();
         setTheme("light");
@@ -95,7 +142,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
         setTheme(savedTheme);
       }
     }
-  }, [colors, isConnected]);
+  }, [colors, isConnected, frameWalletAddress]);
 
   const clearCustomColors = () => {
     document.documentElement.style.removeProperty("--primary");
@@ -113,8 +160,8 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
     }
   };
 
-  // Check if the wallet is truly connected - using both wagmi and privy states
-  const walletIsConnected = isConnected && authenticated;
+  // Check if the wallet is truly connected - using both wagmi and privy states or frame wallet
+  const walletIsConnected = (isConnected && authenticated) || Boolean(frameWalletAddress);
 
   // Create theme-aware button classes for consistent styling
   const getButtonClass = (isActive: boolean) => {
@@ -125,6 +172,65 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
         : "",
       isActive && !isBaseColors && "bg-secondary"
     );
+  };
+
+  // Handle navigation to settings page
+  const handleNavigateToSettings = () => {
+    // Close the dialog first
+    onOpenChange(false);
+    // Then navigate to settings using Next.js router
+    router.push("/ui");
+  };
+
+  // Handle base colors button click based on wallet connection status
+  const handleBaseColorsClick = async () => {
+    // If we're in a frame and wallet check isn't complete, check again
+    if (!isWalletCheckComplete && open) {
+      try {
+        const context = await frameSdk.getContext();
+        if (context && context.user) {
+          const isWalletConnected = await frameSdk.isWalletConnected();
+          if (isWalletConnected) {
+            const accounts = await frameSdk.connectWallet();
+            if (accounts.length > 0) {
+              setFrameWalletAddress(accounts[0]);
+              // Now that we have wallet address, activate base colors
+              if (!colors) {
+                onOpenChange(false);
+                router.push("/ui");
+                return;
+              }
+              handleBaseColorsMode();
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Error checking frame wallet:", error);
+      }
+    }
+    
+    // Standard flow
+    if (walletIsConnected) {
+      if (!colors) {
+        onOpenChange(false);
+        router.push("/ui");
+        return;
+      }
+      if (
+        colors.every(
+          (c, i) => c === ["#000000", "#FFFFFF", "#000000"][i]
+        )
+      ) {
+        alert(
+          "Please configure your theme by clicking the settings icon in the bottom right corner of the \"Choose Theme\" popup"
+        );
+        return;
+      }
+      handleBaseColorsMode();
+    } else {
+      login();
+    }
   };
 
   return (
@@ -162,104 +268,40 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
             </div>
             <span className="ml-2">Dark Mode</span>
           </Button>
+          
           <Button
             variant="outline"
             className={getButtonClass(isBaseColors)}
-            onClick={() => {
-              if (walletIsConnected) {
-                if (!colors) {
-                  window.location.href = "/ui";
-                  return;
-                }
-                if (
-                  colors.every(
-                    (c, i) => c === ["#000000", "#FFFFFF", "#000000"][i]
-                  )
-                ) {
-                  alert(
-                    "Please configure your theme by clicking the settings icon in the bottom right corner of the \"Choose Theme\" popup"
-                  );
-                  return;
-                }
-                handleBaseColorsMode();
-              } else {
-                login();
-              }
-            }}
+            onClick={handleBaseColorsClick}
           >
-            <Palette className="mr-2 h-4 w-4" />
-            {walletIsConnected ? "Base Colors" : "Connect Wallet"}
+            <div className="w-4 flex justify-center">
+              {!isWalletCheckComplete ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <img 
+                  src="/basecolors3.jpeg" 
+                  alt="Base Colors"
+                  className="h-4 w-4"
+                />
+              )}
+            </div>
+            <span className="ml-2">Base Colors</span>
           </Button>
 
           {walletIsConnected && (
-            <div className="flex w-full gap-2 justify-center">
-              <Button
-                variant="outline"
-                className={cn(
-                  isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : "",
-                  "w-1/2"
-                )}
-                onClick={() => {
-                  logout();
-                  onOpenChange(false);
-                }}
-              >
-                <div className="w-4 flex justify-center">
-                  <img 
-                    src="/basecolors3.jpeg" 
-                    alt="Base Colors"
-                    className="h-4 w-4 md:ml-3 ml-4"
-                  />
-                </div>
-                <span className="md:ml-3 ml-4">Base Colors</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className={cn(
-                  isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : "",
-                  "w-1/2"
-                )}
-                onClick={() => (window.location.href = "/ui")}
-              >
-                <div className="w-4 flex justify-center">
-                  <Settings className="h-4 w-4" />
-                </div>
-              </Button>
-            </div>
-          )}
-          
-          {isConnected && (
-            <div className="flex w-full gap-2 justify-center">
-              <Button
-                variant="outline"
-                className={cn(
-                  isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : "",
-                  "w-1/2"
-                )}
-                onClick={() => {
-                  // If using wagmi's useConnectModal, you might call openAccountModal() here
-                  onOpenChange(false);
-                }}
-              >
-                <div className="w-4 flex justify-center">
-                  <Wallet className="h-4 w-4" />
-                </div>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className={cn(
-                  isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : "",
-                  "w-1/2"
-                )}
-                onClick={() => (window.location.href = "/ui")}
-              >
-                <div className="w-4 flex justify-center">
-                  <Settings className="h-4 w-4" />
-                </div>
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className={cn(
+                isBaseColors ? "bg-primary hover:bg-primary/90 hover:text-foreground text-foreground border-none" : "",
+                "w-full"
+              )}
+              onClick={handleNavigateToSettings}
+            >
+              <div className="w-4 flex justify-center">
+                <Settings className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Settings</span>
+            </Button>
           )}
         </div>
       </DialogContent>
