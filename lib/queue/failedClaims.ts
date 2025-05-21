@@ -28,14 +28,14 @@ export async function queueFailedClaim(failureRecord: {
     lastQueued: new Date().toISOString(),
   });
 
-  // Queue message with 10 minute delay for first retry
+  // Queue message with 5 minute delay for first retry
   const response = await qstash.publishJSON({
     url: `${process.env.NEXT_PUBLIC_HOST_URL}/api/queue/process-claim`,
     body: {
       failureId: failureRecord.id,
       attempt: 0,
     },
-    delay: 10 * 60, // 10 minute delay in seconds
+    delay: 5 * 60, // 5 minute delay in seconds
   });
 
   console.log(`Queued failed claim ${failureRecord.id} with message ID: ${response.messageId}`);

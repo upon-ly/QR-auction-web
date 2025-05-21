@@ -286,9 +286,12 @@ export async function POST(req: NextRequest) {
         
         // Should we requeue for later retry?
         if (attempt < 4) { // Cap at 5 total attempts (0-4)
-          // Calculate delay for next attempt with exponential backoff
-          // 30min, 1hr, 2hr, 4hr
-          const delayMinutes = 30 * Math.pow(2, attempt);
+          // Calculate delay for next attempt with revised schedule
+          // New schedule: 20min, 40min, 1hr, 2hr
+          let delayMinutes = 20;
+          if (attempt === 1) delayMinutes = 40;
+          if (attempt === 2) delayMinutes = 60; // 1hr
+          if (attempt === 3) delayMinutes = 120; // 2hr
           
           // Update retry status
           await updateRetryStatus(failureId, {
@@ -354,7 +357,7 @@ export async function POST(req: NextRequest) {
           eth_address: failure.eth_address,
           link_visited_at: new Date().toISOString(),
           claimed_at: new Date().toISOString(),
-          amount: 2000,
+          amount: 1000,
           tx_hash: txReceipt.hash,
           success: true,
           username: failure.username || null,
