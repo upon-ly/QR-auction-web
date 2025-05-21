@@ -82,7 +82,7 @@ export function SafetyDialog({
               <AlertTriangle className="w-4 h-4 text-red-500" />
             </div>
             <div>
-              <h3 className="text-lg font-medium mb-2">
+              <h3 className="text-black text-lg font-medium mb-2">
                 Beware of Phishing Scams
               </h3>
               <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
@@ -96,7 +96,7 @@ export function SafetyDialog({
               <Shield className="w-4 h-4 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-lg font-medium mb-2">Protect Your Wallet</h3>
+              <h3 className="text-black text-lg font-medium mb-2">Protect Your Wallet</h3>
               <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
                 Never connect your wallet or confirm transactions unless
                 you&apos;re 100% sure of the source&apos;s legitimacy
@@ -109,7 +109,7 @@ export function SafetyDialog({
               <HelpCircle className="w-4 h-4 text-amber-500" />
             </div>
             <div>
-              <h3 className="text-lg font-medium mb-2">When In Doubt, Stop!</h3>
+              <h3 className="text-black text-lg font-medium mb-2">When In Doubt, Stop!</h3>
               <p className="text-gray-600 dark:text-[#696969] text-sm leading-relaxed">
                 If something feels off, don&apos;t interact and please reach out
                 to us{" "}
