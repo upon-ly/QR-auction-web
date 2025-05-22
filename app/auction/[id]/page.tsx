@@ -322,7 +322,7 @@ export default function AuctionPage() {
   const currentWinningImage = useMemo(() => {
     const imageUrl = getAuctionImage(currentAuctionId, ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
     // Check if it's a video URL
-    setIsVideo(isVideoUrl(imageUrl));
+    setIsVideo(isVideoUrl(imageUrl || ""));
     return imageUrl;
   }, [currentAuctionId, ogImage]);
 
@@ -696,7 +696,7 @@ export default function AuctionPage() {
     <AuctionProvider
       auctionId={currentAuctionId}
       winningUrl={ogUrl}
-      winningImage={currentWinningImage}
+      winningImage={currentWinningImage || ""}
     >
       {pageContent}
     </AuctionProvider>
