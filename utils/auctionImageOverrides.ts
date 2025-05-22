@@ -64,8 +64,21 @@ export const auctionImageOverrides: Record<string, string> = {
   "73": "https://i.postimg.cc/0NsMLV9j/73winner.jpg",
   "74": "https://i.postimg.cc/85DwR5m5/74winner.jpg",
   "75": "https://i.postimg.cc/85DwR5m5/74winner.jpg",
-  "76": "https://i.postimg.cc/85DwR5m5/74winner.jpg"
+  "76": "https://i.postimg.cc/85DwR5m5/74winner.jpg",
+  "77": "https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nExWMi4v83tMP5l2AzXYsrIBd7hNc1eLqZuCG",
+  "78": "https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nExWMi4v83tMP5l2AzXYsrIBd7hNc1eLqZuCG"
 };
+
+/**
+ * Helper function to check if a URL is a video URL
+ */
+export function isVideoUrl(url: string): boolean {
+  // Check for common video domains or extensions
+  return url.includes('gwum763zx9') || 
+         url.includes('.mp4') || 
+         url.includes('.webm') || 
+         url.includes('.ogg');
+}
 
 /**
  * Helper function to get an image for a specific auction ID

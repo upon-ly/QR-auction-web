@@ -19,7 +19,7 @@ import useEthPrice from "@/hooks/useEthPrice";
 import { getAuctionVersion } from "@/utils/auctionPriceData";
 import { useWinnerData } from "@/hooks/useWinnerData";
 import { frameSdk } from "@/lib/frame-sdk";
-import { getAuctionImage } from "@/utils/auctionImageOverrides";
+import { getAuctionImage, isVideoUrl } from "@/utils/auctionImageOverrides";
 
 
 type AuctionType = {
@@ -35,6 +35,7 @@ type AuctionType = {
 export function WinDetailsView(winnerdata: AuctionType) {
   const isBaseColors = useBaseColors();
   const [ogImage, setOgImage] = useState<string | null>(null);
+  const [isVideo, setIsVideo] = useState<boolean>(false);
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
@@ -139,6 +140,8 @@ export function WinDetailsView(winnerdata: AuctionType) {
         const overrideImage = getAuctionImage(tokenIdStr);
         if (overrideImage) {
           setOgImage(overrideImage);
+          // Check if it's a video URL
+          setIsVideo(isVideoUrl(overrideImage));
           return;
         }
 
@@ -150,13 +153,17 @@ export function WinDetailsView(winnerdata: AuctionType) {
           setOgImage(
             `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
           );
+          setIsVideo(false);
         } else {
           if (data.image !== "") {
             setOgImage(data.image);
+            // Check if API returned a video URL
+            setIsVideo(isVideoUrl(data.image));
           } else {
             setOgImage(
               `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
             );
+            setIsVideo(false);
           }
         }
       } catch (err) {
@@ -282,7 +289,19 @@ export function WinDetailsView(winnerdata: AuctionType) {
             </div>
           </div>
           <div className={`${isBaseColors ? "bg-background" : "bg-white"} flex rounded-md h-full mt-1 w-full overflow-hidden aspect-[2/1]`}>
-            {ogImage && (
+            {ogImage && isVideo ? (
+              <video
+                src={ogImage}
+                poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                controls
+                autoPlay
+                
+                playsInline
+                loop
+                onClick={() => handleOpenUrl(winnerdata.url)}
+                className="h-full w-full object-cover cursor-pointer"
+              />
+            ) : ogImage && (
               <img
                 src={ogImage}
                 alt="Open Graph"

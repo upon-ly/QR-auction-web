@@ -33,7 +33,7 @@ import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
 import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
-import { getAuctionImage } from "@/utils/auctionImageOverrides";
+import { getAuctionImage, isVideoUrl } from "@/utils/auctionImageOverrides";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -95,6 +95,7 @@ export default function AuctionPage() {
 
   const [mounted, setMounted] = useState(false);
   const [ogImage, setOgImage] = useState<string | null>(null);
+  const [isVideo, setIsVideo] = useState<boolean>(false);
   const [ogUrl, setOgUrl] = useState<string>(
     `${String(process.env.NEXT_PUBLIC_DEFAULT_REDIRECT)}`
   );
@@ -319,7 +320,10 @@ export default function AuctionPage() {
 
   // Get the winning image for the auction (using override if available)
   const currentWinningImage = useMemo(() => {
-    return getAuctionImage(currentAuctionId, ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+    const imageUrl = getAuctionImage(currentAuctionId, ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+    // Check if it's a video URL
+    setIsVideo(isVideoUrl(imageUrl));
+    return imageUrl;
   }, [currentAuctionId, ogImage]);
 
   useEffect(() => {
@@ -393,16 +397,31 @@ export default function AuctionPage() {
                       isBaseColors ? "bg-primary/5" : "bg-white dark:bg-black"
                     )}
                     style={{ boxShadow: 'none' }}>
-                      {/* Image with no padding */}
+                      {/* Image/Video with no padding */}
                       <div className="w-full bg-white aspect-[2/1] overflow-hidden">
-                        <img
-                          src={currentWinningImage}
-                          alt="Open Graph"
-                          className="object-cover w-full h-full cursor-pointer"
-                          onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
-                          }}
-                        />
+                        {isVideo ? (
+                          <video
+                            src={currentWinningImage}
+                            poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                            controls
+                            autoPlay
+                            
+                            playsInline
+                            className="object-cover w-full h-full cursor-pointer"
+                            onClick={(e) => {
+                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={currentWinningImage}
+                            alt="Open Graph"
+                            className="object-cover w-full h-full cursor-pointer"
+                            onClick={(e) => {
+                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                            }}
+                          />
+                        )}
                       </div>
                       {/* Text content with padding */}
                       <div className="flex flex-col items-center p-4">
@@ -443,16 +462,31 @@ export default function AuctionPage() {
                     isBaseColors ? "bg-primary/5" : "bg-white dark:bg-black"
                   )}
                   style={{ boxShadow: 'none' }}>
-                    {/* Image with no padding */}
+                    {/* Image/Video with no padding */}
                     <div className="w-full bg-white aspect-[2/1] overflow-hidden">
-                      <img
-                        src={currentWinningImage}
-                        alt="Open Graph"
-                        className="object-cover w-full h-full cursor-pointer"
-                        onClick={(e) => {
-                          if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
-                        }}
-                      />
+                      {isVideo ? (
+                        <video
+                          src={currentWinningImage}
+                          poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                          controls
+                          autoPlay
+                          
+                          playsInline
+                          className="object-cover w-full h-full cursor-pointer"
+                          onClick={(e) => {
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={currentWinningImage}
+                          alt="Open Graph"
+                          className="object-cover w-full h-full cursor-pointer"
+                          onClick={(e) => {
+                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                          }}
+                        />
+                      )}
                     </div>
                     {/* Text content with padding */}
                     <div className="flex flex-col items-center p-4">

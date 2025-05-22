@@ -9,6 +9,7 @@ import confetti from 'canvas-confetti';
 import { frameSdk } from '@/lib/frame-sdk';
 import { toast } from "sonner";
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
+import { isVideoUrl } from '@/utils/auctionImageOverrides';
 
 interface LinkVisitClaimPopupProps {
   isOpen: boolean;
@@ -80,6 +81,9 @@ export function LinkVisitClaimPopup({
   // Three states: visit (initial), claim (after visiting), success (after claiming)
   const [claimState, setClaimState] = useState<'visit' | 'claim' | 'success'>('visit');
   const isFrameRef = useRef(false);
+  
+  // Check if the winning image is a video
+  const isVideo = winningImage ? isVideoUrl(winningImage) : false;
   
   // Reset state when dialog opens based on hasClicked
   useEffect(() => {
@@ -286,11 +290,24 @@ export function LinkVisitClaimPopup({
                   className="w-full bg-white aspect-[2/1] overflow-hidden cursor-pointer focus:outline-none"
                   aria-label="Visit today's winning link"
                 >
-                  <img 
-                    src={winningImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`}
-                    alt="Today's winning link" 
-                    className="object-cover w-full h-full"
-                  />
+                  {isVideo ? (
+                    <video
+                      src={winningImage}
+                      poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                      controls
+                      autoPlay
+                      
+                      playsInline
+                      className="object-cover w-full h-full"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <img 
+                      src={winningImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`}
+                      alt="Today's winning link" 
+                      className="object-cover w-full h-full"
+                    />
+                  )}
                 </button>
               </motion.div>
             </>
