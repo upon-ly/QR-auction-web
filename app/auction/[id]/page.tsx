@@ -402,7 +402,7 @@ export default function AuctionPage() {
                         {isVideo ? (
                           <video
                             src={currentWinningImage}
-                            poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                            poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
                             controls
                             playsInline
                             className="object-cover w-full h-full cursor-pointer"
@@ -465,10 +465,8 @@ export default function AuctionPage() {
                       {isVideo ? (
                         <video
                           src={currentWinningImage}
-                          poster="https://i.vimeocdn.com/video/2018641271-f7a80f438d1a36aad4ea29817f1ae4bd1d19f860675f916ac8fe77a7b720a2a8-d?mw=960&mh=1009"
+                          poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
                           controls
-                          
-                          
                           playsInline
                           className="object-cover w-full h-full cursor-pointer"
                           onClick={(e) => {
