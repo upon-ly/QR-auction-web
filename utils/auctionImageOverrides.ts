@@ -48,7 +48,8 @@ export const auctionImageOverrides: Record<string, string> = {
   "75": "https://i.postimg.cc/85DwR5m5/74winner.jpg",
   "76": "https://i.postimg.cc/85DwR5m5/74winner.jpg",
   "77": "https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nExWMi4v83tMP5l2AzXYsrIBd7hNc1eLqZuCG",
-  "78": "https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nExWMi4v83tMP5l2AzXYsrIBd7hNc1eLqZuCG"
+  "78": "https://i.postimg.cc/B615SLjn/78winner.jpg",
+  "79": "https://i.postimg.cc/B615SLjn/78winner.jpg"
 };
 
 /**
