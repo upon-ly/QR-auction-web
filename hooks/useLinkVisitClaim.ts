@@ -87,6 +87,7 @@ export function useLinkVisitClaim(auctionId: number) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_LINK_CLICK_API_KEY || '',
         },
         body: JSON.stringify({
           fid: frameContext.user.fid,
