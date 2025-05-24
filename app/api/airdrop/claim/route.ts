@@ -177,6 +177,15 @@ export async function POST(request: NextRequest) {
   let hasNotifications: boolean | undefined;
 
   try {
+    // Validate API key first
+    const apiKey = request.headers.get('x-api-key');
+    const validApiKey = process.env.LINK_CLICK_API_KEY;
+    
+    if (!apiKey || !validApiKey || apiKey !== validApiKey) {
+      console.error('Unauthorized API access attempt');
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    
     // Parse request body
     requestData = await request.json() as AirdropRequestData;
     ({ fid, address, hasNotifications, username } = requestData);
