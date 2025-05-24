@@ -175,6 +175,15 @@ export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
   
   try {
+    // Validate API key first
+    const apiKey = request.headers.get('x-api-key');
+    const validApiKey = process.env.LINK_CLICK_API_KEY;
+    
+    if (!apiKey || !validApiKey || apiKey !== validApiKey) {
+      console.error('Unauthorized API access attempt');
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    
     // Parse request body
     requestData = await request.json() as LinkVisitRequestData;
     const { fid, address, auction_id, username, winning_url } = requestData;

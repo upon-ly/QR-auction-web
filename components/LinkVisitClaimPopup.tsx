@@ -81,6 +81,7 @@ export function LinkVisitClaimPopup({
   // Three states: visit (initial), claim (after visiting), success (after claiming)
   const [claimState, setClaimState] = useState<'visit' | 'claim' | 'success'>('visit');
   const isFrameRef = useRef(false);
+  const isClaimingRef = useRef(false); // Additional ref to prevent double claims
   
   // Check if the winning image is a video
   const isVideo = winningImage ? isVideoUrl(winningImage) : false;
@@ -197,27 +198,38 @@ export function LinkVisitClaimPopup({
 
   // Handle claim - this is where we'll record the transaction
   const handleClaimAction = async () => {
-    // Immediately show success state for better UX
-    setClaimState('success');
+    if (isClaimLoading || isClaimingRef.current) return; // Prevent double-clicks during loading
     
-    // Show success toast
-    toast.success('1,000 $QR has been sent to your wallet.', {
-      style: {
-        background: 'var(--primary)',
-        color: 'var(--primary-foreground)',
-        border: '1px solid var(--border)'
-      },
-      duration: 5000,
-    });
+    isClaimingRef.current = true; // Set claiming flag immediately
     
-    // Process claim in background - this creates the database entry
     try {
-      onClaim().catch(err => {
-        console.error('Background claim error:', err);
-        // We don't show this error since we already showed success UI
+      // Immediately show success state for better UX
+      setClaimState('success');
+      
+      // Show success toast
+      toast.success('1,000 $QR has been sent to your wallet.', {
+        style: {
+          background: 'var(--primary)',
+          color: 'var(--primary-foreground)',
+          border: '1px solid var(--border)'
+        },
+        duration: 5000,
       });
-    } catch (error) {
-      console.error('Claim error (silenced):', error);
+      
+      // Process claim in background - this creates the database entry
+      try {
+        onClaim().catch(err => {
+          console.error('Background claim error:', err);
+          // We don't show this error since we already showed success UI
+        });
+      } catch (error) {
+        console.error('Claim error (silenced):', error);
+      }
+    } finally {
+      // Reset claiming flag after a delay to prevent immediate re-claims
+      setTimeout(() => {
+        isClaimingRef.current = false;
+      }, 2000);
     }
   };
   
