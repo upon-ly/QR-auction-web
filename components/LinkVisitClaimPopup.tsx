@@ -235,7 +235,7 @@ export function LinkVisitClaimPopup({
   
   // Handle share to Warpcast
   const handleShare = async () => {
-    const shareText = encodeURIComponent(`I just got paid 1,000 $QR for checking out today's winner @qrcoindotfun!`);
+    const shareText = encodeURIComponent(`just got paid 1,000 $QR to put a $COAT on this dog via @qrcoindotfun!`);
     const embedUrl = encodeURIComponent(`https://www.qrcoin.fun/auction/${auctionId}`);
     
     // Add the main auction URL embed
