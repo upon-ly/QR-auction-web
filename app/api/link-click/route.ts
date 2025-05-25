@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getClientIP } from '@/lib/ip-utils';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -15,9 +16,15 @@ if (!supabaseServiceKey) {
 }
 
 export async function POST(request: NextRequest) {
+  // Get client IP for logging
+  const clientIP = getClientIP(request);
+  
   try {
     // Get request parameters
     const { fid, auctionId, winningUrl, address, username } = await request.json();
+    
+    // Log all link click attempts with IP
+    console.log(`🔗 LINK CLICK: IP=${clientIP}, FID=${fid || 'none'}, auction=${auctionId}, address=${address || 'none'}, username=${username || 'none'}`);
     
     if (!auctionId || !winningUrl) {
       return NextResponse.json({ 
@@ -173,7 +180,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    console.log(`Recorded click for user ${username || fid || 'anonymous'} on auction ${auctionId}` + (address ? ` with address ${address}` : ''));
+    console.log(`✅ RECORDED CLICK: IP=${clientIP}, user=${username || fid || 'anonymous'}, auction=${auctionId}` + (address ? `, address=${address}` : ''));
     
     return NextResponse.json({ 
       success: true, 

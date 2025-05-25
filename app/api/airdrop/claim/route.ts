@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
 import { validateMiniAppUser } from '@/utils/miniapp-validation';
+import { getClientIP } from '@/lib/ip-utils';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -185,13 +186,16 @@ export async function POST(request: NextRequest) {
   let username: string | undefined;
   let hasNotifications: boolean | undefined;
 
+  // Get client IP for logging
+  const clientIP = getClientIP(request);
+
   try {
     // Validate API key first
     const apiKey = request.headers.get('x-api-key');
     const validApiKey = process.env.LINK_CLICK_API_KEY;
     
     if (!apiKey || !validApiKey || apiKey !== validApiKey) {
-      console.error('Unauthorized API access attempt');
+      console.error(`🚨 UNAUTHORIZED ACCESS from IP: ${clientIP}`);
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -205,8 +209,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing fid or address' }, { status: 400 });
     }
     
-    // Log request for debugging
-    console.log(`Airdrop claim request: FID=${fid}, address=${address}, username=${username || 'unknown'}, hasNotifications=${hasNotifications}`);
+    // Log request for debugging with IP
+    console.log(`🎯 AIRDROP CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, username=${username || 'unknown'}, hasNotifications=${hasNotifications}`);
     
     // Validate Mini App user
     const userValidation = await validateMiniAppUser(fid, username);
