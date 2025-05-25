@@ -54,13 +54,13 @@ export async function POST(request: NextRequest) {
       const latestWonId = parseInt(latestWinner[0].token_id);
       const requestedId = parseInt(auctionId);
       
-      // Only allow clicks for the latest won auction or the next auction
-      const isValidAuction = requestedId === latestWonId || requestedId === latestWonId + 1;
+      // Only allow clicks for the latest won auction (not future auctions)
+      const isValidAuction = requestedId === latestWonId;
       
       console.log(`Validating auction link click: requested=${requestedId}, latest won=${latestWonId}, isValid=${isValidAuction}`);
       
       if (!isValidAuction) {
-        const errorMessage = `Invalid auction ID - can only click from latest won auction (${latestWonId}) or the next one (${latestWonId + 1})`;
+        const errorMessage = `Invalid auction ID - can only click from latest won auction (${latestWonId})`;
         console.error(errorMessage);
         return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
       }
@@ -102,6 +102,34 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Check if this username has already claimed for this specific auction
+    if (username) {
+      const { data: existingUsernameClaim, error: usernameCheckError } = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('username', username)
+        .eq('auction_id', auctionId)
+        .single();
+      
+      if (usernameCheckError && usernameCheckError.code !== 'PGRST116') { // PGRST116 is "no rows found"
+        console.error('Error checking existing username claim:', usernameCheckError);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Error checking existing username claims' 
+        }, { status: 500 });
+      }
+      
+      if (existingUsernameClaim) {
+        console.log(`Username ${username} has already claimed for auction ${auctionId} with FID ${existingUsernameClaim.fid} at ${existingUsernameClaim.link_visited_at}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: `This username has already claimed for auction ${auctionId}`,
+          existing_claim_time: existingUsernameClaim.link_visited_at,
+          existing_fid: existingUsernameClaim.fid
+        }, { status: 400 });
+      }
+    }
+    
     // Record the click in our database
     const { error } = await supabase
       .from('link_visit_claims')
@@ -126,6 +154,16 @@ export async function POST(request: NextRequest) {
           success: false, 
           error: `This wallet address has already claimed for auction ${auctionId}`,
           details: 'Duplicate claim prevented by database constraint'
+        }, { status: 400 });
+      }
+      
+      // Check if this is a unique constraint violation on (username, auction_id)
+      if (error.code === '23505' && error.message?.includes('link_visit_claims_username_auction_id_unique')) {
+        console.log(`Database constraint prevented duplicate claim for username ${username} on auction ${auctionId}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: `This username has already claimed for auction ${auctionId}`,
+          details: 'Duplicate username claim prevented by database constraint'
         }, { status: 400 });
       }
       
