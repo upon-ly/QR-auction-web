@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
+import { validateMiniAppUser } from '@/utils/miniapp-validation';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -275,6 +276,28 @@ export async function POST(request: NextRequest) {
     
     // Log request for debugging
     console.log(`Link Visit Claim request: FID=${fid}, address=${address}, auction=${auction_id}, username=${username || 'unknown'}`);
+    
+    // Validate Mini App user
+    const userValidation = await validateMiniAppUser(fid, username);
+    if (!userValidation.isValid) {
+      const errorMessage = `Invalid Mini App user: ${userValidation.error}`;
+      console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
+      
+      await logFailedTransaction({
+        fid,
+        eth_address: address,
+        auction_id,
+        username,
+        error_message: errorMessage,
+        error_code: 'INVALID_USER',
+        request_data: requestData as Record<string, unknown>
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid user or spoofed request' 
+      }, { status: 400 });
+    }
     
     // Check if user has already claimed tokens for this auction (check both FID and address)
     const { data: claimDataByFid, error: selectErrorByFid } = await supabase

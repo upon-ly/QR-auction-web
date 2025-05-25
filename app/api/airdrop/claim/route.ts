@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
+import { validateMiniAppUser } from '@/utils/miniapp-validation';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Parse request body
+    // Parse request body early for rate limiting
     requestData = await request.json() as AirdropRequestData;
     ({ fid, address, hasNotifications, username } = requestData);
     
@@ -216,6 +217,27 @@ export async function POST(request: NextRequest) {
     
     // Log request for debugging
     console.log(`Airdrop claim request: FID=${fid}, address=${address}, username=${username || 'unknown'}, hasNotifications=${hasNotifications}`);
+    
+    // Validate Mini App user
+    const userValidation = await validateMiniAppUser(fid, username);
+    if (!userValidation.isValid) {
+      const errorMessage = `Invalid Mini App user: ${userValidation.error}`;
+      console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
+      
+      await logFailedTransaction({
+        fid: fid as number,
+        eth_address: address as string,
+        username,
+        error_message: errorMessage,
+        error_code: 'INVALID_USER',
+        request_data: requestData as Record<string, unknown>
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid user or spoofed request' 
+      }, { status: 400 });
+    }
     
     // Special logging for test user, but proceed with normal flow
     if (username === TEST_USERNAME) {
