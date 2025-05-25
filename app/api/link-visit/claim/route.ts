@@ -198,20 +198,9 @@ export async function POST(request: NextRequest) {
     const { fid, address, auction_id, username, winning_url } = requestData;
     
     if (!fid || !address || !auction_id) {
-      const errorMessage = 'Missing required parameters';
+      console.log('Validation error: Missing required parameters');
       
-      // Log validation error
-      await logFailedTransaction({
-        fid: fid || 0,
-        eth_address: address || 'unknown',
-        auction_id: auction_id || 'unknown',
-        username,
-        error_message: errorMessage,
-        error_code: 'VALIDATION_ERROR',
-        request_data: requestData as Record<string, unknown>
-      });
-      
-      return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 });
     }
     
     // Validate that this is the latest settled auction
