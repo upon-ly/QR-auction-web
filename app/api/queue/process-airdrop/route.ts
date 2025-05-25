@@ -103,14 +103,14 @@ export async function POST(req: NextRequest) {
     // Try to get a lock
     const gotLock = await redis.set(lockKey, 'locked', {
       nx: true,
-      ex: 120 // Lock expires in 120 seconds in case handler crashes
+      ex: 30 // Lock expires in 30 seconds - much shorter for faster throughput
     });
     
     if (!gotLock) {
       console.log('Another process is already using the admin wallet, will retry later');
       
-      // Calculate a delay between 30-60 seconds for the retry to prevent thundering herd
-      const delaySeconds = 30 + Math.floor(Math.random() * 30);
+      // Calculate a delay between 5-15 seconds for faster retry
+      const delaySeconds = 5 + Math.floor(Math.random() * 10);
       
       return NextResponse.json({
         success: false, 
@@ -251,9 +251,9 @@ export async function POST(req: NextRequest) {
       
       for (let txAttempt = 0; txAttempt < 3; txAttempt++) {
         try {
-          // Add delay between transaction attempts
+          // Add delay between transaction attempts - reduced for faster processing
           if (txAttempt > 0) {
-            await delay(3000 * txAttempt);
+            await delay(1000 * txAttempt);
           }
           
           // Get fresh nonce
@@ -293,12 +293,12 @@ export async function POST(req: NextRequest) {
         
         // Should we requeue for later retry?
         if (attempt < 4) { // Cap at 5 total attempts (0-4)
-          // Calculate delay for next attempt with revised schedule
-          // New schedule: 20min, 40min, 1hr, 2hr
-          let delayMinutes = 20;
-          if (attempt === 1) delayMinutes = 40;
-          if (attempt === 2) delayMinutes = 60; // 1hr
-          if (attempt === 3) delayMinutes = 120; // 2hr
+          // Calculate delay for next attempt with faster schedule
+          // New schedule: 2min, 5min, 10min, 20min
+          let delayMinutes = 2;
+          if (attempt === 1) delayMinutes = 5;
+          if (attempt === 2) delayMinutes = 10;
+          if (attempt === 3) delayMinutes = 20;
           
           // Update retry status
           await updateRetryStatus(failureId, {
