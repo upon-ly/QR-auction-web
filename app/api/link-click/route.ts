@@ -75,6 +75,33 @@ export async function POST(request: NextRequest) {
     // If no FID (not in a frame context), still record the click but with null FID
     // This handles visitors from outside of frames
     
+    // Check if this address has already claimed for this specific auction
+    if (address) {
+      const { data: existingClaim, error: claimCheckError } = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('eth_address', address)
+        .eq('auction_id', auctionId)
+        .single();
+      
+      if (claimCheckError && claimCheckError.code !== 'PGRST116') { // PGRST116 is "no rows found"
+        console.error('Error checking existing claim:', claimCheckError);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Error checking existing claims' 
+        }, { status: 500 });
+      }
+      
+      if (existingClaim) {
+        console.log(`Address ${address} has already claimed for auction ${auctionId} at ${existingClaim.link_visited_at}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: `This wallet address has already claimed for auction ${auctionId}`,
+          existing_claim_time: existingClaim.link_visited_at
+        }, { status: 400 });
+      }
+    }
+    
     // Record the click in our database
     const { error } = await supabase
       .from('link_visit_claims')
