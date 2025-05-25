@@ -56,6 +56,32 @@ export interface Database {
           created_at?: string | null
         }
       }
+      auction_image_overrides: {
+        Row: {
+          id: number
+          auction_id: string
+          image_url: string
+          is_video: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          auction_id: string
+          image_url: string
+          is_video?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          auction_id?: string
+          image_url?: string
+          is_video?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       link_visit_claims: {
         Row: {
           id: number

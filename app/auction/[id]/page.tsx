@@ -33,7 +33,8 @@ import styles from "./AuctionPageDesktopText.module.css";
 import { frameSdk } from "@/lib/frame-sdk";
 import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
-import { getAuctionImage, isVideoUrl } from "@/utils/auctionImageOverrides";
+import { useAuctionImage } from "@/hooks/useAuctionImage";
+import { removeLatestAuctionImageOverride } from "@/utils/auctionImageOverrides";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -271,7 +272,21 @@ export default function AuctionPage() {
         forceRefetchAuctions();
       }
     },
-    onAuctionSettled: (tokenId, winner, amount, urlString, name) => {
+    onAuctionSettled: async (tokenId, winner, amount, urlString, name) => {
+      console.log(`[AuctionSettled] Auction #${tokenId} settled, winner: ${winner}`);
+      
+      // Remove the latest auction image override (cleanup)
+      try {
+        const removed = await removeLatestAuctionImageOverride();
+        if (removed) {
+          console.log(`[AuctionSettled] Successfully removed latest auction image override`);
+        } else {
+          console.log(`[AuctionSettled] No auction image override to remove`);
+        }
+      } catch (error) {
+        console.error(`[AuctionSettled] Error removing latest auction image override:`, error);
+      }
+      
       forceRefetchAuctions();
       if (Number(tokenId) === latestAuctionId && isLatestAuction) {
         fetchOgImage();
@@ -319,12 +334,19 @@ export default function AuctionPage() {
   };
 
   // Get the winning image for the auction (using override if available)
-  const currentWinningImage = useMemo(() => {
-    const imageUrl = getAuctionImage(currentAuctionId, ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
-    // Check if it's a video URL
-    setIsVideo(isVideoUrl(imageUrl || ""));
-    return imageUrl;
-  }, [currentAuctionId, ogImage]);
+  const { data: auctionImageData, isLoading: isAuctionImageLoading } = useAuctionImage(
+    currentAuctionId, 
+    ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
+  );
+  
+  const currentWinningImage = auctionImageData?.imageUrl;
+  
+  // Update isVideo state when auction image data changes
+  useEffect(() => {
+    if (auctionImageData) {
+      setIsVideo(auctionImageData.isVideo);
+    }
+  }, [auctionImageData]);
 
   useEffect(() => {
     setMounted(true);

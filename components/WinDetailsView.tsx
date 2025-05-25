@@ -19,7 +19,7 @@ import useEthPrice from "@/hooks/useEthPrice";
 import { getAuctionVersion } from "@/utils/auctionPriceData";
 import { useWinnerData } from "@/hooks/useWinnerData";
 import { frameSdk } from "@/lib/frame-sdk";
-import { getAuctionImage, isVideoUrl } from "@/utils/auctionImageOverrides";
+import { useAuctionImage } from "@/hooks/useAuctionImage";
 
 
 type AuctionType = {
@@ -46,6 +46,9 @@ export function WinDetailsView(winnerdata: AuctionType) {
     isLoading: isWinnerDataLoading, 
     isError: isWinnerDataError 
   } = useWinnerData(winnerdata.tokenId);
+  
+  // Use the auction image hook to get override images
+  const { data: auctionImageData } = useAuctionImage(winnerdata.tokenId.toString());
   
   // Determine auction version
   const auctionVersion = useMemo(() => getAuctionVersion(winnerdata.tokenId), [winnerdata.tokenId]);
@@ -135,13 +138,10 @@ export function WinDetailsView(winnerdata: AuctionType) {
   useEffect(() => {
     async function fetchOgImage() {
       try {
-        // Use the shared utility function to get the image for this auction
-        const tokenIdStr = winnerdata.tokenId.toString();
-        const overrideImage = getAuctionImage(tokenIdStr);
-        if (overrideImage) {
-          setOgImage(overrideImage);
-          // Check if it's a video URL
-          setIsVideo(isVideoUrl(overrideImage));
+        // Check if we have an auction image override
+        if (auctionImageData?.imageUrl) {
+          setOgImage(auctionImageData.imageUrl);
+          setIsVideo(auctionImageData.isVideo);
           return;
         }
 
@@ -157,8 +157,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
         } else {
           if (data.image !== "") {
             setOgImage(data.image);
-            // Check if API returned a video URL
-            setIsVideo(isVideoUrl(data.image));
+            setIsVideo(false); // OG images are not videos
           } else {
             setOgImage(
               `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
@@ -171,7 +170,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
       }
     }
     fetchOgImage();
-  }, [winnerdata.url, winnerdata.tokenId]);
+  }, [winnerdata.url, winnerdata.tokenId, auctionImageData]);
 
   // Helper function to format bid amount based on auction type
   const formatBidAmount = () => {
