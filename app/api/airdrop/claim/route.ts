@@ -580,7 +580,30 @@ export async function POST(request: NextRequest) {
       if (insertError) {
         console.error('Error recording claim:', insertError);
         
-        // Log database insert error, but the airdrop was successful
+        // Check if this is a unique constraint violation on eth_address
+        if (insertError.code === '23505' && insertError.message?.includes('airdrop_claims_eth_address_unique')) {
+          console.log(`Database constraint prevented duplicate claim for address ${address}`);
+          
+          // Log this as a duplicate claim attempt that was caught by DB constraint
+          await logFailedTransaction({
+            fid: fid as number,
+            eth_address: address as string,
+            username,
+            error_message: `Address has already claimed the airdrop (caught by database constraint)`,
+            error_code: 'DUPLICATE_CLAIM_DB_CONSTRAINT',
+            tx_hash: receipt.hash,
+            request_data: requestData as Record<string, unknown>,
+            network_status: 'tx_success_db_constraint'
+          });
+          
+          return NextResponse.json({ 
+            success: false, 
+            error: 'This wallet address has already claimed the airdrop',
+            warning: 'Airdrop transaction was successful but claim was already recorded'
+          }, { status: 400 });
+        }
+        
+        // Log other database insert errors
         await logFailedTransaction({
           fid: fid as number,
           eth_address: address as string,
