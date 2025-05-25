@@ -118,6 +118,17 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('Error recording link click:', error);
+      
+      // Check if this is a unique constraint violation on (eth_address, auction_id)
+      if (error.code === '23505' && error.message?.includes('link_visit_claims_eth_address_auction_id_unique')) {
+        console.log(`Database constraint prevented duplicate claim for address ${address} on auction ${auctionId}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: `This wallet address has already claimed for auction ${auctionId}`,
+          details: 'Duplicate claim prevented by database constraint'
+        }, { status: 400 });
+      }
+      
       return NextResponse.json({ 
         success: false, 
         error: 'Database error' 
