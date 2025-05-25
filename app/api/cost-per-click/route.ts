@@ -2,11 +2,18 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 
-// Initialize Supabase client with anon key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+// Setup Supabase clients
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// Use service role key for database operations in API routes (bypasses RLS)
+const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+
+// If we don't have service key, log a warning
+if (!supabaseServiceKey) {
+  console.warn('SUPABASE_SERVICE_ROLE_KEY not found, falling back to anon key - database reads may fail due to RLS');
+}
 
 // Admin wallet addresses for authorization
 const ADMIN_ADDRESSES = [

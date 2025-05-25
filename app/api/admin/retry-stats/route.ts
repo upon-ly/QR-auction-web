@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Redis } from '@upstash/redis';
 
-// Setup clients
+// Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// Use service role key for database operations in API routes (bypasses RLS)
+const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+
+// If we don't have service key, log a warning
+if (!supabaseServiceKey) {
+  console.warn('SUPABASE_SERVICE_ROLE_KEY not found, falling back to anon key - database reads may fail due to RLS');
+}
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
