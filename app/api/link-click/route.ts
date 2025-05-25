@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getClientIP } from '@/lib/ip-utils';
+import { isRateLimited } from '@/lib/simple-rate-limit';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -25,6 +26,18 @@ export async function POST(request: NextRequest) {
     
     // Log all link click attempts with IP
     console.log(`🔗 LINK CLICK: IP=${clientIP}, FID=${fid || 'none'}, auction=${auctionId}, address=${address || 'none'}, username=${username || 'none'}`);
+    
+    // IMMEDIATE BLOCK for known abuser
+    if (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2') {
+      console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
+      return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
+    }
+    
+    // Rate limiting: 10 requests per minute per IP
+    if (isRateLimited(clientIP, 10, 60000)) {
+      console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many requests)`);
+      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+    }
     
     if (!auctionId || !winningUrl) {
       return NextResponse.json({ 

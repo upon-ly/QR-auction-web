@@ -4,6 +4,7 @@ import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
 import { validateMiniAppUser } from '@/utils/miniapp-validation';
 import { getClientIP } from '@/lib/ip-utils';
+import { isRateLimited } from '@/lib/simple-rate-limit';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -211,6 +212,18 @@ export async function POST(request: NextRequest) {
     
     // Log request for debugging with IP
     console.log(`🎯 AIRDROP CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, username=${username || 'unknown'}, hasNotifications=${hasNotifications}`);
+    
+    // IMMEDIATE BLOCK for known abuser
+    if (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2') {
+      console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
+      return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
+    }
+    
+    // Rate limiting: 5 requests per minute per IP for airdrop
+    if (isRateLimited(clientIP, 5, 60000)) {
+      console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many airdrop requests)`);
+      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+    }
     
     // Validate Mini App user
     const userValidation = await validateMiniAppUser(fid, username);
