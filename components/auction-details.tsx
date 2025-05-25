@@ -276,61 +276,69 @@ export function AuctionDetails({
         success: async (data: any) => {
           console.log(`[DEBUG] Transaction successful, receipt:`, data);
           
-          // Add winner to database
-          try {
-            // Only proceed in production environment
-            const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
-            
-            if (isDev) {
-              console.log('[DEV MODE] Skipping database insert in development/preview environment');
-            } else if (auctionDetail?.highestBidder && auctionDetail.highestBidder !== '0x0000000000000000000000000000000000000000') {
-              console.log(`[Settle] Adding auction #${id} winner to database`);
+                      // Add winner to database
+            try {
+              // Only proceed in production environment
+              const isDev = process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
               
-              // Prepare values for database insert
-              const winnerData = {
-                token_id: Number(id),
-                winner_address: auctionDetail.highestBidder,
-                amount: Number(formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18)),
-                url: auctionDetail.qrMetadata?.urlString || null,
-                display_name: bidderNameInfo.displayName || null,
-                farcaster_username: bidderNameInfo.farcasterUsername || null,
-                basename: bidderNameInfo.basename || null,
-                usd_value: isV3Auction 
-                  ? Number(formatUnits(auctionDetail.highestBid, 6)) // USDC is already in USD
-                  : qrPrice ? Number(formatEther(auctionDetail.highestBid)) * qrPrice : null,
-                is_v1_auction: isLegacyAuction,
-                ens_name: auctionDetail.highestBidderName || null
-              };
-              
-              // Insert into Supabase winners table
-              const { error } = await supabase
-                .from('winners')
-                .upsert(winnerData, { onConflict: 'token_id' });
-              
-              if (error) {
-                console.error('[Settle] Error inserting winner to database:', error);
-              } else {
-                console.log('[Settle] Successfully added winner to database');
+              if (isDev) {
+                console.log('[DEV MODE] Skipping database insert in development/preview environment');
+              } else if (auctionDetail?.highestBidder && auctionDetail.highestBidder !== '0x0000000000000000000000000000000000000000') {
+                console.log(`[Settle] Adding auction #${id} winner to database via API`);
                 
-                // Manually update TanStack Query cache if possible
-                try {
-                  if (queryClient) {
-                    // Update the cache with our new winner data
-                    queryClient.setQueryData(['winner', id.toString()], {
-                      usd_value: winnerData.usd_value,
-                      is_v1_auction: winnerData.is_v1_auction,
-                    });
-                    
-                    console.log('[Settle] Updated TanStack Query cache with new winner data');
+                // Prepare values for database insert
+                const winnerData = {
+                  adminAddress: address, // Current user's address for authorization
+                  token_id: Number(id),
+                  winner_address: auctionDetail.highestBidder,
+                  amount: formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18),
+                  url: auctionDetail.qrMetadata?.urlString || null,
+                  display_name: bidderNameInfo.displayName || null,
+                  farcaster_username: bidderNameInfo.farcasterUsername || null,
+                  basename: bidderNameInfo.basename || null,
+                  pfp_url: bidderNameInfo.pfpUrl || null,
+                  usd_value: isV3Auction 
+                    ? Number(formatUnits(auctionDetail.highestBid, 6)) // USDC is already in USD
+                    : qrPrice ? Number(formatEther(auctionDetail.highestBid)) * qrPrice : null,
+                  is_v1_auction: isLegacyAuction,
+                  ens_name: auctionDetail.highestBidderName || null
+                };
+                
+                // Insert via API endpoint (uses service role key)
+                const response = await fetch('/api/winners', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(winnerData),
+                });
+                
+                if (response.ok) {
+                  const result = await response.json();
+                  console.log('[Settle] Successfully added winner to database via API');
+                  
+                  // Manually update TanStack Query cache if possible
+                  try {
+                    if (queryClient) {
+                      // Update the cache with our new winner data
+                      queryClient.setQueryData(['winner', id.toString()], {
+                        usd_value: winnerData.usd_value,
+                        is_v1_auction: winnerData.is_v1_auction,
+                      });
+                      
+                      console.log('[Settle] Updated TanStack Query cache with new winner data');
+                    }
+                  } catch (cacheError) {
+                    console.error('[Settle] Error updating query cache:', cacheError);
                   }
-                } catch (cacheError) {
-                  console.error('[Settle] Error updating query cache:', cacheError);
+                } else {
+                  const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                  console.error('[Settle] Error inserting winner via API:', errorData);
                 }
               }
+            } catch (dbError) {
+              console.error('[Settle] Database error:', dbError);
             }
-          } catch (dbError) {
-            console.error('[Settle] Database error:', dbError);
-          }
           
           // After successful transaction, send notifications
           try {
