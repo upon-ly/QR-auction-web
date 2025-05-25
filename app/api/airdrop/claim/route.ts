@@ -200,19 +200,9 @@ export async function POST(request: NextRequest) {
     ({ fid, address, hasNotifications, username } = requestData);
     
     if (!fid || !address) {
-      const errorMessage = 'Missing fid or address';
+      console.log('Validation error: Missing fid or address');
       
-      // Log validation error
-      await logFailedTransaction({
-        fid: fid !== undefined ? fid : 0,
-        eth_address: address !== undefined ? address : 'unknown',
-        username,
-        error_message: errorMessage,
-        error_code: 'VALIDATION_ERROR',
-        request_data: requestData as Record<string, unknown>
-      });
-      
-      return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing fid or address' }, { status: 400 });
     }
     
     // Log request for debugging
@@ -221,17 +211,7 @@ export async function POST(request: NextRequest) {
     // Validate Mini App user
     const userValidation = await validateMiniAppUser(fid, username);
     if (!userValidation.isValid) {
-      const errorMessage = `Invalid Mini App user: ${userValidation.error}`;
       console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
-      
-      await logFailedTransaction({
-        fid: fid as number,
-        eth_address: address as string,
-        username,
-        error_message: errorMessage,
-        error_code: 'INVALID_USER',
-        request_data: requestData as Record<string, unknown>
-      });
       
       return NextResponse.json({ 
         success: false, 

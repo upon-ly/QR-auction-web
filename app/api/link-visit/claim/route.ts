@@ -280,18 +280,7 @@ export async function POST(request: NextRequest) {
     // Validate Mini App user
     const userValidation = await validateMiniAppUser(fid, username);
     if (!userValidation.isValid) {
-      const errorMessage = `Invalid Mini App user: ${userValidation.error}`;
       console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
-      
-      await logFailedTransaction({
-        fid,
-        eth_address: address,
-        auction_id,
-        username,
-        error_message: errorMessage,
-        error_code: 'INVALID_USER',
-        request_data: requestData as Record<string, unknown>
-      });
       
       return NextResponse.json({ 
         success: false, 
