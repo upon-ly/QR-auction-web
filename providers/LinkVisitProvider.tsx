@@ -158,7 +158,7 @@ export function LinkVisitProvider({
           // Check if we have a hardcoded image for this auction ID
           const tokenIdStr = latestTokenId.toString();
           // Use the utility function to get the image
-          const overrideImage = getAuctionImage(tokenIdStr);
+          const overrideImage = await getAuctionImage(tokenIdStr);
           if (overrideImage) {
             setLatestWinningImage(overrideImage);
           } else {
