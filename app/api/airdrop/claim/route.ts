@@ -120,7 +120,7 @@ async function logFailedTransaction(params: {
     }
     
     // Now also queue for retry (if eligible for retry)
-    if (!['DUPLICATE_CLAIM', 'NOTIFICATIONS_DISABLED'].includes(params.error_code || '')) {
+    if (!['DUPLICATE_CLAIM', 'NOTIFICATIONS_DISABLED', 'INVALID_USER', 'VALIDATION_ERROR'].includes(params.error_code || '')) {
       await queueFailedClaim({
         id: data.id,
         fid: params.fid as number,
