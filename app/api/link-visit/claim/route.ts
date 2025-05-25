@@ -276,15 +276,21 @@ export async function POST(request: NextRequest) {
     // Log request for debugging
     console.log(`Link Visit Claim request: FID=${fid}, address=${address}, auction=${auction_id}, username=${username || 'unknown'}`);
     
-    // Check if user has already claimed tokens for this auction (without using .single())
-    const { data: claimData, error: selectError } = await supabase
+    // Check if user has already claimed tokens for this auction (check both FID and address)
+    const { data: claimDataByFid, error: selectErrorByFid } = await supabase
       .from('link_visit_claims')
       .select('*')
       .eq('fid', fid)
       .eq('auction_id', auction_id);
     
-    if (selectError) {
-      console.error('Error checking claim status:', selectError);
+    const { data: claimDataByAddress, error: selectErrorByAddress } = await supabase
+      .from('link_visit_claims')
+      .select('*')
+      .eq('eth_address', address)
+      .eq('auction_id', auction_id);
+    
+    if (selectErrorByFid || selectErrorByAddress) {
+      console.error('Error checking claim status:', selectErrorByFid || selectErrorByAddress);
       
       // Log database error
       await logFailedTransaction({
@@ -293,7 +299,7 @@ export async function POST(request: NextRequest) {
         auction_id,
         username,
         error_message: 'Database error when checking claim status',
-        error_code: selectError.code || 'DB_SELECT_ERROR',
+        error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
         request_data: requestData as Record<string, unknown>,
         network_status: 'db_error'
       });
@@ -303,40 +309,72 @@ export async function POST(request: NextRequest) {
         error: 'Database error when checking claim status'
       }, { status: 500 });
     }
-      
-    if (claimData && claimData.length > 0 && claimData[0].claimed_at) {
-      // Check if we have a transaction hash
-      if (claimData[0].tx_hash) {
-        // There's a valid claim with a tx hash - already claimed successfully
-        console.log(`User ${fid} has already claimed tokens for auction ${auction_id} at tx ${claimData[0].tx_hash}`);
+    
+    // Check if this FID has already claimed
+    if (claimDataByFid && claimDataByFid.length > 0 && claimDataByFid[0].claimed_at) {
+      if (claimDataByFid[0].tx_hash) {
+        console.log(`User ${fid} has already claimed tokens for auction ${auction_id} at tx ${claimDataByFid[0].tx_hash}`);
         
-        // Log duplicate claim attempt
         await logFailedTransaction({
           fid,
           eth_address: address,
           auction_id,
           username,
           winning_url: winningUrl,
-          error_message: 'User has already claimed tokens for this auction',
-          error_code: 'DUPLICATE_CLAIM',
-          tx_hash: claimData[0].tx_hash,
+          error_message: 'User FID has already claimed tokens for this auction',
+          error_code: 'DUPLICATE_CLAIM_FID',
+          tx_hash: claimDataByFid[0].tx_hash,
           request_data: requestData as Record<string, unknown>
         });
         
         return NextResponse.json({ 
           success: false, 
-          error: 'User has already claimed tokens for this auction',
-          tx_hash: claimData[0].tx_hash
+          error: 'This Farcaster account has already claimed tokens for this auction',
+          tx_hash: claimDataByFid[0].tx_hash
         }, { status: 400 });
       } else {
-        // There's a record with claimed_at but no tx hash - likely a failed claim
-        // We'll allow them to try again by deleting this partial record
+        // Incomplete claim by FID - delete and allow retry
         console.log(`Found incomplete claim for user ${fid}, auction ${auction_id} - allowing retry`);
         await supabase
           .from('link_visit_claims')
           .delete()
           .match({
             fid: fid,
+            auction_id: auction_id
+          });
+      }
+    }
+    
+    // Check if this address has already claimed
+    if (claimDataByAddress && claimDataByAddress.length > 0 && claimDataByAddress[0].claimed_at) {
+      if (claimDataByAddress[0].tx_hash) {
+        console.log(`Address ${address} has already claimed tokens for auction ${auction_id} at tx ${claimDataByAddress[0].tx_hash}`);
+        
+        await logFailedTransaction({
+          fid,
+          eth_address: address,
+          auction_id,
+          username,
+          winning_url: winningUrl,
+          error_message: 'Address has already claimed tokens for this auction',
+          error_code: 'DUPLICATE_CLAIM_ADDRESS',
+          tx_hash: claimDataByAddress[0].tx_hash,
+          request_data: requestData as Record<string, unknown>
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This wallet address has already claimed tokens for this auction',
+          tx_hash: claimDataByAddress[0].tx_hash
+        }, { status: 400 });
+      } else {
+        // Incomplete claim by address - delete and allow retry
+        console.log(`Found incomplete claim for address ${address}, auction ${auction_id} - allowing retry`);
+        await supabase
+          .from('link_visit_claims')
+          .delete()
+          .match({
+            eth_address: address,
             auction_id: auction_id
           });
       }

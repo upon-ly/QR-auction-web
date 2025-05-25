@@ -244,15 +244,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // Check if user has already claimed
-    const { data: claimData, error: selectError } = await supabase
+    // Check if user has already claimed (check both FID and address)
+    const { data: claimDataByFid, error: selectErrorByFid } = await supabase
       .from('airdrop_claims')
       .select('*')
       .eq('fid', fid)
       .single();
     
-    if (selectError && selectError.code !== 'PGRST116') { // PGRST116 is "no rows found"
-      console.error('Error checking claim status:', selectError);
+    const { data: claimDataByAddress, error: selectErrorByAddress } = await supabase
+      .from('airdrop_claims')
+      .select('*')
+      .eq('eth_address', address)
+      .single();
+    
+    if ((selectErrorByFid && selectErrorByFid.code !== 'PGRST116') || 
+        (selectErrorByAddress && selectErrorByAddress.code !== 'PGRST116')) { // PGRST116 is "no rows found"
+      console.error('Error checking claim status:', selectErrorByFid || selectErrorByAddress);
       
       // Log database error
       await logFailedTransaction({
@@ -260,7 +267,7 @@ export async function POST(request: NextRequest) {
         eth_address: address as string,
         username,
         error_message: 'Database error when checking claim status',
-        error_code: selectError.code,
+        error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
         request_data: requestData as Record<string, unknown>
       });
       
@@ -269,25 +276,48 @@ export async function POST(request: NextRequest) {
         error: 'Database error when checking claim status'
       }, { status: 500 });
     }
-      
-    if (claimData) {
-      console.log(`User ${fid} has already claimed at tx ${claimData.tx_hash}`);
+    
+    // Check if this FID has already claimed
+    if (claimDataByFid) {
+      console.log(`User ${fid} has already claimed at tx ${claimDataByFid.tx_hash}`);
       
       // Log duplicate claim attempt
       await logFailedTransaction({
         fid: fid as number,
         eth_address: address as string,
         username,
-        error_message: 'User has already claimed the airdrop',
-        error_code: 'DUPLICATE_CLAIM',
-        tx_hash: claimData.tx_hash,
+        error_message: 'User FID has already claimed the airdrop',
+        error_code: 'DUPLICATE_CLAIM_FID',
+        tx_hash: claimDataByFid.tx_hash,
         request_data: requestData as Record<string, unknown>
       });
       
       return NextResponse.json({ 
         success: false, 
-        error: 'User has already claimed the airdrop',
-        tx_hash: claimData.tx_hash
+        error: 'This Farcaster account has already claimed the airdrop',
+        tx_hash: claimDataByFid.tx_hash
+      }, { status: 400 });
+    }
+    
+    // Check if this address has already claimed
+    if (claimDataByAddress) {
+      console.log(`Address ${address} has already claimed at tx ${claimDataByAddress.tx_hash}`);
+      
+      // Log duplicate claim attempt
+      await logFailedTransaction({
+        fid: fid as number,
+        eth_address: address as string,
+        username,
+        error_message: 'Address has already claimed the airdrop',
+        error_code: 'DUPLICATE_CLAIM_ADDRESS',
+        tx_hash: claimDataByAddress.tx_hash,
+        request_data: requestData as Record<string, unknown>
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: 'This wallet address has already claimed the airdrop',
+        tx_hash: claimDataByAddress.tx_hash
       }, { status: 400 });
     }
     
