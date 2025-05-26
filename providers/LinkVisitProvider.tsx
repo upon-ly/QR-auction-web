@@ -78,9 +78,10 @@ export function LinkVisitProvider({
     frameContext
   } = useLinkVisitEligibility(eligibilityAuctionId);
   
-  // Use the latestWonAuctionId for claim operations
-  const claimAuctionId = latestWonAuctionId !== null ? latestWonAuctionId : auctionId;
-  const { claimTokens } = useLinkVisitClaim(claimAuctionId);
+  // ALWAYS use the latestWonAuctionId for claim operations - never fall back to current auction
+  // This prevents gaming by manually visiting future auction URLs
+  const claimAuctionId = latestWonAuctionId;
+  const { claimTokens } = useLinkVisitClaim(claimAuctionId || 0);
 
   // Explicit function to check claim status directly from database
   const checkClaimStatusForLatestAuction = useCallback(async () => {
@@ -351,7 +352,7 @@ export function LinkVisitProvider({
         hasClicked={hasClicked}
         winningUrl={latestWinningUrl || winningUrl}
         winningImage={latestWinningImage || winningImage}
-        auctionId={claimAuctionId}
+        auctionId={claimAuctionId || 0}
         onClaim={handleClaim}
       />
     </LinkVisitContext.Provider>

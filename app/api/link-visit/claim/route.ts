@@ -126,7 +126,18 @@ async function logFailedTransaction(params: {
     }
     
     // Now also queue for retry (if eligible for retry)
-    if (!['DUPLICATE_CLAIM', 'DUPLICATE_CLAIM_FID', 'DUPLICATE_CLAIM_ADDRESS', 'INVALID_AUCTION_ID', 'INVALID_USER', 'VALIDATION_ERROR'].includes(params.error_code || '')) {
+    // Don't queue permanent validation failures that will never succeed
+    const nonRetryableErrors = [
+      'DUPLICATE_CLAIM', 
+      'DUPLICATE_CLAIM_FID', 
+      'DUPLICATE_CLAIM_ADDRESS', 
+      'INVALID_AUCTION_ID', 
+      'INVALID_USER', 
+      'VALIDATION_ERROR',
+      'ADDRESS_NOT_VERIFIED'
+    ];
+    
+    if (!nonRetryableErrors.includes(params.error_code || '')) {
       await queueFailedClaim({
         id: data.id,
         fid: params.fid as number,
@@ -262,17 +273,7 @@ export async function POST(request: NextRequest) {
       if (!isValidAuction) {
         const errorMessage = `Invalid auction ID - can only claim from latest won auction (${latestWonId})`;
         
-        // Log validation error
-        await logFailedTransaction({
-          fid,
-          eth_address: address,
-          auction_id,
-          username,
-          error_message: errorMessage,
-          error_code: 'INVALID_AUCTION_ID',
-          request_data: requestData as Record<string, unknown>
-        });
-        
+        // Don't queue failed transactions for invalid auction IDs - these are user errors/gaming attempts
         return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
       }
     } catch (error) {
@@ -294,18 +295,8 @@ export async function POST(request: NextRequest) {
     if (!userValidation.isValid) {
       console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
       
-      // Log validation failure with appropriate error code
-      const errorCode = userValidation.error?.includes('address') ? 'ADDRESS_NOT_VERIFIED' : 'INVALID_USER';
-      await logFailedTransaction({
-        fid,
-        eth_address: address,
-        auction_id,
-        username,
-        error_message: `User validation failed: ${userValidation.error}`,
-        error_code: errorCode,
-        request_data: requestData as Record<string, unknown>
-      });
-      
+      // Don't queue failed transactions for validation errors - just return error
+      // These are user errors, not system failures that need retry
       return NextResponse.json({ 
         success: false, 
         error: userValidation.error || 'Invalid user or spoofed request' 
@@ -351,18 +342,7 @@ export async function POST(request: NextRequest) {
       if (claimDataByFid[0].tx_hash) {
         console.log(`User ${fid} has already claimed tokens for auction ${auction_id} at tx ${claimDataByFid[0].tx_hash}`);
         
-        await logFailedTransaction({
-          fid,
-          eth_address: address,
-          auction_id,
-          username,
-          winning_url: winningUrl,
-          error_message: 'User FID has already claimed tokens for this auction',
-          error_code: 'DUPLICATE_CLAIM_FID',
-          tx_hash: claimDataByFid[0].tx_hash,
-          request_data: requestData as Record<string, unknown>
-        });
-        
+        // Don't queue failed transactions for duplicate claims - these are user errors
         return NextResponse.json({ 
           success: false, 
           error: 'This Farcaster account has already claimed tokens for this auction',
@@ -386,18 +366,7 @@ export async function POST(request: NextRequest) {
       if (claimDataByAddress[0].tx_hash) {
         console.log(`Address ${address} has already claimed tokens for auction ${auction_id} at tx ${claimDataByAddress[0].tx_hash}`);
         
-        await logFailedTransaction({
-          fid,
-          eth_address: address,
-          auction_id,
-          username,
-          winning_url: winningUrl,
-          error_message: 'Address has already claimed tokens for this auction',
-          error_code: 'DUPLICATE_CLAIM_ADDRESS',
-          tx_hash: claimDataByAddress[0].tx_hash,
-          request_data: requestData as Record<string, unknown>
-        });
-        
+        // Don't queue failed transactions for duplicate claims - these are user errors
         return NextResponse.json({ 
           success: false, 
           error: 'This wallet address has already claimed tokens for this auction',
