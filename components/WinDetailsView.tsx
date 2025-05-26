@@ -47,8 +47,8 @@ export function WinDetailsView(winnerdata: AuctionType) {
     isError: isWinnerDataError 
   } = useWinnerData(winnerdata.tokenId);
   
-  // Use the auction image hook to get override images
-  const { data: auctionImageData } = useAuctionImage(winnerdata.tokenId.toString());
+  // Use the auction image hook to get override images with URL fallback
+  const { data: auctionImageData } = useAuctionImage(winnerdata.tokenId.toString(), winnerdata.url);
   
   // Determine auction version
   const auctionVersion = useMemo(() => getAuctionVersion(winnerdata.tokenId), [winnerdata.tokenId]);
@@ -135,42 +135,13 @@ export function WinDetailsView(winnerdata: AuctionType) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winnerdata.tokenId]);
 
+  // Update local state when auction image data changes
   useEffect(() => {
-    async function fetchOgImage() {
-      try {
-        // Check if we have an auction image override
-        if (auctionImageData?.imageUrl) {
-          setOgImage(auctionImageData.imageUrl);
-          setIsVideo(auctionImageData.isVideo);
-          return;
-        }
-
-        // If no override exists, fetch from OG API
-        const res = await fetch(`/api/og?url=${winnerdata.url}`);
-        const data = await res.json();
-        console.log(data);
-        if (data.error) {
-          setOgImage(
-            `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
-          );
-          setIsVideo(false);
-        } else {
-          if (data.image !== "") {
-            setOgImage(data.image);
-            setIsVideo(false); // OG images are not videos
-          } else {
-            setOgImage(
-              `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
-            );
-            setIsVideo(false);
-          }
-        }
-      } catch (err) {
-      } finally {
-      }
+    if (auctionImageData?.imageUrl) {
+      setOgImage(auctionImageData.imageUrl);
+      setIsVideo(auctionImageData.isVideo);
     }
-    fetchOgImage();
-  }, [winnerdata.url, winnerdata.tokenId, auctionImageData]);
+  }, [auctionImageData]);
 
   // Helper function to format bid amount based on auction type
   const formatBidAmount = () => {

@@ -78,8 +78,8 @@ export function LinkVisitClaimPopup({
   // Use the claim hook for link click handling
   const { isClaimLoading } = useLinkVisitClaim(auctionId);
   
-  // Use the auction image hook to check if it's a video
-  const { data: auctionImageData } = useAuctionImage(auctionId);
+  // Use the auction image hook to check if it's a video with URL fallback
+  const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
   
   // Three states: visit (initial), claim (after visiting), success (after claiming)
   const [claimState, setClaimState] = useState<'visit' | 'claim' | 'success'>('visit');

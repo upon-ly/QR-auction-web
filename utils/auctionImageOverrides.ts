@@ -80,8 +80,8 @@ export async function getAuctionImage(auctionId: number | string, defaultImage?:
     const overrides = await fetchAuctionImageOverrides();
     const override = overrides.get(id);
     
-    // If there's an override, use it
-    if (override) {
+    // If there's an override and it has a non-empty URL, use it
+    if (override && override.url.trim() !== '') {
       return override.url;
     }
     
@@ -108,7 +108,7 @@ export async function isAuctionImageVideo(auctionId: number | string): Promise<b
     const overrides = await fetchAuctionImageOverrides();
     const override = overrides.get(id);
     
-    return override?.isVideo || false;
+    return (override && override.url.trim() !== '') ? override.isVideo : false;
   } catch (error) {
     console.error('Error checking if auction image is video:', error);
     return false;
@@ -150,42 +150,33 @@ export async function addAuctionImageOverride(
 }
 
 /**
- * Remove the latest auction image override (for cleanup when auction settles)
+ * Clear auction image override for a specific auction ID (sets image_url to empty string)
  */
-export async function removeLatestAuctionImageOverride(): Promise<boolean> {
+export async function removeAuctionImageOverride(auctionId: number | string): Promise<boolean> {
+  const id = typeof auctionId === 'number' ? auctionId.toString() : auctionId;
+  
   try {
-    // Get the highest auction_id (latest)
-    const { data: latestOverride, error: fetchError } = await supabase
+    const { error } = await supabase
       .from('auction_image_overrides')
-      .select('auction_id')
-      .order('auction_id', { ascending: false })
-      .limit(1)
-      .single();
+      .update({ 
+        image_url: '',
+        is_video: false 
+      })
+      .eq('auction_id', id);
 
-    if (fetchError || !latestOverride) {
-      console.log('No auction image overrides to remove');
-      return true;
-    }
-
-    // Delete the latest override
-    const { error: deleteError } = await supabase
-      .from('auction_image_overrides')
-      .delete()
-      .eq('auction_id', latestOverride.auction_id);
-
-    if (deleteError) {
-      console.error('Error removing latest auction image override:', deleteError);
+    if (error) {
+      console.error(`Error clearing auction image override for auction #${id}:`, error);
       return false;
     }
 
-    console.log(`Removed auction image override for auction #${latestOverride.auction_id}`);
+    console.log(`Cleared auction image override for auction #${id}`);
     
     // Clear cache to force refresh
     imageOverridesCache = null;
     
     return true;
   } catch (error) {
-    console.error('Error removing latest auction image override:', error);
+    console.error(`Error clearing auction image override for auction #${id}:`, error);
     return false;
   }
 }

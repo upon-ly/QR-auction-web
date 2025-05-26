@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { addAuctionImageOverride, removeLatestAuctionImageOverride } from '@/utils/auctionImageOverrides';
+import { addAuctionImageOverride, removeAuctionImageOverride } from '@/utils/auctionImageOverrides';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
@@ -85,38 +85,40 @@ export default function AuctionImagesAdmin() {
   };
 
   const handleRemoveLatest = async () => {
+    if (overrides.length === 0) return;
+    
+    const latestOverride = overrides[0]; // First item since we order by auction_id desc
     setRemoving(true);
     try {
-      const success = await removeLatestAuctionImageOverride();
+      const success = await removeAuctionImageOverride(latestOverride.auction_id);
       
       if (success) {
-        toast.success('Latest auction image override removed successfully');
+        toast.success(`Auction image override for auction #${latestOverride.auction_id} cleared successfully`);
         fetchOverrides(); // Refresh the list
       } else {
-        toast.error('Failed to remove latest auction image override');
+        toast.error('Failed to clear auction image override');
       }
     } catch (error) {
-      console.error('Error removing latest auction image override:', error);
-      toast.error('Failed to remove latest auction image override');
+      console.error('Error clearing auction image override:', error);
+      toast.error('Failed to clear auction image override');
     } finally {
       setRemoving(false);
     }
   };
 
-  const handleDelete = async (auctionId: string) => {
+  const handleClear = async (auctionId: string) => {
     try {
-      const { error } = await supabase
-        .from('auction_image_overrides')
-        .delete()
-        .eq('auction_id', auctionId);
-
-      if (error) throw error;
+      const success = await removeAuctionImageOverride(auctionId);
       
-      toast.success(`Removed auction image override for auction #${auctionId}`);
-      fetchOverrides(); // Refresh the list
+      if (success) {
+        toast.success(`Cleared auction image override for auction #${auctionId}`);
+        fetchOverrides(); // Refresh the list
+      } else {
+        toast.error('Failed to clear auction image override');
+      }
     } catch (error) {
-      console.error('Error deleting auction image override:', error);
-      toast.error('Failed to delete auction image override');
+      console.error('Error clearing auction image override:', error);
+      toast.error('Failed to clear auction image override');
     }
   };
 
@@ -172,7 +174,7 @@ export default function AuctionImagesAdmin() {
             disabled={removing || overrides.length === 0}
           >
             {removing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-            Remove Latest
+            Clear Latest
           </Button>
         </div>
       </Card>
@@ -188,8 +190,10 @@ export default function AuctionImagesAdmin() {
             <Card key={override.id} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
-                    {override.is_video ? (
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                    {override.image_url.trim() === '' ? (
+                      <span className="text-xs text-gray-500">Cleared</span>
+                    ) : override.is_video ? (
                       <video
                         src={override.image_url}
                         className="w-full h-full object-cover"
@@ -208,13 +212,19 @@ export default function AuctionImagesAdmin() {
                   <div>
                     <h3 className="font-semibold">Auction #{override.auction_id}</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md truncate">
-                      {override.image_url}
+                      {override.image_url.trim() === '' ? '(Cleared)' : override.image_url}
                     </p>
                     <div className="flex items-center space-x-2 mt-1">
-                      {override.is_video && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          Video
+                      {override.image_url.trim() === '' ? (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                          Cleared
                         </span>
+                      ) : (
+                        override.is_video && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Video
+                          </span>
+                        )
                       )}
                       <span className="text-xs text-gray-500">
                         Added {new Date(override.created_at).toLocaleDateString()}
@@ -225,7 +235,9 @@ export default function AuctionImagesAdmin() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleDelete(override.auction_id)}
+                  onClick={() => handleClear(override.auction_id)}
+                  title={override.image_url.trim() === '' ? 'Already cleared' : 'Clear image URL'}
+                  disabled={override.image_url.trim() === ''}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

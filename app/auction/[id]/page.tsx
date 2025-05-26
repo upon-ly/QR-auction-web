@@ -34,7 +34,7 @@ import { frameSdk } from "@/lib/frame-sdk";
 import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
-import { removeLatestAuctionImageOverride } from "@/utils/auctionImageOverrides";
+import { removeAuctionImageOverride } from "@/utils/auctionImageOverrides";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -275,16 +275,16 @@ export default function AuctionPage() {
     onAuctionSettled: async (tokenId, winner, amount, urlString, name) => {
       console.log(`[AuctionSettled] Auction #${tokenId} settled, winner: ${winner}`);
       
-      // Remove the latest auction image override (cleanup)
+      // Clear the auction image override for the settled auction (cleanup)
       try {
-        const removed = await removeLatestAuctionImageOverride();
-        if (removed) {
-          console.log(`[AuctionSettled] Successfully removed latest auction image override`);
+        const cleared = await removeAuctionImageOverride(Number(tokenId));
+        if (cleared) {
+          console.log(`[AuctionSettled] Successfully cleared auction image override for auction #${tokenId}`);
         } else {
-          console.log(`[AuctionSettled] No auction image override to remove`);
+          console.log(`[AuctionSettled] No auction image override to clear for auction #${tokenId}`);
         }
       } catch (error) {
-        console.error(`[AuctionSettled] Error removing latest auction image override:`, error);
+        console.error(`[AuctionSettled] Error clearing auction image override for auction #${tokenId}:`, error);
       }
       
       forceRefetchAuctions();
@@ -333,9 +333,10 @@ export default function AuctionPage() {
     toast.info("CA copied!");
   };
 
-  // Get the winning image for the auction (using override if available)
+  // Get the winning image for the auction (using override if available, with OG fallback)
   const { data: auctionImageData, isLoading: isAuctionImageLoading } = useAuctionImage(
     currentAuctionId, 
+    ogUrl, // Pass the OG URL for fallback
     ogImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
   );
   
@@ -406,7 +407,7 @@ export default function AuctionPage() {
           <div className="grid grid-cols-1 gap-4 md:gap-8 w-full">
             <div className="flex flex-col w-full">
               {/* Mobile Winner Display - displayed as block on mobile, hidden on desktop */}
-              {isLatestAuction && currentWinningImage && !isAuction22 && !isAuction61 && (
+              {isLatestAuction && currentWinningImage && ogUrl && !isAuction22 && !isAuction61 && (
                 <div className="block md:hidden">
                   <div className="flex flex-col justify-center items-center w-[calc(100vw-32px)] max-w-[376px] mx-auto gap-1">
                     <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
@@ -470,7 +471,7 @@ export default function AuctionPage() {
               )}
               
               {/* Desktop Winner Display - hidden on mobile, displayed on desktop */}
-              {isLatestAuction && currentWinningImage && !isAuction22 && !isAuction61 && (
+              {isLatestAuction && currentWinningImage && ogUrl && !isAuction22 && !isAuction61 && (
                 <div className="hidden md:flex flex-col justify-center items-center gap-1 w-full max-w-[376px] mx-auto">
                   <label className="font-semibold text-xl md:text-2xl flex items-center justify-center w-full">
                     <span className="hidden md:inline">🏆</span>
