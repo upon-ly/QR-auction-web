@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSignedKey } from '@/utils/getSignedKey';
 import { getNeynarClient } from '@/lib/neynar';
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
+import { validateMiniAppUser } from '@/utils/miniapp-validation';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -54,8 +55,19 @@ async function logFailedTransaction(params: {
       return;
     }
     
-    // Queue for retry if eligible (skip duplicates and non-retryable errors)
-    if (!['DUPLICATE_CLAIM', 'SIGNER_ALREADY_EXISTS'].includes(params.error_code || '')) {
+    // Queue for retry if eligible (skip duplicates and validation errors)
+    const nonRetryableErrors = [
+      'DUPLICATE_CLAIM',
+      'DUPLICATE_CLAIM_FID', 
+      'DUPLICATE_CLAIM_ADDRESS',
+      'DUPLICATE_CLAIM_SPECIFIC',
+      'SIGNER_ALREADY_EXISTS',
+      'INVALID_USER',
+      'VALIDATION_ERROR',
+      'ADDRESS_NOT_VERIFIED'
+    ];
+    
+    if (!nonRetryableErrors.includes(params.error_code || '')) {
       await queueFailedClaim({
         id: data.id,
         fid: params.fid as number,
@@ -87,6 +99,18 @@ export async function POST(request: NextRequest) {
     const airdropAmount = optionType === 'likes' ? 2000 : optionType === 'recasts' ? 8000 : 10000;
     
     console.log(`Likes/recasts claim request: FID=${fid}, address=${address}, username=${username || 'unknown'}, option=${optionType}`);
+    
+    // Validate Mini App user and verify wallet address
+    const userValidation = await validateMiniAppUser(fid, username, address);
+    if (!userValidation.isValid) {
+      console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
+      
+      // Don't queue failed transactions for validation errors - just return error
+      return NextResponse.json({ 
+        success: false, 
+        error: userValidation.error || 'Invalid user or spoofed request' 
+      }, { status: 400 });
+    }
     
     // COMPREHENSIVE DUPLICATE CLAIM CHECKING
     // Check 1: Has this address already claimed ANY option type?
@@ -132,28 +156,7 @@ export async function POST(request: NextRequest) {
       const existingClaim = claimDataByAddress[0];
       console.log(`Address ${address} has already claimed ${existingClaim.option_type} option at tx ${existingClaim.tx_hash} by FID ${existingClaim.fid}`);
       
-      // Log duplicate claim attempt
-      try {
-        await logFailedTransaction({
-          fid: fid,
-          eth_address: address,
-          username: username || null,
-          option_type: optionType,
-          error_message: `Address has already claimed ${existingClaim.option_type} option (previously claimed by FID ${existingClaim.fid})`,
-          error_code: 'DUPLICATE_CLAIM_ADDRESS',
-          request_data: {
-            fid,
-            address,
-            username,
-            likesOnly,
-            optionType
-          },
-          retry_count: 0,
-        });
-      } catch (logError) {
-        console.error('Failed to log duplicate claim attempt:', logError);
-      }
-      
+      // Don't queue failed transactions for duplicate claims - these are user errors
       return NextResponse.json({ 
         success: false, 
         error: 'This wallet address has already claimed likes/recasts rewards',
@@ -204,28 +207,7 @@ export async function POST(request: NextRequest) {
       const existingClaim = claimDataByFid[0];
       console.log(`FID ${fid} has already claimed ${existingClaim.option_type} option at tx ${existingClaim.tx_hash} with address ${existingClaim.eth_address}`);
       
-      // Log duplicate claim attempt
-      try {
-        await logFailedTransaction({
-          fid: fid,
-          eth_address: address,
-          username: username || null,
-          option_type: optionType,
-          error_message: `FID has already claimed ${existingClaim.option_type} option with address ${existingClaim.eth_address}`,
-          error_code: 'DUPLICATE_CLAIM_FID',
-          request_data: {
-            fid,
-            address,
-            username,
-            likesOnly,
-            optionType
-          },
-          retry_count: 0,
-        });
-      } catch (logError) {
-        console.error('Failed to log duplicate claim attempt:', logError);
-      }
-      
+      // Don't queue failed transactions for duplicate claims - these are user errors
       return NextResponse.json({ 
         success: false, 
         error: 'This Farcaster account has already claimed likes/recasts rewards',
@@ -245,28 +227,7 @@ export async function POST(request: NextRequest) {
     if (existingSpecificClaim) {
       console.log(`User ${fid} has already claimed ${optionType} specifically`);
       
-      // Log duplicate claim attempt
-      try {
-        await logFailedTransaction({
-          fid: fid,
-          eth_address: address,
-          username: username || null,
-          option_type: optionType,
-          error_message: `User has already claimed ${optionType} option`,
-          error_code: 'DUPLICATE_CLAIM_SPECIFIC',
-          request_data: {
-            fid,
-            address,
-            username,
-            likesOnly,
-            optionType
-          },
-          retry_count: 0,
-        });
-      } catch (logError) {
-        console.error('Failed to log duplicate claim attempt:', logError);
-      }
-      
+      // Don't queue failed transactions for duplicate claims - these are user errors
       return NextResponse.json({ 
         success: false, 
         error: `User has already claimed ${optionType} option`,
