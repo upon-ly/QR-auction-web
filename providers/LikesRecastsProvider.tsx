@@ -165,11 +165,17 @@ export function LikesRecastsProvider({ children, onPopupComplete }: LikesRecasts
     }
   }, [showLikesRecastsPopup, hasCheckedEligibility]);
   
-  // Close popup
+  // Close popup and trigger next popup
   const handleClose = () => {
     console.log('Closing likes/recasts popup');
     setShowLikesRecastsPopup(false);
     releasePopup('likesRecasts');
+    
+    // Trigger LinkVisit popup after a short delay
+    setTimeout(() => {
+      console.log('Triggering LinkVisit popup after LikesRecasts close');
+      window.dispatchEvent(new CustomEvent('triggerLinkVisitPopup'));
+    }, 500);
   };
   
   return (

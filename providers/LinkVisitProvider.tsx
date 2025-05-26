@@ -255,7 +255,27 @@ export function LinkVisitProvider({
       hasCheckedEligibility, walletAddress, showClaimPopup, frameContext, isLatestWonAuction, 
       isCheckingLatestAuction, isPopupActive]);
   
-  // No need for event listeners - coordinator handles popup sequencing
+  // Listen for trigger from other popups closing
+  useEffect(() => {
+    const handleTrigger = () => {
+      console.log('===== LINK VISIT TRIGGERED BY OTHER POPUP =====');
+      
+      // Check if user is eligible (hasn't claimed for latest won auction)
+      if (manualHasClaimedLatest === false && latestWonAuctionId && walletAddress && !isLoading && explicitlyCheckedClaim) {
+        console.log('🎉 TRIGGERED - SHOWING LINK VISIT POPUP');
+        const granted = requestPopup('linkVisit');
+        if (granted) {
+          setShowClaimPopup(true);
+        }
+      } else {
+        console.log('❌ Triggered but user not eligible for link visit');
+      }
+      setHasCheckedEligibility(true);
+    };
+    
+    window.addEventListener('triggerLinkVisitPopup', handleTrigger);
+    return () => window.removeEventListener('triggerLinkVisitPopup', handleTrigger);
+  }, [manualHasClaimedLatest, latestWonAuctionId, walletAddress, isLoading, explicitlyCheckedClaim, requestPopup]);
   
   // Show popup when user can interact with it (ENABLED - shows independently if eligible)
   useEffect(() => {
@@ -292,7 +312,7 @@ export function LinkVisitProvider({
     if (manualHasClaimedLatest === false && latestWonAuctionId) {
       console.log('SHOWING POPUP - User has not claimed tokens for the latest won auction');
       
-      // Short delay to show popup after page loads
+      // Moderate delay to show popup after other popups
       const timer = setTimeout(() => {
         console.log('Requesting linkVisit popup from coordinator');
         const granted = requestPopup('linkVisit');
@@ -300,7 +320,7 @@ export function LinkVisitProvider({
           setShowClaimPopup(true);
         }
         setHasCheckedEligibility(true);
-      }, 1500);
+      }, 3000);
       
       return () => clearTimeout(timer);
     } else {
