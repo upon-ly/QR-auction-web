@@ -697,8 +697,8 @@ export function LikesRecastsClaimPopup({
     // };
     
     const shareText = encodeURIComponent(`i just got paid ${claimAmount.toLocaleString()} $QR for pledging my support for @qrcoindotfun!`);
-    const embedUrl = encodeURIComponent("https://qrcoin.fun"); // Update with actual cast URL
-    const quoteUrl = "";
+    const embedUrl = "" // Update with actual cast URL
+    const quoteUrl = "https://farcaster.xyz/qrcoindotfun/0xdf1ab09a";
     const shareUrl = `https://farcaster.xyz/~/compose?text=${shareText}&embeds[]=${embedUrl}&embeds[]=${quoteUrl}`;
     
     if (testMode) {
