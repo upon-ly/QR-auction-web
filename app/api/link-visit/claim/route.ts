@@ -6,6 +6,8 @@ import { validateMiniAppUser } from '@/utils/miniapp-validation';
 import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 
+
+
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -251,13 +253,14 @@ export async function POST(request: NextRequest) {
       const latestWonId = parseInt(latestWinner[0].token_id);
       const requestedId = parseInt(auction_id);
       
-      // Only allow claims for the latest won auction or the next auction
-      const isValidAuction = requestedId === latestWonId || requestedId === latestWonId + 1;
+      // ONLY allow claims for the latest won auction (not future auctions)
+      // This ensures all claims are recorded for the actual latest won auction
+      const isValidAuction = requestedId === latestWonId;
       
       console.log(`Validating auction claim: requested=${requestedId}, latest won=${latestWonId}, isValid=${isValidAuction}`);
       
       if (!isValidAuction) {
-        const errorMessage = `Invalid auction ID - can only claim from latest won auction (${latestWonId}) or the next one (${latestWonId + 1})`;
+        const errorMessage = `Invalid auction ID - can only claim from latest won auction (${latestWonId})`;
         
         // Log validation error
         await logFailedTransaction({
@@ -286,14 +289,26 @@ export async function POST(request: NextRequest) {
     // Additional detailed logging
     console.log(`📋 DETAILED CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, auction=${auction_id}, username=${username || 'unknown'}`);
     
-    // Validate Mini App user
-    const userValidation = await validateMiniAppUser(fid, username);
+    // Validate Mini App user and verify wallet address in one call
+    const userValidation = await validateMiniAppUser(fid, username, address);
     if (!userValidation.isValid) {
       console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
       
+      // Log validation failure with appropriate error code
+      const errorCode = userValidation.error?.includes('address') ? 'ADDRESS_NOT_VERIFIED' : 'INVALID_USER';
+      await logFailedTransaction({
+        fid,
+        eth_address: address,
+        auction_id,
+        username,
+        error_message: `User validation failed: ${userValidation.error}`,
+        error_code: errorCode,
+        request_data: requestData as Record<string, unknown>
+      });
+      
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid user or spoofed request' 
+        error: userValidation.error || 'Invalid user or spoofed request' 
       }, { status: 400 });
     }
     

@@ -12,7 +12,7 @@ interface ValidationResult {
   error?: string;
 }
 
-export async function validateMiniAppUser(fid: number, username?: string): Promise<ValidationResult> {
+export async function validateMiniAppUser(fid: number, username?: string, address?: string): Promise<ValidationResult> {
   try {
     // Use Neynar API to verify user exists and get their verified addresses
     const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
@@ -48,6 +48,22 @@ export async function validateMiniAppUser(fid: number, username?: string): Promi
       };
     }
 
+    // Optional: Verify wallet address is verified for this FID if provided
+    if (address) {
+      const verifiedAddresses = user.verified_addresses?.eth_addresses || [];
+      const normalizedAddress = address.toLowerCase();
+      const isAddressVerified = verifiedAddresses.some((addr: string) => addr.toLowerCase() === normalizedAddress);
+      
+      console.log(`FID ${fid} address verification: address=${address}, verified=${isAddressVerified}, verifiedAddresses=${verifiedAddresses.length}`);
+      
+      if (!isAddressVerified) {
+        return {
+          isValid: false,
+          error: 'Wallet address is not verified for this Farcaster account'
+        };
+      }
+    }
+
     return {
       isValid: true,
       user: {
@@ -76,5 +92,19 @@ export async function validateMiniAppContext(fid: number): Promise<boolean> {
   } catch (error) {
     console.error('Mini App context validation error:', error);
     return false;
+  }
+}
+
+// Standalone function to verify if an address is verified for a specific FID
+export async function verifyFidOwnsAddress(fid: number, address: string): Promise<{ isValid: boolean; error?: string }> {
+  try {
+    const validation = await validateMiniAppUser(fid, undefined, address);
+    return {
+      isValid: validation.isValid,
+      error: validation.error
+    };
+  } catch (error) {
+    console.error('Error verifying FID address:', error);
+    return { isValid: false, error: 'Failed to verify address' };
   }
 } 
