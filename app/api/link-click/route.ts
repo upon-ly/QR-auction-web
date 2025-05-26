@@ -20,6 +20,12 @@ export async function POST(request: NextRequest) {
   // Get client IP for logging
   const clientIP = getClientIP(request);
   
+  // Rate limiting FIRST: 10 requests per minute per IP (before any processing)
+  if (isRateLimited(clientIP, 10, 60000)) {
+    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many link click requests)`);
+    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+  }
+  
   try {
     // Get request parameters
     const { fid, auctionId, winningUrl, address, username } = await request.json();
@@ -33,11 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    // Rate limiting: 10 requests per minute per IP
-    if (isRateLimited(clientIP, 10, 60000)) {
-      console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many requests)`);
-      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
-    }
+
     
     if (!auctionId || !winningUrl) {
       return NextResponse.json({ 

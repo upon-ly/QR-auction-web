@@ -190,6 +190,12 @@ export async function POST(request: NextRequest) {
   // Get client IP for logging
   const clientIP = getClientIP(request);
 
+  // Rate limiting FIRST: 5 requests per minute per IP (before any processing)
+  if (isRateLimited(clientIP, 5, 60000)) {
+    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many airdrop requests)`);
+    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+  }
+
   try {
     // Validate API key first
     const apiKey = request.headers.get('x-api-key');
@@ -219,11 +225,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    // Rate limiting: 5 requests per minute per IP for airdrop
-    if (isRateLimited(clientIP, 5, 60000)) {
-      console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many airdrop requests)`);
-      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
-    }
+
     
     // Validate Mini App user
     const userValidation = await validateMiniAppUser(fid, username);

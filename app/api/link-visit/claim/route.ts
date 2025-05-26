@@ -188,6 +188,12 @@ export async function POST(request: NextRequest) {
   // Get client IP for logging
   const clientIP = getClientIP(request);
   
+  // Rate limiting FIRST: 3 requests per minute per IP (before any processing)
+  if (isRateLimited(clientIP, 3, 60000)) {
+    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many link visit claim requests)`);
+    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+  }
+  
   try {
     // Validate API key first
     const apiKey = request.headers.get('x-api-key');
@@ -205,16 +211,10 @@ export async function POST(request: NextRequest) {
     // Log all requests with IP
     console.log(`💰 LINK VISIT CLAIM: IP=${clientIP}, FID=${fid || 'none'}, auction=${auction_id}, address=${address || 'none'}, username=${username || 'none'}`);
     
-    // IMMEDIATE BLOCK for known abuser
+    // IMMEDIATE BLOCK for known abuser (before any validation)
     if (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2') {
       console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
-    }
-    
-    // Rate limiting: 3 requests per minute per IP for link visit claims
-    if (isRateLimited(clientIP, 3, 60000)) {
-      console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many link visit claim requests)`);
-      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
     }
     
     if (!fid || !address || !auction_id) {
