@@ -34,55 +34,24 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
   }
   
   try {
-    // Format address for API
-    const formattedAddress = normalizedAddress;
-    
-    // Fetch from Neynar API
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY;
-    if (!apiKey) {
-      console.error("Missing Neynar API key");
-      return null;
-    }
-    
-    const response = await fetch(
-      `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${formattedAddress}&address_types=verified_address`,
-      {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'x-api-key': apiKey
-        }
-      }
-    );
+    // Call our secure API route instead of Neynar directly
+    const response = await fetch(`/api/farcaster/user-by-address?address=${encodeURIComponent(normalizedAddress)}`);
     
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
     }
     
     const data = await response.json();
-    console.log("Neynar API response:", data);
     
-    // Process API response - the response structure is different than expected
-    // It returns an object with address as key and array of users as value
-    if (data && data[normalizedAddress] && data[normalizedAddress].length > 0) {
-      const user = data[normalizedAddress][0];
-      const farcasterUser: FarcasterUser = {
-        fid: user.fid,
-        username: user.username,
-        displayName: user.display_name,
-        pfpUrl: user.pfp_url,
-        isVerified: true
-      };
-      
-      // Cache the result
-      farcasterCache.set(normalizedAddress, farcasterUser);
-      
-      return farcasterUser;
+    if (data.error) {
+      console.error('API error:', data.error);
+      return null;
     }
     
-    // If no user found, cache null to avoid repeated lookups
-    farcasterCache.set(normalizedAddress, null);
-    return null;
+    // Cache and return the result
+    farcasterCache.set(normalizedAddress, data.user);
+    return data.user;
+    
   } catch (error) {
     console.error('Error fetching Farcaster username:', error);
     return null;
@@ -123,64 +92,31 @@ export async function getFarcasterUsersBulk(addresses: string[]): Promise<Map<st
   }
   
   try {
-    // Split into chunks of 20 addresses at a time (API limit)
-    const chunkSize = 20;
-    const addressChunks: string[][] = [];
+    // Call our secure API route instead of Neynar directly
+    const response = await fetch('/api/farcaster/users-bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ addresses: uncachedAddresses }),
+    });
     
-    for (let i = 0; i < uncachedAddresses.length; i += chunkSize) {
-      addressChunks.push(uncachedAddresses.slice(i, i + chunkSize));
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
     }
     
-    // Process each chunk with the API
-    await Promise.all(addressChunks.map(async (chunk) => {
-      const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY;
-      if (!apiKey) {
-        console.error("Missing Neynar API key");
-        return;
-      }
-      
-      // Format addresses for API (comma-separated)
-      const addressesParam = chunk.join('%2C');
-      
-      const response = await fetch(
-        `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${addressesParam}&address_types=verified_address`,
-        {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'x-api-key': apiKey
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Process results for each address in this chunk
-      chunk.forEach(addr => {
-        if (data && data[addr] && data[addr].length > 0) {
-          const user = data[addr][0];
-          const farcasterUser: FarcasterUser = {
-            fid: user.fid,
-            username: user.username,
-            displayName: user.display_name,
-            pfpUrl: user.pfp_url,
-            isVerified: true
-          };
-          
-          // Update cache and results
-          farcasterCache.set(addr, farcasterUser);
-          results.set(addr, farcasterUser);
-        } else {
-          // Cache null for addresses with no users
-          farcasterCache.set(addr, null);
-          results.set(addr, null);
-        }
-      });
-    }));
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('API error:', data.error);
+      return results;
+    }
+    
+    // Process results and update cache
+    Object.entries(data.users).forEach(([addr, user]) => {
+      farcasterCache.set(addr, user as FarcasterUser | null);
+      results.set(addr, user as FarcasterUser | null);
+    });
     
     return results;
   } catch (error) {
@@ -200,33 +136,14 @@ export async function getFarcasterProfilePicture(username: string): Promise<stri
     return null;
   }
   
-  // Fix for specific usernames
-  if (username === "!217978") {
-    username = "softwarecurator";
-  }
-  
   // Check cache first
   if (usernameCache.has(username)) {
     return usernameCache.get(username) || null;
   }
   
   try {
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY;
-    if (!apiKey) {
-      console.error("Missing Neynar API key");
-      return null;
-    }
-    
-    const response = await fetch(
-      `https://api.neynar.com/v2/farcaster/user/by_username?username=${encodeURIComponent(username)}`,
-      {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'x-api-key': apiKey
-        }
-      }
-    );
+    // Call our secure API route instead of Neynar directly
+    const response = await fetch(`/api/farcaster/user-by-username?username=${encodeURIComponent(username)}`);
     
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -234,15 +151,15 @@ export async function getFarcasterProfilePicture(username: string): Promise<stri
     
     const data = await response.json();
     
-    if (data?.user?.pfp_url) {
-      // Cache the result
-      usernameCache.set(username, data.user.pfp_url);
-      return data.user.pfp_url;
+    if (data.error) {
+      console.error('API error:', data.error);
+      return null;
     }
     
-    // Cache null result
-    usernameCache.set(username, null);
-    return null;
+    // Cache and return the result
+    usernameCache.set(username, data.pfpUrl);
+    return data.pfpUrl;
+    
   } catch (error) {
     console.error(`Error fetching Farcaster pfp for username ${username}:`, error);
     return null;

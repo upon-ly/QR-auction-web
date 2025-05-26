@@ -28,6 +28,8 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 // Hook for Farcaster metrics
 function useFarcasterMetrics() {
@@ -960,6 +962,380 @@ function SubgraphAnalytics() {
   );
 }
 
+// Likes/Recasts Test Component
+function LikesRecastsTestAdmin() {
+  const { address } = useAccount();
+  const [castHash, setCastHash] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<'all' | 'specific'>('all');
+  const [specificFids, setSpecificFids] = useState('');
+  const [actionType, setActionType] = useState<'likes' | 'both' | 'follow' | 'all'>('both');
+  const [targetFid, setTargetFid] = useState('280'); // Default test FID for follow
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableSigners, setAvailableSigners] = useState<{
+    fid: number;
+    permissions: string[];
+    status: string;
+    approved_at: string | null;
+  }[]>([]);
+  const [results, setResults] = useState<{
+    successful: number;
+    failed: number;
+    total: number;
+    errors?: string[];
+    details?: string;
+  } | null>(null);
+
+  // Fetch available signers on mount
+  useEffect(() => {
+    if (!address) return;
+    
+    const fetchSigners = async () => {
+      try {
+        const response = await fetch('/api/admin/available-signers', {
+          headers: {
+            'Authorization': `Bearer ${address}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableSigners(data.signers || []);
+        }
+      } catch (error) {
+        console.error('Error fetching signers:', error);
+      }
+    };
+
+    fetchSigners();
+  }, [address]);
+
+  const handleTest = async () => {
+    if (!castHash.trim() && actionType !== 'follow') {
+      toast.error('Please enter a cast hash');
+      return;
+    }
+
+    if (actionType === 'follow' && !targetFid.trim()) {
+      toast.error('Please enter a target FID for follow testing');
+      return;
+    }
+
+    setIsLoading(true);
+    setResults(null);
+
+    try {
+      const fidList = selectedUsers === 'all' 
+        ? availableSigners.map(s => s.fid)
+        : specificFids.split(',').map(f => f.trim()).filter(f => f).map(f => parseInt(f));
+
+      if (fidList.length === 0) {
+        toast.error('No users selected for testing');
+        return;
+      }
+
+      const response = await fetch('/api/admin/test-likes-recasts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`
+        },
+        body: JSON.stringify({
+          castHash: actionType === 'follow' ? null : castHash.trim(),
+          fids: fidList,
+          actionType,
+          targetFid: actionType === 'follow' || actionType === 'all' ? parseInt(targetFid) : undefined
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Test failed');
+      }
+
+      setResults(data);
+      toast.success(`Test completed! ${data.successful} successful, ${data.failed} failed`);
+
+    } catch (error) {
+      console.error('Test error:', error);
+      toast.error(error instanceof Error ? error.message : 'Test failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getSignersByPermission = (permission: string) => {
+    return availableSigners.filter(signer => 
+      signer.permissions.includes(permission)
+    ).length;
+  };
+
+  return (
+    <div>
+      <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Likes/Recasts/Follow Test</h3>
+        <p className="text-purple-700 dark:text-purple-400">
+          Test the automated engagement functionality with approved signers. Be careful - this will perform real actions on Farcaster.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Signers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{availableSigners.length}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Approved signers ready for testing
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Like Permission</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getSignersByPermission('like')}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Signers with like permission
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Recast Permission</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getSignersByPermission('recast')}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Signers with recast permission
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Follow Permission</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getSignersByPermission('follow')}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Signers with follow permission
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium mb-2">Action Type</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="likes"
+                checked={actionType === 'likes'}
+                onChange={(e) => setActionType(e.target.value as 'likes' | 'both' | 'follow' | 'all')}
+                className="mr-2"
+              />
+              Likes only
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="both"
+                checked={actionType === 'both'}
+                onChange={(e) => setActionType(e.target.value as 'likes' | 'both' | 'follow' | 'all')}
+                className="mr-2"
+              />
+              Likes + Recasts
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="follow"
+                checked={actionType === 'follow'}
+                onChange={(e) => setActionType(e.target.value as 'likes' | 'both' | 'follow' | 'all')}
+                className="mr-2"
+              />
+              Follow only
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="all"
+                checked={actionType === 'all'}
+                onChange={(e) => setActionType(e.target.value as 'likes' | 'both' | 'follow' | 'all')}
+                className="mr-2"
+              />
+              All actions
+            </label>
+          </div>
+        </div>
+
+        {actionType !== 'follow' && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Cast Hash</label>
+            <input
+              type="text"
+              value={castHash}
+              onChange={(e) => setCastHash(e.target.value)}
+              placeholder="Enter the cast hash to like/recast"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              Example: 0x1234567890abcdef...
+            </div>
+          </div>
+        )}
+
+        {(actionType === 'follow' || actionType === 'all') && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Target FID to Follow</label>
+            <input
+              type="text"
+              value={targetFid}
+              onChange={(e) => setTargetFid(e.target.value)}
+              placeholder="Enter FID to follow (e.g., 280)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              Enter the FID of the user you want signers to follow
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Users to Test</label>
+          <div className="space-y-3">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="all"
+                checked={selectedUsers === 'all'}
+                onChange={(e) => setSelectedUsers(e.target.value as 'all' | 'specific')}
+                className="mr-2"
+              />
+              All available signers ({availableSigners.length} users)
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="specific"
+                checked={selectedUsers === 'specific'}
+                onChange={(e) => setSelectedUsers(e.target.value as 'all' | 'specific')}
+                className="mr-2"
+              />
+              Specific FIDs (comma-separated)
+            </label>
+            {selectedUsers === 'specific' && (
+              <input
+                type="text"
+                value={specificFids}
+                onChange={(e) => setSpecificFids(e.target.value)}
+                placeholder="Enter FIDs: 12345, 67890, 13579"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white ml-6"
+              />
+            )}
+          </div>
+        </div>
+
+        <Button
+          onClick={handleTest}
+          disabled={isLoading || (!castHash.trim() && actionType !== 'follow') || ((actionType === 'follow' || actionType === 'all') && !targetFid.trim())}
+          className="w-full md:w-auto"
+        >
+          {isLoading ? 'Testing...' : 'Run Test'}
+        </Button>
+
+        {results && (
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <h4 className="text-lg font-medium mb-3">Test Results</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <div className="text-2xl font-bold text-green-600">{results.successful}</div>
+                <div className="text-sm text-gray-500">Successful</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600">{results.failed}</div>
+                <div className="text-sm text-gray-500">Failed</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{results.total}</div>
+                <div className="text-sm text-gray-500">Total Processed</div>
+              </div>
+            </div>
+            
+            {results.errors && results.errors.length > 0 && (
+              <div>
+                <h5 className="font-medium mb-2">Errors:</h5>
+                <ul className="list-disc list-inside space-y-1 text-sm text-red-600">
+                  {results.errors.map((error: string, index: number) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {results.details && (
+              <div className="mt-4">
+                <h5 className="font-medium mb-2">Processing Details:</h5>
+                <pre className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded overflow-x-auto">
+                  {results.details}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {availableSigners.length > 0 && (
+        <div className="mt-8">
+          <h4 className="text-lg font-medium mb-4">Available Signers</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left p-3">FID</th>
+                  <th className="text-left p-3">Permissions</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Approved At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {availableSigners.map((signer, index) => (
+                  <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
+                    <td className="p-3">{signer.fid}</td>
+                    <td className="p-3">{signer.permissions?.join(', ') || 'none'}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        signer.status === 'approved' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                      }`}>
+                        {signer.status}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {signer.approved_at 
+                        ? new Date(signer.approved_at).toLocaleDateString()
+                        : 'Not approved'
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // List of authorized admin addresses (lowercase for easy comparison)
 const ADMIN_ADDRESSES = [
   "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
@@ -1188,6 +1564,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="farcaster">Farcaster</TabsTrigger>
             <TabsTrigger value="costperclick">Cost Per Click</TabsTrigger>
             <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
+            <TabsTrigger value="likesrecaststest">Likes/Recasts Test</TabsTrigger>
           </TabsList>
 
           {/* Subgraph Analytics Dashboard */}
@@ -1444,6 +1821,11 @@ export default function AdminDashboard() {
           {/* Testimonials Dashboard */}
           <TabsContent value="testimonials">
             <TestimonialsAdmin />
+          </TabsContent>
+
+          {/* Likes/Recasts Test Dashboard */}
+          <TabsContent value="likesrecaststest">
+            <LikesRecastsTestAdmin />
           </TabsContent>
         </Tabs>
 

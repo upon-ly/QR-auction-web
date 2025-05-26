@@ -4,9 +4,9 @@ let neynarClient: NeynarAPIClient | null = null;
 
 export function getNeynarClient() {
   if (!neynarClient) {
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY || process.env.NEYNAR_API_KEY;
+    const apiKey = process.env.NEYNAR_API_KEY;
     if (!apiKey) {
-      throw new Error('Neynar API key not configured. Please set NEXT_PUBLIC_NEYNAR_API_KEY or NEYNAR_API_KEY');
+      throw new Error('Neynar API key not configured. Please set NEYNAR_API_KEY');
     }
     const config = new Configuration({ apiKey });
     neynarClient = new NeynarAPIClient(config);
@@ -377,7 +377,7 @@ export async function getNotificationTokens(options?: {
     console.log(`[GetTokens] Fetching all notification tokens with pagination...`);
     
     // Get API key
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY || process.env.NEYNAR_API_KEY;
+    const apiKey = process.env.NEYNAR_API_KEY;
     if (!apiKey) {
       throw new Error('Neynar API key not configured');
     }

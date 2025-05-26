@@ -38,13 +38,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Get failure counts for both claim types
+    // Get failure counts for all claim types
     const { count: linkVisitFailureCount } = await supabase
       .from('link_visit_claim_failures')
       .select('*', { count: 'exact', head: true });
       
     const { count: airdropFailureCount } = await supabase
       .from('airdrop_claim_failures')
+      .select('*', { count: 'exact', head: true });
+      
+    const { count: likesRecastsFailureCount } = await supabase
+      .from('likes_recasts_claim_failures')
       .select('*', { count: 'exact', head: true });
     
     // Get all retry keys from Redis
@@ -56,6 +60,7 @@ export async function GET(request: NextRequest) {
       byType: {
         'link-visit': 0,
         'airdrop': 0,
+        'likes-recasts': 0,
         'unknown': 0
       },
       byStatus: {
@@ -112,6 +117,13 @@ export async function GET(request: NextRequest) {
       .select('id, fid, eth_address, error_code, error_message, created_at')
       .order('created_at', { ascending: false })
       .limit(5);
+      
+    // Get recent likes/recasts failures
+    const { data: recentLikesRecastsFailures } = await supabase
+      .from('likes_recasts_claim_failures')
+      .select('id, fid, eth_address, option_type, error_code, error_message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
     
     // Get recent link-visit claims
     const { data: recentLinkVisitClaims } = await supabase
@@ -128,21 +140,32 @@ export async function GET(request: NextRequest) {
       .eq('success', true)
       .order('claimed_at', { ascending: false })
       .limit(5);
+      
+    // Get recent likes/recasts claims
+    const { data: recentLikesRecastsClaims } = await supabase
+      .from('likes_recasts_claims')
+      .select('fid, eth_address, option_type, created_at, tx_hash')
+      .eq('success', true)
+      .order('created_at', { ascending: false })
+      .limit(5);
     
     return NextResponse.json({
       failures: {
         linkVisit: linkVisitFailureCount,
         airdrop: airdropFailureCount,
-        total: (linkVisitFailureCount || 0) + (airdropFailureCount || 0)
+        likesRecasts: likesRecastsFailureCount,
+        total: (linkVisitFailureCount || 0) + (airdropFailureCount || 0) + (likesRecastsFailureCount || 0)
       },
       retryStats: stats,
       recentFailures: {
         linkVisit: recentLinkVisitFailures,
-        airdrop: recentAirdropFailures
+        airdrop: recentAirdropFailures,
+        likesRecasts: recentLikesRecastsFailures
       },
       recentClaims: {
         linkVisit: recentLinkVisitClaims, 
-        airdrop: recentAirdropClaims
+        airdrop: recentAirdropClaims,
+        likesRecasts: recentLikesRecastsClaims
       }
     });
   } catch (error) {

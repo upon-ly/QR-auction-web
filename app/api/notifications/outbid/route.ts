@@ -21,41 +21,31 @@ export async function POST(request: NextRequest) {
   const { bidderAddress, auctionId } = requestBody.data;
   
   try {
-    // Get the FID for the address
-    const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY;
+    // Get the FID for the address using our secure API route
     const normalizedAddress = bidderAddress.toLowerCase();
-    
-    // Use the correct bulk-by-address endpoint
-    const url = `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${normalizedAddress}`;
     
     console.log(`Looking up Farcaster user for address: ${normalizedAddress}`);
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': apiKey || '',
-      }
-    });
+    const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/farcaster/user-by-address?address=${encodeURIComponent(normalizedAddress)}`);
     
     if (!response.ok) {
-      throw new Error(`Neynar API returned status ${response.status}: ${await response.text()}`);
+      throw new Error(`API returned status ${response.status}: ${await response.text()}`);
     }
     
     const data = await response.json();
     
-    // The response format is different - it's an object with the address as the key
-    const users = data[normalizedAddress];
+    if (data.error) {
+      throw new Error(`API error: ${data.error}`);
+    }
     
-    // Check if any users were found
-    if (users && users.length > 0) {
-      const user = users[0]; // Take the first user associated with the address
+    // Check if a user was found
+    if (data.user && data.user.fid) {
+      const user = data.user;
       
-      if (user.fid) {
-        console.log(`Found Farcaster user with FID ${user.fid} (${user.username || 'unnamed'}) for address ${normalizedAddress}`);
-        
-        // Send the notification
-        const result = await sendOutbidNotification(user.fid, auctionId);
+      console.log(`Found Farcaster user with FID ${user.fid} (${user.username || 'unnamed'}) for address ${normalizedAddress}`);
+      
+      // Send the notification
+      const result = await sendOutbidNotification(user.fid, auctionId);
         
         if (result.state === "error") {
           return Response.json(
@@ -76,7 +66,6 @@ export async function POST(request: NextRequest) {
         
         console.log(`Sent outbid notification to FID: ${user.fid} for auction #${auctionId}`);
         return Response.json({ success: true });
-      }
     }
     
     // If we get here, no Farcaster user was found for this address

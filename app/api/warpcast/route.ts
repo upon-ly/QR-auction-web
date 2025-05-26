@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           'accept': 'application/json',
-          'x-api-key': process.env.NEYNAR_API_KEY || process.env.NEXT_PUBLIC_NEYNAR_API_KEY || '',
+          'x-api-key': process.env.NEYNAR_API_KEY || '',
         },
       }
     );

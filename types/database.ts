@@ -126,6 +126,173 @@ export interface Database {
           username?: string | null
         }
       }
+      likes_recasts_claims: {
+        Row: {
+          id: number
+          fid: number
+          eth_address: string
+          option_type: 'likes' | 'both' | 'recasts'
+          amount: number
+          tx_hash: string | null
+          success: boolean | null
+          username: string | null
+          signer_uuid: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          fid: number
+          eth_address: string
+          option_type: 'likes' | 'both' | 'recasts'
+          amount: number
+          tx_hash?: string | null
+          success?: boolean | null
+          username?: string | null
+          signer_uuid?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          fid?: number
+          eth_address?: string
+          option_type?: 'likes' | 'both' | 'recasts'
+          amount?: number
+          tx_hash?: string | null
+          success?: boolean | null
+          username?: string | null
+          signer_uuid?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      neynar_signers: {
+        Row: {
+          id: number
+          fid: number
+          signer_uuid: string
+          public_key: string | null
+          status: string
+          permissions: string[]
+          signer_approval_url: string | null
+          username: string | null
+          approved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          fid: number
+          signer_uuid: string
+          public_key?: string | null
+          status?: string
+          permissions?: string[]
+          signer_approval_url?: string | null
+          username?: string | null
+          approved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          fid?: number
+          signer_uuid?: string
+          public_key?: string | null
+          status?: string
+          permissions?: string[]
+          signer_approval_url?: string | null
+          username?: string | null
+          approved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      likes_recasts_claim_failures: {
+        Row: {
+          id: number
+          fid: number
+          eth_address: string
+          username: string | null
+          option_type: string | null
+          error_message: string
+          error_code: string | null
+          tx_hash: string | null
+          request_data: Json | null
+          gas_price: string | null
+          gas_limit: number | null
+          network_status: string | null
+          retry_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          fid: number
+          eth_address: string
+          username?: string | null
+          option_type?: string | null
+          error_message: string
+          error_code?: string | null
+          tx_hash?: string | null
+          request_data?: Json | null
+          gas_price?: string | null
+          gas_limit?: number | null
+          network_status?: string | null
+          retry_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          fid?: number
+          eth_address?: string
+          username?: string | null
+          option_type?: string | null
+          error_message?: string
+          error_code?: string | null
+          tx_hash?: string | null
+          request_data?: Json | null
+          gas_price?: string | null
+          gas_limit?: number | null
+          network_status?: string | null
+          retry_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      auto_engagement_logs: {
+        Row: {
+          id: number
+          cast_hash: string
+          cast_url: string | null
+          total_signers: number
+          successful: number
+          failed: number
+          errors: string[] | null
+          processed_at: string
+        }
+        Insert: {
+          id?: number
+          cast_hash: string
+          cast_url?: string | null
+          total_signers: number
+          successful: number
+          failed: number
+          errors?: string[] | null
+          processed_at?: string
+        }
+        Update: {
+          id?: number
+          cast_hash?: string
+          cast_url?: string | null
+          total_signers?: number
+          successful?: number
+          failed?: number
+          errors?: string[] | null
+          processed_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
