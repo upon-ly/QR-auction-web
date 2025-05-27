@@ -320,7 +320,7 @@ export function LinkVisitProvider({
           setShowClaimPopup(true);
         }
         setHasCheckedEligibility(true);
-      }, 3000);
+      }, 2000);
       
       return () => clearTimeout(timer);
     } else {
