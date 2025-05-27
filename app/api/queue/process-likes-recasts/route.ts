@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
       );
       
       // Determine airdrop amount based on option type
-      const amount = failure.option_type === 'likes' ? 2000 : failure.option_type === 'both' ? 10000 : 8000;
+      const amount = failure.option_type === 'likes' ? 1000 : failure.option_type === 'both' ? 2000 : 1000;
       const airdropAmountWei = ethers.parseUnits(amount.toString(), 18);
       
       // Check token balance

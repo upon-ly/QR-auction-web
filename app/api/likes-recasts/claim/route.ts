@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     
     // Handle backward compatibility
     const optionType = providedOptionType || (likesOnly ? 'likes' : 'both');
-    const airdropAmount = optionType === 'likes' ? 2000 : optionType === 'recasts' ? 8000 : 10000;
+    const airdropAmount = optionType === 'likes' ? 1000 : optionType === 'recasts' ? 1000 : 2000;
     
     console.log(`🎯 LIKES/RECASTS CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, username=${username || 'unknown'}, option=${optionType}`);
     

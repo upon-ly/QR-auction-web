@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
       
       // Check token balance
       const tokenBalance = await qrTokenContract.balanceOf(adminWallet.address);
-      if (tokenBalance < ethers.parseUnits('2000', 18)) {
+      if (tokenBalance < ethers.parseUnits('1000', 18)) {
         // Update retry status
         await updateRetryStatus(failureId, {
           status: 'failed',
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
       
       // Check allowance
       const allowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
-      if (allowance < ethers.parseUnits('2000', 18)) {
+      if (allowance < ethers.parseUnits('1000', 18)) {
         console.log('Approving tokens for airdrop contract...');
         
         // Increase gas price by 30%
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Prepare airdrop data
-      const airdropAmount = ethers.parseUnits('2000', 18);
+      const airdropAmount = ethers.parseUnits('1000', 18);
       const airdropContent = [{
         recipient: failure.eth_address,
         amount: airdropAmount

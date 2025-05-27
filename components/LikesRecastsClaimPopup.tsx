@@ -349,17 +349,17 @@ export function LikesRecastsClaimPopup({
               
               if (hasLikePermission && hasRecastPermission) {
                 userOptionType = 'both';
-                userAmount = 10000;
+                userAmount = 2000;
               } else if (hasLikePermission) {
                 userOptionType = 'likes';
-                userAmount = 2000;
+                userAmount = 1000;
               } else if (hasRecastPermission) {
                 userOptionType = 'recasts';
-                userAmount = 8000;
+                userAmount = 1000;
               } else {
                 // Fallback case
                 userOptionType = 'both';
-                userAmount = 10000;
+                userAmount = 2000;
               }
               
               console.log(`User has permissions for: ${userOptionType}, amount: ${userAmount}`);
@@ -368,15 +368,15 @@ export function LikesRecastsClaimPopup({
               if (userOptionType === 'likes') {
                 setLikesEnabled(true);
                 setRecastsEnabled(false);
-                setClaimAmount(2000);
+                setClaimAmount(1000);
               } else if (userOptionType === 'recasts') {
                 setLikesEnabled(false);
                 setRecastsEnabled(true);
-                setClaimAmount(8000);
+                setClaimAmount(1000);
               } else if (userOptionType === 'both') {
                 setLikesEnabled(true);
                 setRecastsEnabled(true);
-                setClaimAmount(10000);
+                setClaimAmount(2000);
               }
               
               // Call API to set up pendingClaim state with their actual option
@@ -392,7 +392,7 @@ export function LikesRecastsClaimPopup({
             // Fallback to 'both' if we can't fetch permissions
             setLikesEnabled(true);
             setRecastsEnabled(true);
-            setClaimAmount(10000);
+            setClaimAmount(2000);
             await claimTokens(
               context.user.fid,
               walletAddress,
@@ -520,9 +520,9 @@ export function LikesRecastsClaimPopup({
 
   // Helper function to get reward amount
   const getRewardAmount = () => {
-    if (likesEnabled && recastsEnabled) return 10000; // Both selected
-    if (likesEnabled && !recastsEnabled) return 2000; // Only likes
-    if (!likesEnabled && recastsEnabled) return 8000; // Only recasts
+    if (likesEnabled && recastsEnabled) return 2000; // Both selected
+    if (likesEnabled && !recastsEnabled) return 1000; // Only likes
+    if (!likesEnabled && recastsEnabled) return 1000; // Only recasts
     return 0; // None selected
   };
 
@@ -648,7 +648,7 @@ export function LikesRecastsClaimPopup({
       // If still 0, try to determine from user's actual permissions
       if (correctAmount === 0) {
         // Default based on common case - both permissions
-        correctAmount = 10000;
+        correctAmount = 2000;
       }
     }
     
@@ -882,7 +882,7 @@ export function LikesRecastsClaimPopup({
                         "text-xs transition-all",
                         likesEnabled ? "text-primary" : "text-muted-foreground line-through"
                       )}>
-                        +2,000 $QR
+                        +1,000 $QR
                       </div>
                     </div>
 
@@ -916,7 +916,7 @@ export function LikesRecastsClaimPopup({
                         "text-xs transition-all",
                         recastsEnabled ? "text-primary" : "text-muted-foreground line-through"
                       )}>
-                        +8,000 $QR
+                        +1,000 $QR
                       </div>
                     </div>
                   </div>

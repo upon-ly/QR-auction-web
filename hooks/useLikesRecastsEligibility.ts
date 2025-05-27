@@ -139,6 +139,7 @@ export function useLikesRecastsEligibility() {
         if (claimData && claimData.length > 0) {
           // Check what they've already claimed
           const likesOnlyClaim = claimData.find(claim => claim.option_type === 'likes');
+          const recastsOnlyClaim = claimData.find(claim => claim.option_type === 'recasts');
           const bothClaim = claimData.find(claim => claim.option_type === 'both');
           
           setHasClaimedLikes(!!likesOnlyClaim);
@@ -147,6 +148,16 @@ export function useLikesRecastsEligibility() {
           // If they've claimed both options, they're not eligible
           if (bothClaim) {
             console.log("User has already claimed likes & recasts - not eligible");
+            setIsEligible(false);
+            setIsLoading(false);
+            setHasCompletedInitialCheck(true);
+            return;
+          }
+          
+          // If they've claimed any individual option, they might still be eligible for the other
+          // But if they've claimed both individual options, they're not eligible
+          if (likesOnlyClaim && recastsOnlyClaim) {
+            console.log("User has already claimed both individual options - not eligible");
             setIsEligible(false);
             setIsLoading(false);
             setHasCompletedInitialCheck(true);
@@ -191,11 +202,11 @@ export function useLikesRecastsEligibility() {
   }, [frameContext, walletAddress, hasCompletedInitialCheck, lastCheckTime]);
   
   // Function to record claim in database
-  const recordClaim = async (optionType: 'likes' | 'both', txHash?: string): Promise<boolean> => {
+  const recordClaim = async (optionType: 'likes' | 'recasts' | 'both', txHash?: string): Promise<boolean> => {
     if (!frameContext?.user?.fid || !walletAddress) return false;
     
     try {
-      const amount = optionType === 'likes' ? 2000 : 10000;
+      const amount = optionType === 'likes' ? 1000 : optionType === 'recasts' ? 1000 : 2000;
       
       const { error } = await supabase
         .from('likes_recasts_claims')
@@ -216,6 +227,10 @@ export function useLikesRecastsEligibility() {
       // Update local state
       if (optionType === 'likes') {
         setHasClaimedLikes(true);
+      } else if (optionType === 'recasts') {
+        // For recasts only, we might want to add a separate state or handle differently
+        // For now, treating it similar to likes in terms of eligibility
+        setHasClaimedLikes(true); // This might need its own state variable
       } else {
         setHasClaimedBoth(true);
       }

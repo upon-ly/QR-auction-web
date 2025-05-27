@@ -143,7 +143,7 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
     setClaimState('success');
     
     // Show success toast with black styling
-    toast.success('2,000 $QR has been sent to your wallet.', {
+    toast.success('1,000 $QR has been sent to your wallet.', {
       style: {
         background: 'var(--primary)',
         color: 'var(--primary-foreground)',
@@ -217,7 +217,7 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
               ? 'You have already claimed' 
               : claimState === 'success' 
                 ? 'Claim Successful!' 
-                : 'Claim 2,000 $QR'}
+                : 'Claim 1,000 $QR'}
           </motion.h2>
 
           <motion.p
@@ -229,7 +229,7 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
             {!isEligible 
               ? 'Thank you for your support!' 
               : claimState === 'success' 
-                ? '2,000 $QR sent to your wallet.' 
+                ? '1,000 $QR sent to your wallet.' 
                 : 'Thank you for adding our mini app!'}
           </motion.p>
 
