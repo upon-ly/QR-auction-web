@@ -47,6 +47,7 @@ export function useClaimLikesRecasts() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_LINK_CLICK_API_KEY || '',
         },
         body: JSON.stringify({
           fid,
@@ -166,6 +167,7 @@ export function useClaimLikesRecasts() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': process.env.NEXT_PUBLIC_LINK_CLICK_API_KEY || '',
       },
       body: JSON.stringify({
         fid,
