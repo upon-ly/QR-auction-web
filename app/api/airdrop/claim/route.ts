@@ -227,14 +227,14 @@ export async function POST(request: NextRequest) {
     
 
     
-    // Validate Mini App user
-    const userValidation = await validateMiniAppUser(fid, username);
+    // Validate Mini App user AND verify wallet address
+    const userValidation = await validateMiniAppUser(fid, username, address);
     if (!userValidation.isValid) {
       console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
       
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid user or spoofed request' 
+        error: userValidation.error || 'Invalid user or spoofed request' 
       }, { status: 400 });
     }
     
