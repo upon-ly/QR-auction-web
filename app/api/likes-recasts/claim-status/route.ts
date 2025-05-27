@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -15,6 +16,17 @@ if (!supabaseServiceKey) {
 }
 
 export async function GET(request: NextRequest) {
+  // ENDPOINT DISABLED - Return early with disabled message
+  return NextResponse.json({ 
+    success: false, 
+    error: 'Likes/recasts claim status is currently disabled' 
+  }, { status: 503 });
+
+  /* eslint-disable */
+  // @ts-ignore
+  // All code below this point is unreachable due to early return
+
+  /*
   try {
     const { searchParams } = new URL(request.url);
     const fid = searchParams.get('fid');
@@ -67,4 +79,5 @@ export async function GET(request: NextRequest) {
       error: 'Internal server error' 
     }, { status: 500 });
   }
+  */
 } 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSignedKey } from '@/utils/getSignedKey';
@@ -85,6 +86,17 @@ async function logFailedTransaction(params: {
 }
 
 export async function POST(request: NextRequest) {
+  // ENDPOINT DISABLED - Return early with disabled message
+  return NextResponse.json({ 
+    success: false, 
+    error: 'Likes/recasts claims are currently disabled' 
+  }, { status: 503 });
+
+  /* eslint-disable */
+  // @ts-ignore
+  // All code below this point is unreachable due to early return
+
+  /*
   // Get client IP for logging
   const clientIP = getClientIP(request);
 
@@ -487,4 +499,5 @@ export async function POST(request: NextRequest) {
       error: errorMessage
     }, { status: 500 });
   }
+  */
 } 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
@@ -73,6 +74,17 @@ const ERC20_ABI = [
 ];
 
 export async function POST(req: NextRequest) {
+  // ENDPOINT DISABLED - Return early with disabled message
+  return NextResponse.json({ 
+    success: false, 
+    error: 'Queue processing is currently disabled' 
+  }, { status: 503 });
+
+  /* eslint-disable */
+  // @ts-ignore
+  // All code below this point is unreachable due to early return
+
+  /*
   // Verify the request is from QStash
   try {
     const signature = req.headers.get('upstash-signature');
@@ -433,4 +445,5 @@ export async function POST(req: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
+  */
 } 
