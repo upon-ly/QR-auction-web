@@ -745,7 +745,8 @@ export function LikesRecastsClaimPopup({
   // Determine if user has actually claimed based on database check
   const hasActuallyClaimedSomething = testMode ? hasAlreadyClaimed : actualClaimStatus.hasClaimedAny;
 
-
+  // POPUP DISABLED - Return null to hide the popup completely
+  return null;
 
   if (hasActuallyClaimedSomething) {
     return (
