@@ -83,7 +83,7 @@ export function EngagementManager() {
   const [searchResults, setSearchResults] = useState<Signer[]>([]);
   const [filters, setFilters] = useState<EngagementFilters>({
     minFollowers: 0,
-    maxFollowers: 100000,
+    maxFollowers: 200000, // Set high enough to include all signers by default
     minNeynarScore: 0,
     maxNeynarScore: 1,
     powerBadgeOnly: false,
@@ -332,7 +332,7 @@ export function EngagementManager() {
   const resetFilters = () => {
     setFilters({
       minFollowers: 0,
-      maxFollowers: 100000,
+      maxFollowers: 200000,
       minNeynarScore: 0,
       maxNeynarScore: 1,
       powerBadgeOnly: false,
@@ -879,7 +879,7 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                                              <Slider
                          value={[filters.minFollowers]}
                          onValueChange={([value]: number[]) => setFilters(prev => ({ ...prev, minFollowers: value }))}
-                         max={100000}
+                         max={200000}
                          step={100}
                          className="flex-1"
                        />
@@ -889,7 +889,7 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                                               <Slider
                           value={[filters.maxFollowers]}
                           onValueChange={([value]) => setFilters(prev => ({ ...prev, maxFollowers: value }))}
-                          max={100000}
+                          max={200000}
                           step={100}
                           className="flex-1"
                         />
@@ -1134,7 +1134,7 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                     <Slider
                       value={[target.numLikes]}
                       onValueChange={([value]) => setTarget(prev => ({ ...prev, numLikes: value }))}
-                      max={Math.min(500, engagementStats.likersAvailable)}
+                      max={engagementStats.likersAvailable}
                       step={1}
                     />
                     <div className="text-xs text-gray-500">
@@ -1147,7 +1147,7 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                     <Slider
                       value={[target.numRecasts]}
                       onValueChange={([value]) => setTarget(prev => ({ ...prev, numRecasts: value }))}
-                      max={Math.min(250, engagementStats.recastersAvailable)}
+                      max={engagementStats.recastersAvailable}
                       step={1}
                     />
                     <div className="text-xs text-gray-500">
