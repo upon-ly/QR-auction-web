@@ -86,7 +86,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function logFailedTransaction(params: {
   fid: number | string;
   eth_address: string;
-  username?: string | null;
+  username?: string;
   error_message: string;
   error_code?: string;
   tx_hash?: string;
@@ -103,7 +103,7 @@ async function logFailedTransaction(params: {
       .insert({
         fid: params.fid,
         eth_address: params.eth_address,
-        username: params.username || null,
+        username: params.username,
         error_message: params.error_message,
         error_code: params.error_code || null,
         tx_hash: params.tx_hash || null,
@@ -128,7 +128,7 @@ async function logFailedTransaction(params: {
         fid: params.fid as number,
         eth_address: params.eth_address,
         auction_id: '0', // Use '0' for airdrop since it's not auction-based
-        username: params.username as string | null,
+        username: params.username as string,
         winning_url: null,
       });
     }
@@ -210,10 +210,10 @@ export async function POST(request: NextRequest) {
     requestData = await request.json() as AirdropRequestData;
     ({ fid, address, hasNotifications, username } = requestData);
     
-    if (!fid || !address || !username) {
-      console.log('Validation error: Missing fid, address, or username');
+    if (!fid || !address || !username || username.trim() === '') {
+      console.log('Validation error: Missing fid, address, or username (or username is empty)');
       
-      return NextResponse.json({ success: false, error: 'Missing fid, address, or username' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing fid, address, or username (or username is empty)' }, { status: 400 });
     }
     
     // Log request for debugging with IP
@@ -595,7 +595,7 @@ export async function POST(request: NextRequest) {
           amount: 1000, // 1,000 QR tokens
           tx_hash: receipt.hash,
           success: true,
-          username: username || null
+          username: username
         });
         
       if (insertError) {
@@ -715,7 +715,7 @@ export async function POST(request: NextRequest) {
       await logFailedTransaction({
         fid: typeof fid === 'number' ? fid : 0,
         eth_address: typeof address === 'string' ? address : 'unknown',
-        username: username || null,
+        username: username,
         error_message: errorMessage,
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,
