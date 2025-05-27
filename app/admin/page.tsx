@@ -989,7 +989,7 @@ function LikesRecastsTestAdmin() {
   // Pagination and filtering state for signers table
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [searchFid, setSearchFid] = useState('');
+  const [searchUsername, setSearchUsername] = useState('');
   const [filterPermission, setFilterPermission] = useState<'all' | 'like' | 'recast' | 'follow'>('all');
   const [sortField, setSortField] = useState<'fid' | 'approved_at'>('approved_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1092,10 +1092,11 @@ function LikesRecastsTestAdmin() {
   const filteredAndSortedSigners = useMemo(() => {
     let filtered = availableSigners;
 
-    // Filter by FID search
-    if (searchFid.trim()) {
+    // Filter by username search
+    if (searchUsername.trim()) {
       filtered = filtered.filter(signer => 
-        signer.fid.toString().includes(searchFid.trim())
+        signer.username?.toLowerCase().includes(searchUsername.trim().toLowerCase()) ||
+        signer.fid.toString().includes(searchUsername.trim())
       );
     }
 
@@ -1119,7 +1120,7 @@ function LikesRecastsTestAdmin() {
     });
 
     return filtered;
-  }, [availableSigners, searchFid, filterPermission, sortField, sortDirection]);
+  }, [availableSigners, searchUsername, filterPermission, sortField, sortDirection]);
 
   // Paginate the filtered results
   const paginatedSigners = useMemo(() => {
@@ -1132,7 +1133,7 @@ function LikesRecastsTestAdmin() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchFid, filterPermission]);
+  }, [searchUsername, filterPermission]);
 
   const handleSort = (field: 'fid' | 'approved_at') => {
     if (sortField === field) {
@@ -1377,7 +1378,7 @@ function LikesRecastsTestAdmin() {
                 size="sm"
                 onClick={fetchSigners}
                 disabled={isRefreshing}
-                className="h-8 px-3"
+                className="h-8 px-3 mr-4"
               >
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
@@ -1387,9 +1388,9 @@ function LikesRecastsTestAdmin() {
             <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
-                placeholder="Search FID..."
-                value={searchFid}
-                onChange={(e) => setSearchFid(e.target.value)}
+                placeholder="Search username or FID..."
+                value={searchUsername}
+                onChange={(e) => setSearchUsername(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
               />
               

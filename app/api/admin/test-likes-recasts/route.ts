@@ -70,35 +70,47 @@ export async function POST(request: NextRequest) {
 
     console.log(`Testing likes/recasts/follows for cast ${castHash} with ${fids.length} users, action: ${actionType}`);
 
-    // Get signers for the specified FIDs
-    const { data: signers, error: signersError } = await supabase
-      .from('neynar_signers')
-      .select('fid, signer_uuid, permissions, status')
-      .eq('status', 'approved')
-      .in('fid', fids);
+    // Batch FIDs to avoid URI too large error (Supabase limit)
+    const BATCH_SIZE = 100; // Adjust this if needed
+    const allSigners = [];
+    
+    for (let i = 0; i < fids.length; i += BATCH_SIZE) {
+      const fidBatch = fids.slice(i, i + BATCH_SIZE);
+      console.log(`Fetching signers batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(fids.length / BATCH_SIZE)} (${fidBatch.length} FIDs)`);
+      
+      const { data: batchSigners, error: batchError } = await supabase
+        .from('neynar_signers')
+        .select('fid, signer_uuid, permissions, status')
+        .eq('status', 'approved')
+        .in('fid', fidBatch);
 
-    if (signersError) {
-      console.error('Error fetching signers:', signersError);
-      return NextResponse.json(
-        { error: 'Failed to fetch signers' },
-        { status: 500 }
-      );
+      if (batchError) {
+        console.error(`Error fetching signers batch ${Math.floor(i / BATCH_SIZE) + 1}:`, batchError);
+        return NextResponse.json(
+          { error: `Failed to fetch signers batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batchError.message}` },
+          { status: 500 }
+        );
+      }
+
+      if (batchSigners && batchSigners.length > 0) {
+        allSigners.push(...batchSigners);
+      }
     }
 
-    if (!signers || signers.length === 0) {
+    if (allSigners.length === 0) {
       return NextResponse.json(
         { error: 'No approved signers found for the specified FIDs' },
         { status: 404 }
       );
     }
 
-    console.log(`Found ${signers.length} approved signers to process`);
+    console.log(`Found ${allSigners.length} approved signers to process (from ${fids.length} requested FIDs)`);
 
     // Process each signer
     const results = {
       successful: 0,
       failed: 0,
-      total: signers.length,
+      total: allSigners.length,
       errors: [] as string[],
       details: [] as Array<{
         fid: number;
@@ -108,7 +120,7 @@ export async function POST(request: NextRequest) {
       }>
     };
 
-    for (const signer of signers) {
+    for (const signer of allSigners) {
       try {
         // Check what permissions this signer has
         const hasLikePermission = signer.permissions.includes('like');
