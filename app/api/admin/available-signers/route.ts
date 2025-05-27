@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       .from('neynar_signers')
       .select('fid, permissions, status, approved_at')
       .eq('status', 'approved')
+      .limit(10000)
       .order('approved_at', { ascending: false });
 
     if (error) {
