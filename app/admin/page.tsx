@@ -976,6 +976,7 @@ function LikesRecastsTestAdmin() {
     permissions: string[];
     status: string;
     approved_at: string | null;
+    username: string | null;
   }[]>([]);
   const [results, setResults] = useState<{
     successful: number;
@@ -985,27 +986,44 @@ function LikesRecastsTestAdmin() {
     details?: string;
   } | null>(null);
 
-  // Fetch available signers on mount
-  useEffect(() => {
+  // Pagination and filtering state for signers table
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [searchFid, setSearchFid] = useState('');
+  const [filterPermission, setFilterPermission] = useState<'all' | 'like' | 'recast' | 'follow'>('all');
+  const [sortField, setSortField] = useState<'fid' | 'approved_at'>('approved_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch available signers function
+  const fetchSigners = async () => {
     if (!address) return;
     
-    const fetchSigners = async () => {
-      try {
-        const response = await fetch('/api/admin/available-signers', {
-          headers: {
-            'Authorization': `Bearer ${address}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setAvailableSigners(data.signers || []);
+    setIsRefreshing(true);
+    try {
+      // Add cache busting parameter to force fresh data
+      const response = await fetch(`/api/admin/available-signers?t=${Date.now()}`, {
+        headers: {
+          'Authorization': `Bearer ${address}`
         }
-      } catch (error) {
-        console.error('Error fetching signers:', error);
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Fetched ${data.signers?.length || 0} signers from API`);
+        setAvailableSigners(data.signers || []);
+        toast.success(`Refreshed: ${data.signers?.length || 0} signers loaded`);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching signers:', error);
+      toast.error('Failed to refresh signers');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
+  // Fetch available signers on mount
+  useEffect(() => {
     fetchSigners();
   }, [address]);
 
@@ -1068,6 +1086,61 @@ function LikesRecastsTestAdmin() {
     return availableSigners.filter(signer => 
       signer.permissions.includes(permission)
     ).length;
+  };
+
+  // Filter and sort signers for the table
+  const filteredAndSortedSigners = useMemo(() => {
+    let filtered = availableSigners;
+
+    // Filter by FID search
+    if (searchFid.trim()) {
+      filtered = filtered.filter(signer => 
+        signer.fid.toString().includes(searchFid.trim())
+      );
+    }
+
+    // Filter by permission
+    if (filterPermission !== 'all') {
+      filtered = filtered.filter(signer => 
+        signer.permissions.includes(filterPermission)
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      if (sortField === 'fid') {
+        return sortDirection === 'asc' ? a.fid - b.fid : b.fid - a.fid;
+      } else if (sortField === 'approved_at') {
+        const dateA = a.approved_at ? new Date(a.approved_at).getTime() : 0;
+        const dateB = b.approved_at ? new Date(b.approved_at).getTime() : 0;
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+
+    return filtered;
+  }, [availableSigners, searchFid, filterPermission, sortField, sortDirection]);
+
+  // Paginate the filtered results
+  const paginatedSigners = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedSigners.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedSigners, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredAndSortedSigners.length / itemsPerPage);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchFid, filterPermission]);
+
+  const handleSort = (field: 'fid' | 'approved_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
   };
 
   return (
@@ -1294,41 +1367,217 @@ function LikesRecastsTestAdmin() {
 
       {availableSigners.length > 0 && (
         <div className="mt-8">
-          <h4 className="text-lg font-medium mb-4">Available Signers</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left p-3">FID</th>
-                  <th className="text-left p-3">Permissions</th>
-                  <th className="text-left p-3">Status</th>
-                  <th className="text-left p-3">Approved At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {availableSigners.map((signer, index) => (
-                  <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="p-3">{signer.fid}</td>
-                    <td className="p-3">{signer.permissions?.join(', ') || 'none'}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        signer.status === 'approved' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                      }`}>
-                        {signer.status}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      {signer.approved_at 
-                        ? new Date(signer.approved_at).toLocaleDateString()
-                        : 'Not approved'
-                      }
-                    </td>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+            <div className="flex items-center gap-3 mb-4 sm:mb-0">
+              <h4 className="text-lg font-medium">
+                Available Signers ({filteredAndSortedSigners.length} of {availableSigners.length})
+              </h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchSigners}
+                disabled={isRefreshing}
+                className="h-8 px-3"
+              >
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="Search FID..."
+                value={searchFid}
+                onChange={(e) => setSearchFid(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
+              />
+              
+              <select
+                value={filterPermission}
+                onChange={(e) => setFilterPermission(e.target.value as 'all' | 'like' | 'recast' | 'follow')}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
+              >
+                <option value="all">All Permissions</option>
+                <option value="like">Like Permission</option>
+                <option value="recast">Recast Permission</option>
+                <option value="follow">Follow Permission</option>
+              </select>
+              
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
+              >
+                <option value={10}>10 per page</option>
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th 
+                      className="text-left p-4 font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      onClick={() => handleSort('fid')}
+                    >
+                      <div className="flex items-center gap-2">
+                        FID
+                        {sortField === 'fid' && (
+                          <span className="text-blue-500">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="text-left p-4 font-medium text-gray-900 dark:text-gray-100">
+                      Username
+                    </th>
+                    <th className="text-left p-4 font-medium text-gray-900 dark:text-gray-100">
+                      Permissions
+                    </th>
+                    <th className="text-left p-4 font-medium text-gray-900 dark:text-gray-100">
+                      Status
+                    </th>
+                    <th 
+                      className="text-left p-4 font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      onClick={() => handleSort('approved_at')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Approved At
+                        {sortField === 'approved_at' && (
+                          <span className="text-blue-500">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {paginatedSigners.map((signer, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="p-4 font-mono text-sm">{signer.fid}</td>
+                      <td className="p-4">
+                        {signer.username ? (
+                          <span className="text-sm font-medium">@{signer.username}</span>
+                        ) : (
+                          <span className="text-sm text-gray-500 italic">No username</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-1">
+                          {signer.permissions?.map((permission, idx) => (
+                            <span
+                              key={idx}
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                permission === 'like'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                  : permission === 'recast'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                  : permission === 'follow'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                              }`}
+                            >
+                              {permission}
+                            </span>
+                          )) || (
+                            <span className="text-gray-500 text-sm">none</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          signer.status === 'approved' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                        }`}>
+                          {signer.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm text-gray-600 dark:text-gray-400">
+                        {signer.approved_at 
+                          ? new Date(signer.approved_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : 'Not approved'
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedSigners.length)} of {filteredAndSortedSigners.length} results
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="h-8 px-3"
+                    >
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="h-8 w-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-8 px-3"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

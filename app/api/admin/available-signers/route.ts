@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Fetch all approved signers
     const { data: signers, error } = await supabase
       .from('neynar_signers')
-      .select('fid, permissions, status, approved_at')
+      .select('fid, permissions, status, approved_at, username')
       .eq('status', 'approved')
       .limit(10000)
       .order('approved_at', { ascending: false });
