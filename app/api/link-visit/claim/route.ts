@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (!fid || !address || !auction_id || !username) {
-      console.log('Validation error: Missing required parameters (fid, address, auction_id, or username)');
+      console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing required parameters (fid, address, auction_id, or username). Received: fid=${fid}, address=${address}, auction_id=${auction_id}, username=${username}`);
       
       return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
     }

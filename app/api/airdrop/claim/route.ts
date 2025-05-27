@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     ({ fid, address, hasNotifications, username } = requestData);
     
     if (!fid || !address || !username || username.trim() === '') {
-      console.log('Validation error: Missing fid, address, or username (or username is empty)');
+      console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing fid, address, or username (or username is empty). Received: fid=${fid}, address=${address}, username=${username}`);
       
       return NextResponse.json({ success: false, error: 'Missing fid, address, or username (or username is empty)' }, { status: 400 });
     }
