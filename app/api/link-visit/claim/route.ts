@@ -233,6 +233,19 @@ export async function POST(request: NextRequest) {
     if (!fid || !address || !auction_id || !username) {
       console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing required parameters (fid, address, auction_id, or username). Received: fid=${fid}, address=${address}, auction_id=${auction_id}, username=${username}`);
       
+      // Trigger auto-block check for this IP
+      fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/admin/auto-block-ip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ADMIN_API_KEY || '',
+        },
+        body: JSON.stringify({ 
+          ip: clientIP, 
+          reason: 'Missing required parameters in link-visit claim' 
+        }),
+      }).catch(error => console.error('Failed to trigger auto-block check:', error));
+      
       return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
     }
     

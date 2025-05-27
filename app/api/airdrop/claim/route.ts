@@ -213,6 +213,19 @@ export async function POST(request: NextRequest) {
     if (!fid || !address || !username || username.trim() === '') {
       console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing fid, address, or username (or username is empty). Received: fid=${fid}, address=${address}, username=${username}`);
       
+      // Trigger auto-block check for this IP
+      fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/admin/auto-block-ip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ADMIN_API_KEY || '',
+        },
+        body: JSON.stringify({ 
+          ip: clientIP, 
+          reason: 'Missing required parameters in airdrop claim' 
+        }),
+      }).catch(error => console.error('Failed to trigger auto-block check:', error));
+      
       return NextResponse.json({ success: false, error: 'Missing fid, address, or username (or username is empty)' }, { status: 400 });
     }
     
