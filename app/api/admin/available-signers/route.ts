@@ -34,10 +34,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all approved signers
+    // Fetch all approved signers with updated metrics
     const { data: signers, error } = await supabase
       .from('neynar_signers')
-      .select('fid, permissions, status, approved_at, username')
+      .select(`
+        fid, 
+        permissions, 
+        status, 
+        approved_at, 
+        username,
+        display_name,
+        follower_count,
+        following_count,
+        neynar_score,
+        power_badge,
+        pfp_url,
+        bio,
+        verified_accounts,
+        last_updated_at
+      `)
       .eq('status', 'approved')
       .limit(10000)
       .order('approved_at', { ascending: false });
