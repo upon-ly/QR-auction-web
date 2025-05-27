@@ -1,5 +1,5 @@
 // Vercel Firewall API utilities
-// Based on: https://vercel.com/docs/vercel-firewall/firewall-api
+// Based on: https://vercel.com/docs/rest-api/reference/endpoints/security/update-firewall-configuration
 
 interface VercelFirewallResponse {
   success: boolean;
@@ -7,14 +7,18 @@ interface VercelFirewallResponse {
 }
 
 interface BlockedIP {
+  id: string;
+  hostname?: string;
   ip: string;
-  reason?: string;
   notes?: string;
+  action: 'deny' | 'allow';
 }
 
 interface FirewallCondition {
   type: string;
   op: string;
+  neg?: boolean;
+  key?: string;
   value: string;
 }
 
@@ -22,14 +26,136 @@ interface FirewallRule {
   id: string;
   name: string;
   description?: string;
-  action: string;
-  conditionGroups?: {
+  active: boolean;
+  conditionGroup: {
     conditions: FirewallCondition[];
   }[];
+  action: {
+    mitigate: {
+      action: 'deny' | 'challenge' | 'allow';
+      rateLimit?: Record<string, unknown>;
+      redirect?: Record<string, unknown>;
+      actionDuration?: string;
+      bypassSystem?: boolean;
+    };
+  };
+}
+
+interface FirewallConfig {
+  ownerId: string;
+  projectKey: string;
+  id: string;
+  version: number;
+  updatedAt: string;
+  firewallEnabled: boolean;
+  crs?: Record<string, unknown>;
+  rules: FirewallRule[];
+  ips: BlockedIP[];
+  changes: Record<string, unknown>[];
+  managedRules?: Record<string, unknown>;
+}
+
+/**
+ * Add an IP address to Vercel Firewall IP blocking list
+ */
+export async function addIPToVercelFirewall(
+  ip: string, 
+  reason: string = 'Automated block - validation errors'
+): Promise<VercelFirewallResponse> {
+  try {
+    const vercelToken = process.env.VERCEL_TOKEN;
+    const projectId = process.env.VERCEL_PROJECT_ID;
+    const teamId = process.env.VERCEL_TEAM_ID; // Optional, for team accounts
+    
+    if (!vercelToken) {
+      console.error('VERCEL_TOKEN not configured');
+      return { success: false, error: 'Vercel token not configured' };
+    }
+
+    if (!projectId) {
+      console.error('VERCEL_PROJECT_ID not configured');
+      return { success: false, error: 'Vercel project ID not configured' };
+    }
+
+    // First, get current firewall configuration to check for existing IPs
+    const getConfigUrl = teamId 
+      ? `https://api.vercel.com/v1/security/firewall/config/active?projectId=${projectId}&teamId=${teamId}`
+      : `https://api.vercel.com/v1/security/firewall/config/active?projectId=${projectId}`;
+
+    console.log(`🔍 Getting current firewall config for project ${projectId}...`);
+
+    const getConfigResponse = await fetch(getConfigUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${vercelToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!getConfigResponse.ok) {
+      const errorData = await getConfigResponse.json().catch(() => ({}));
+      console.error('Failed to get current firewall config:', JSON.stringify(errorData));
+      return { success: false, error: `Failed to get current firewall config: ${JSON.stringify(errorData)}` };
+    }
+
+    const currentConfig: FirewallConfig = await getConfigResponse.json();
+    console.log(`📋 Current config has ${currentConfig.ips?.length || 0} blocked IPs`);
+    
+    // Check if IP is already blocked
+    const existingBlockedIPs = currentConfig.ips || [];
+    const isAlreadyBlocked = existingBlockedIPs.some(blockedIP => blockedIP.ip === ip);
+    
+    if (isAlreadyBlocked) {
+      console.log(`IP ${ip} is already blocked`);
+      return { success: true, error: 'IP already blocked' };
+    }
+
+    // Add IP to firewall using the update endpoint
+    const updateUrl = teamId 
+      ? `https://api.vercel.com/v1/security/firewall/config?projectId=${projectId}&teamId=${teamId}`
+      : `https://api.vercel.com/v1/security/firewall/config?projectId=${projectId}`;
+
+    console.log(`🔒 Adding IP ${ip} to firewall...`);
+
+    const updateResponse = await fetch(updateUrl, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${vercelToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'ip.insert',
+        id: null, // null for new IP blocks
+        value: {
+          ip: ip,
+          hostname: '', // Optional hostname
+          notes: reason,
+          action: 'deny'
+        }
+      }),
+    });
+
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse.json().catch(() => ({}));
+      console.error('Failed to add IP to Vercel Firewall:', JSON.stringify(errorData));
+      return { success: false, error: `Failed to add IP to firewall: ${JSON.stringify(errorData)}` };
+    }
+
+    console.log(`✅ Successfully added IP ${ip} to Vercel Firewall`);
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error adding IP to Vercel Firewall:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }
 
 /**
  * Add an IP address to a specific Vercel Firewall rule (like "block-users")
+ * This is an alternative approach using custom rules instead of IP blocking
  */
 export async function addIPToVercelFirewallRule(
   ip: string, 
@@ -38,19 +164,20 @@ export async function addIPToVercelFirewallRule(
 ): Promise<VercelFirewallResponse> {
   try {
     const vercelToken = process.env.VERCEL_TOKEN;
-    const teamId = process.env.VERCEL_TEAM_ID; // Optional, for team accounts
+    const projectId = process.env.VERCEL_PROJECT_ID;
+    const teamId = process.env.VERCEL_TEAM_ID;
     
-    if (!vercelToken) {
-      console.error('VERCEL_TOKEN not configured');
-      return { success: false, error: 'Vercel token not configured' };
+    if (!vercelToken || !projectId) {
+      console.error('VERCEL_TOKEN or VERCEL_PROJECT_ID not configured');
+      return { success: false, error: 'Vercel credentials not configured' };
     }
 
-    // Construct the API URL for rules
-    const baseUrl = 'https://api.vercel.com/v1/security/firewall/rules';
-    const url = teamId ? `${baseUrl}?teamId=${teamId}` : baseUrl;
+    // Get current firewall configuration
+    const getConfigUrl = teamId 
+      ? `https://api.vercel.com/v1/security/firewall/config/active?projectId=${projectId}&teamId=${teamId}`
+      : `https://api.vercel.com/v1/security/firewall/config/active?projectId=${projectId}`;
 
-    // First, get current rules to find the "block-users" rule
-    const getRulesResponse = await fetch(url, {
+    const getConfigResponse = await fetch(getConfigUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${vercelToken}`,
@@ -58,43 +185,39 @@ export async function addIPToVercelFirewallRule(
       },
     });
 
-    if (!getRulesResponse.ok) {
-      const errorText = await getRulesResponse.text();
-      console.error('Failed to get current firewall rules:', errorText);
-      return { success: false, error: 'Failed to get current firewall rules' };
+    if (!getConfigResponse.ok) {
+      const errorData = await getConfigResponse.json().catch(() => ({}));
+      console.error('Failed to get current firewall config:', JSON.stringify(errorData));
+      return { success: false, error: 'Failed to get current firewall config' };
     }
 
-    const rulesData = await getRulesResponse.json();
-    const rules = rulesData.rules || [];
+    const currentConfig: FirewallConfig = await getConfigResponse.json();
+    const rules = currentConfig.rules || [];
     
     // Find the specific rule by name
     const targetRule = rules.find((rule: FirewallRule) => rule.name === ruleName);
     
     if (!targetRule) {
-      console.error(`Rule "${ruleName}" not found`);
+      console.error(`Rule "${ruleName}" not found. Available rules: ${rules.map(r => r.name).join(', ')}`);
       return { success: false, error: `Rule "${ruleName}" not found` };
     }
 
     // Get current conditions from the rule
-    const currentConditions = targetRule.conditionGroups?.[0]?.conditions || [];
+    const currentConditions = targetRule.conditionGroup?.[0]?.conditions || [];
     
     // Check if IP is already in the rule
-    const ipConditions = currentConditions.filter((condition: FirewallCondition) => 
-      condition.type === 'ip_address' && condition.op === 'eq'
-    );
-    
-    const isAlreadyBlocked = ipConditions.some((condition: FirewallCondition) => 
-      condition.value === ip
+    const isAlreadyBlocked = currentConditions.some((condition: FirewallCondition) => 
+      condition.type === 'ip' && condition.value === ip
     );
     
     if (isAlreadyBlocked) {
       console.log(`IP ${ip} is already blocked in rule "${ruleName}"`);
-      return { success: true, error: 'IP already blocked' };
+      return { success: true, error: 'IP already blocked in rule' };
     }
 
     // Add new IP condition
     const newCondition = {
-      type: 'ip_address',
+      type: 'ip',
       op: 'eq',
       value: ip
     };
@@ -102,25 +225,34 @@ export async function addIPToVercelFirewallRule(
     const updatedConditions = [...currentConditions, newCondition];
 
     // Update the rule with new conditions
-    const updateRuleResponse = await fetch(`${url}/${targetRule.id}`, {
+    const updateUrl = teamId 
+      ? `https://api.vercel.com/v1/security/firewall/config?projectId=${projectId}&teamId=${teamId}`
+      : `https://api.vercel.com/v1/security/firewall/config?projectId=${projectId}`;
+
+    const updateRuleResponse = await fetch(updateUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${vercelToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: targetRule.name,
-        description: targetRule.description || `${reason} - Updated ${new Date().toISOString()}`,
-        conditionGroups: [{
-          conditions: updatedConditions
-        }],
-        action: targetRule.action
+        action: 'rules.update',
+        id: targetRule.id,
+        value: {
+          name: targetRule.name,
+          description: targetRule.description || `${reason} - Updated ${new Date().toISOString()}`,
+          active: targetRule.active,
+          conditionGroup: [{
+            conditions: updatedConditions
+          }],
+          action: targetRule.action
+        }
       }),
     });
 
     if (!updateRuleResponse.ok) {
-      const errorText = await updateRuleResponse.text();
-      console.error('Failed to update Vercel Firewall rule:', errorText);
+      const errorData = await updateRuleResponse.json().catch(() => ({}));
+      console.error('Failed to update Vercel Firewall rule:', JSON.stringify(errorData));
       return { success: false, error: 'Failed to update firewall rule' };
     }
 
@@ -136,16 +268,7 @@ export async function addIPToVercelFirewallRule(
   }
 }
 
-/**
- * Add an IP address to Vercel Firewall blocklist (legacy method for general IP blocking)
- */
-export async function addIPToVercelFirewall(
-  ip: string, 
-  reason: string = 'Automated block - validation errors'
-): Promise<VercelFirewallResponse> {
-  // Use the rule-based approach with default rule name
-  return addIPToVercelFirewallRule(ip, 'block-users', reason);
-}
+
 
 /**
  * Remove an IP address from Vercel Firewall blocklist

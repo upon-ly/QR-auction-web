@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { addIPToVercelFirewall } from '@/lib/vercel-firewall';
+import { addIPToVercelFirewall } from '../../../../lib/vercel-firewall';
 
 // Setup Supabase client
 const supabase = createClient(
@@ -89,11 +89,49 @@ export async function POST(request: NextRequest) {
             created_at: new Date().toISOString()
           });
 
+        // Clean up validation error records for this IP to save database space
+        console.log(`🧹 Cleaning up validation error records for blocked IP ${ip}...`);
+        
+        const cleanupPromises = [
+          supabase
+            .from('airdrop_claim_failures')
+            .delete()
+            .eq('client_ip', ip)
+            .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED']),
+          
+          supabase
+            .from('link_visit_claim_failures')
+            .delete()
+            .eq('client_ip', ip)
+            .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED']),
+          
+          supabase
+            .from('likes_recasts_claim_failures')
+            .delete()
+            .eq('client_ip', ip)
+            .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED'])
+        ];
+
+        const cleanupResults = await Promise.allSettled(cleanupPromises);
+        
+        // Log cleanup results
+        cleanupResults.forEach((result, index) => {
+          const tableName = ['airdrop_claim_failures', 'link_visit_claim_failures', 'likes_recasts_claim_failures'][index];
+          if (result.status === 'fulfilled') {
+            console.log(`✅ Cleaned up validation errors from ${tableName} for IP ${ip}`);
+          } else {
+            console.error(`❌ Failed to clean up ${tableName} for IP ${ip}:`, result.reason);
+          }
+        });
+
+        console.log(`🧹 Cleanup complete for IP ${ip} - removed validation error records to save database space`);
+
         return NextResponse.json({ 
           success: true, 
-          message: `IP ${ip} auto-blocked in Vercel Firewall`,
+          message: `IP ${ip} auto-blocked in Vercel Firewall and validation errors cleaned up`,
           error_count: totalErrors,
-          threshold: VALIDATION_ERROR_THRESHOLD
+          threshold: VALIDATION_ERROR_THRESHOLD,
+          cleanup_completed: true
         });
       } else {
         console.error(`Failed to add IP ${ip} to Vercel Firewall:`, firewallResult.error);
