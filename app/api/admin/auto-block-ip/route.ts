@@ -35,21 +35,21 @@ export async function POST(request: NextRequest) {
     const { data: airdropErrors, error: airdropError } = await supabase
       .from('airdrop_claim_failures')
       .select('id')
-      .eq('request_data->>clientIP', ip)
+      .eq('client_ip', ip)
       .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED'])
       .gte('created_at', timeThreshold);
 
     const { data: linkVisitErrors, error: linkVisitError } = await supabase
       .from('link_visit_claim_failures')
       .select('id')
-      .eq('request_data->>clientIP', ip)
+      .eq('client_ip', ip)
       .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED'])
       .gte('created_at', timeThreshold);
 
     const { data: likesRecastsErrors, error: likesRecastsError } = await supabase
       .from('likes_recasts_claim_failures')
       .select('id')
-      .eq('request_data->>clientIP', ip)
+      .eq('client_ip', ip)
       .in('error_code', ['VALIDATION_ERROR', 'INVALID_USER', 'ADDRESS_NOT_VERIFIED'])
       .gte('created_at', timeThreshold);
 

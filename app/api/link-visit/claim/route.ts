@@ -97,8 +97,14 @@ async function logFailedTransaction(params: {
   gas_limit?: number;
   network_status?: string;
   retry_count?: number;
+  client_ip?: string;
 }) {
   try {
+    // Extract client IP from request_data if not provided directly
+    const clientIP = params.client_ip || 
+      (params.request_data?.clientIP as string) || 
+      'unknown';
+
     // Your existing database insert code
     const { data, error } = await supabase
       .from('link_visit_claim_failures')
@@ -115,7 +121,8 @@ async function logFailedTransaction(params: {
         gas_price: params.gas_price || null,
         gas_limit: params.gas_limit || null,
         network_status: params.network_status || null,
-        retry_count: params.retry_count || 0
+        retry_count: params.retry_count || 0,
+        client_ip: clientIP
       })
       .select('id')
       .single();
@@ -233,7 +240,19 @@ export async function POST(request: NextRequest) {
     if (!fid || !address || !auction_id || !username) {
       console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing required parameters (fid, address, auction_id, or username). Received: fid=${fid}, address=${address}, auction_id=${auction_id}, username=${username}`);
       
-      // Trigger auto-block check for this IP
+      // Log validation error to database FIRST
+      await logFailedTransaction({
+        fid: fid || 0,
+        eth_address: address || 'unknown',
+        auction_id: auction_id || 'unknown',
+        username: username || undefined,
+        winning_url: null,
+        error_message: 'Missing required parameters (fid, address, auction_id, or username)',
+        error_code: 'VALIDATION_ERROR',
+        request_data: { ...requestData, clientIP } as Record<string, unknown>
+      });
+      
+      // Then trigger auto-block check for this IP
       fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/admin/auto-block-ip`, {
         method: 'POST',
         headers: {

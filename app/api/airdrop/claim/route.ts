@@ -95,8 +95,14 @@ async function logFailedTransaction(params: {
   gas_limit?: number;
   network_status?: string;
   retry_count?: number;
+  client_ip?: string;
 }) {
   try {
+    // Extract client IP from request_data if not provided directly
+    const clientIP = params.client_ip || 
+      (params.request_data?.clientIP as string) || 
+      'unknown';
+
     // Insert the failure record and get its ID
     const { data, error } = await supabase
       .from('airdrop_claim_failures')
@@ -111,7 +117,8 @@ async function logFailedTransaction(params: {
         gas_price: params.gas_price || null,
         gas_limit: params.gas_limit || null,
         network_status: params.network_status || null,
-        retry_count: params.retry_count || 0
+        retry_count: params.retry_count || 0,
+        client_ip: clientIP
       })
       .select('id')
       .single();
@@ -213,7 +220,17 @@ export async function POST(request: NextRequest) {
     if (!fid || !address || !username || username.trim() === '') {
       console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing fid, address, or username (or username is empty). Received: fid=${fid}, address=${address}, username=${username}`);
       
-      // Trigger auto-block check for this IP
+      // Log validation error to database FIRST
+      await logFailedTransaction({
+        fid: fid || 0,
+        eth_address: address || 'unknown',
+        username: username || undefined,
+        error_message: 'Missing fid, address, or username (or username is empty)',
+        error_code: 'VALIDATION_ERROR',
+        request_data: { ...requestData, clientIP } as Record<string, unknown>
+      });
+      
+      // Then trigger auto-block check for this IP
       fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/admin/auto-block-ip`, {
         method: 'POST',
         headers: {
