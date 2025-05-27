@@ -230,10 +230,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    if (!fid || !address || !auction_id) {
-      console.log('Validation error: Missing required parameters');
+    if (!fid || !address || !auction_id || !username) {
+      console.log('Validation error: Missing required parameters (fid, address, auction_id, or username)');
       
-      return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
     }
     
     // Validate that this is the latest settled auction

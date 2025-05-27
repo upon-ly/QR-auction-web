@@ -210,10 +210,10 @@ export async function POST(request: NextRequest) {
     requestData = await request.json() as AirdropRequestData;
     ({ fid, address, hasNotifications, username } = requestData);
     
-    if (!fid || !address) {
-      console.log('Validation error: Missing fid or address');
+    if (!fid || !address || !username) {
+      console.log('Validation error: Missing fid, address, or username');
       
-      return NextResponse.json({ success: false, error: 'Missing fid or address' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing fid, address, or username' }, { status: 400 });
     }
     
     // Log request for debugging with IP
