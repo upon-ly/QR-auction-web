@@ -140,17 +140,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Failure record not found' });
       }
       
-      // Check if user has already claimed this option type
-      const { data: existingClaim } = await supabase
+      // Check if user has already claimed ANY option type (by FID or address)
+      const { data: existingClaimByFid } = await supabase
         .from('likes_recasts_claims')
         .select('*')
         .eq('fid', failure.fid)
-        .eq('option_type', failure.option_type)
         .eq('success', true)
         .maybeSingle();
+        
+      const { data: existingClaimByAddress } = await supabase
+        .from('likes_recasts_claims')
+        .select('*')
+        .eq('eth_address', failure.eth_address)
+        .eq('success', true)
+        .maybeSingle();
+        
+      const existingClaim = existingClaimByFid || existingClaimByAddress;
       
       if (existingClaim) {
-        console.log(`User already has successful ${failure.option_type} claim`);
+        console.log(`User already has successful claim: FID ${failure.fid} claimed ${existingClaim.option_type} with address ${existingClaim.eth_address}`);
         
         // Update retry status
         await updateRetryStatus(failureId, {

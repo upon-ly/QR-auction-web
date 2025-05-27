@@ -4,6 +4,8 @@ import { getSignedKey } from '@/utils/getSignedKey';
 import { getNeynarClient } from '@/lib/neynar';
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
 import { validateMiniAppUser } from '@/utils/miniapp-validation';
+import { getClientIP } from '@/lib/ip-utils';
+import { isRateLimited } from '@/lib/simple-rate-limit';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -83,7 +85,25 @@ async function logFailedTransaction(params: {
 }
 
 export async function POST(request: NextRequest) {
+  // Get client IP for logging
+  const clientIP = getClientIP(request);
+
+  // Rate limiting FIRST: 5 requests per minute per IP (before any processing)
+  if (isRateLimited(clientIP, 5, 60000)) {
+    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many likes/recasts claim requests)`);
+    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+  }
+
   try {
+    // Validate API key first
+    const apiKey = request.headers.get('x-api-key');
+    const validApiKey = process.env.LINK_CLICK_API_KEY;
+    
+    if (!apiKey || !validApiKey || apiKey !== validApiKey) {
+      console.error(`🚨 UNAUTHORIZED ACCESS from IP: ${clientIP}`);
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Parse request body - handle both old and new format
     const { fid, address, username, likesOnly, optionType: providedOptionType } = await request.json();
     
@@ -98,7 +118,7 @@ export async function POST(request: NextRequest) {
     const optionType = providedOptionType || (likesOnly ? 'likes' : 'both');
     const airdropAmount = optionType === 'likes' ? 2000 : optionType === 'recasts' ? 8000 : 10000;
     
-    console.log(`Likes/recasts claim request: FID=${fid}, address=${address}, username=${username || 'unknown'}, option=${optionType}`);
+    console.log(`🎯 LIKES/RECASTS CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, username=${username || 'unknown'}, option=${optionType}`);
     
     // Validate Mini App user and verify wallet address
     const userValidation = await validateMiniAppUser(fid, username, address);

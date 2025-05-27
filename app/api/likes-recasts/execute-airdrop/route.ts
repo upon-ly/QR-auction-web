@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
+import { getClientIP } from '@/lib/ip-utils';
+import { isRateLimited } from '@/lib/simple-rate-limit';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -124,7 +126,25 @@ async function logFailedTransaction(params: {
 }
 
 export async function POST(request: NextRequest) {
+  // Get client IP for logging
+  const clientIP = getClientIP(request);
+
+  // Rate limiting FIRST: 5 requests per minute per IP (before any processing)
+  if (isRateLimited(clientIP, 5, 60000)) {
+    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many likes/recasts execute requests)`);
+    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+  }
+
   try {
+    // Validate API key first
+    const apiKey = request.headers.get('x-api-key');
+    const validApiKey = process.env.LINK_CLICK_API_KEY;
+    
+    if (!apiKey || !validApiKey || apiKey !== validApiKey) {
+      console.error(`🚨 UNAUTHORIZED ACCESS from IP: ${clientIP}`);
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { fid, address, username, signer_uuid, amount, option_type } = await request.json();
     
     if (!fid || !address || !signer_uuid || !amount || !option_type) {
@@ -134,7 +154,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log(`Executing airdrop: FID=${fid}, address=${address}, amount=${amount}, option=${option_type}`);
+    console.log(`🎯 EXECUTING AIRDROP: IP=${clientIP}, FID=${fid}, address=${address}, amount=${amount}, option=${option_type}`);
     
     // COMPREHENSIVE DUPLICATE CLAIM CHECKING
     // Check 1: Has this address already claimed ANY option type?
