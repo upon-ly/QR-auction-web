@@ -1330,8 +1330,8 @@ function useRedirectClickAnalytics() {
 //               <Bar dataKey="click_sources.qr_arrow" name="QR Arrow" fill="#8884d8" stackId="a" />
 //               <Bar dataKey="click_sources.winner_link" name="Winner Link" fill="#82ca9d" stackId="a" />
 //               <Bar dataKey="click_sources.winner_image" name="Winner Image" fill="#ffc658" stackId="a" />
-//               <Bar dataKey="click_sources.popup_button" name="Popup Button" fill="#ff7300" stackId="a" />
-//               <Bar dataKey="click_sources.popup_image" name="Popup Image" fill="#00ff00" stackId="a" />
+//               <Bar dataKey="click_sources.popup_image" name="Popup Button" fill="#ff7300" stackId="a" />
+//               <Bar dataKey="click_sources.popup" name="Popup" fill="#00ff00" stackId="a" />
 //             </BarChart>
 //           </ResponsiveContainer>
 //         </div>
@@ -1776,8 +1776,7 @@ function ClicksAnalytics() {
               <Bar dataKey="click_sources.qr_arrow" name="QR Arrow" fill="#8884d8" stackId="a" />
               <Bar dataKey="click_sources.winner_link" name="Winner Link" fill="#82ca9d" stackId="a" />
               <Bar dataKey="click_sources.winner_image" name="Winner Image" fill="#ffc658" stackId="a" />
-              <Bar dataKey="click_sources.popup_button" name="Popup Button" fill="#ff7300" stackId="a" />
-              <Bar dataKey="click_sources.popup_image" name="Popup Image" fill="#00ff00" stackId="a" />
+              <Bar dataKey="click_sources.popup" name="Popup" fill="#ff7300" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </div>

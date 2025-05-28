@@ -25,8 +25,8 @@ export const CLICK_SOURCES = {
   QR_ARROW: 'qr_arrow',
   WINNER_LINK: 'winner_link', 
   WINNER_IMAGE: 'winner_image',
-  POPUP_BUTTON: 'popup_button',
-  POPUP_IMAGE: 'popup_image'
+  POPUP_BUTTON: 'popup',
+  POPUP_IMAGE: 'popup'
 } as const;
 
 export type ClickSource = typeof CLICK_SOURCES[keyof typeof CLICK_SOURCES]; 

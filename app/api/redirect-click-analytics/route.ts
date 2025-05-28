@@ -60,8 +60,7 @@ export async function GET(request: NextRequest) {
             qr_arrow: 0,
             winner_link: 0,
             winner_image: 0,
-            popup_button: 0,
-            popup_image: 0
+            popup: 0
           },
           first_click: click.created_at,
           last_click: click.created_at
