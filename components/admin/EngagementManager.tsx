@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { 
   Users, 
@@ -1186,17 +1185,6 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Campaign Description (Optional)</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Describe this engagement campaign..."
-                    value={target.description}
-                    onChange={(e) => setTarget(prev => ({ ...prev, description: e.target.value }))}
-                    rows={3}
-                  />
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
