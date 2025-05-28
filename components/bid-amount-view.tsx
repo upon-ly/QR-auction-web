@@ -967,7 +967,7 @@ export function BidForm({
         <div className="relative flex-1">
           <Input
             type="text"
-            placeholder={isV3Auction ? `$${safeMinimumBid.toFixed(2)} or more` : `${formattedMinBid} or more`}
+            placeholder={isV3Auction ? `$${safeMinimumBid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} or more` : `${formattedMinBid} or more`}
             className="pr-16 border p-2 w-full"
             value={displayValue}
             onChange={handleBidInput}

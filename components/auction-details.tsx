@@ -701,7 +701,7 @@ export function AuctionDetails({
                       <div className="flex flex-row items-center gap-1">
                         <div className="text-xl md:text-2xl font-bold">
                           {isV3Auction ? (
-                            `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toFixed(2)}`
+                            `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           ) : isLegacyAuction ? (
                             // For legacy auctions (V1), show ETH
                             `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} ETH`
@@ -812,7 +812,7 @@ export function AuctionDetails({
                           <div className="text-gray-600 dark:text-[#696969]">Winning bid</div>
                           <div className="text-2xl font-bold">
                             {isV3Auction ? (
-                              `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toFixed(2)}`
+                              `$${Number(formatUnits(auctionDetail?.highestBid || 0n, 6)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             ) : isLegacyAuction ? (
                               `${formatQRAmount(Number(formatEther(auctionDetail?.highestBid || 0n)))} ETH`
                             ) : (
