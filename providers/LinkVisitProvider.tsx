@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
+import { usePendingFailures } from '@/hooks/usePendingFailures';
 import { LinkVisitClaimPopup } from '@/components/LinkVisitClaimPopup';
 import { usePopupCoordinator } from './PopupCoordinator';
 import { createClient } from "@supabase/supabase-js";
@@ -90,6 +91,12 @@ export function LinkVisitProvider({
   // This prevents gaming by manually visiting future auction URLs
   const claimAuctionId = latestWonAuctionId;
   const { claimTokens } = useLinkVisitClaim(claimAuctionId || 0);
+
+  // Check for pending failures in retry queue
+  const { hasPendingFailures, isLoading: isPendingFailuresLoading } = usePendingFailures(
+    walletAddress,
+    latestWonAuctionId
+  );
 
   // Explicit function to check claim status directly from database
   const checkClaimStatusForLatestAuction = useCallback(async () => {
@@ -289,13 +296,21 @@ export function LinkVisitProvider({
     }
     
     // Only check once and when data is loaded
-    if (hasCheckedEligibility || isLoading || !walletAddress || isCheckingLatestAuction) {
+    if (hasCheckedEligibility || isLoading || !walletAddress || isCheckingLatestAuction || isPendingFailuresLoading) {
       console.log('Early return from popup check:', { 
         hasCheckedEligibility, 
         isLoading, 
         walletConnected: !!walletAddress,
-        isCheckingLatestAuction
+        isCheckingLatestAuction,
+        isPendingFailuresLoading
       });
+      return;
+    }
+    
+    // Don't show popup if user has pending failures in retry queue
+    if (hasPendingFailures) {
+      console.log('NOT showing popup - User has pending failures in retry queue');
+      setHasCheckedEligibility(true);
       return;
     }
     
@@ -304,7 +319,8 @@ export function LinkVisitProvider({
       hasClaimed,
       manualHasClaimedLatest,
       auctionId,
-      latestWonAuctionId
+      latestWonAuctionId,
+      hasPendingFailures
     });
     
     // Only show popup if the user hasn't claimed for the latest won auction
@@ -331,7 +347,7 @@ export function LinkVisitProvider({
       }
       setHasCheckedEligibility(true);
     }
-  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, walletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, walletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, hasPendingFailures, isPendingFailuresLoading]);
   
   // Handle claim action
   const handleClaim = async () => {
