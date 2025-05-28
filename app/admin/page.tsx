@@ -1591,7 +1591,7 @@ function ClicksAnalytics() {
             <LineChart
               data={filteredRedirectData}
               margin={{
-                top: 5,
+                top: 30,
                 right: 30,
                 left: 20,
                 bottom: 5,
@@ -1613,6 +1613,14 @@ function ClicksAnalytics() {
                 name="Total Clicks" 
                 stroke="#10b981" 
                 activeDot={{ r: 8 }} 
+                label={{ 
+                  position: 'top',
+                  offset: 15,
+                  angle: -45,
+                  formatter: (value: number) => value.toLocaleString(),
+                  fill: '#666',
+                  fontSize: 14
+                }}
               />
               <Line 
                 type="monotone" 
@@ -1620,6 +1628,14 @@ function ClicksAnalytics() {
                 name="Uniques" 
                 stroke="#3b82f6" 
                 activeDot={{ r: 8 }}
+                label={{ 
+                  position: 'top',
+                  offset: 15,
+                  angle: -45,
+                  formatter: (value: number) => value.toLocaleString(),
+                  fill: '#666',
+                  fontSize: 14
+                }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -1669,7 +1685,7 @@ function ClicksAnalytics() {
                     return "$" + value.toFixed(2);
                   },
                   fill: '#666',
-                  fontSize: 10
+                  fontSize: 14
                 }}
               />
             </LineChart>
@@ -1720,7 +1736,7 @@ function ClicksAnalytics() {
                     return "$" + value.toFixed(0);
                   },
                   fill: '#666',
-                  fontSize: 10
+                  fontSize: 14
                 }}
               />
             </LineChart>
@@ -2094,7 +2110,7 @@ function ClaimsAnalytics() {
                   angle: -45,
                   formatter: (value: number) => value.toLocaleString(),
                   fill: '#666',
-                  fontSize: 10
+                  fontSize: 14
                 }}
               />
             </LineChart>
@@ -2144,7 +2160,7 @@ function ClaimsAnalytics() {
                     return "$" + value.toFixed(2);
                   },
                   fill: '#666',
-                  fontSize: 10
+                  fontSize: 14
                 }}
               />
             </LineChart>
@@ -2194,7 +2210,7 @@ function ClaimsAnalytics() {
                     return "$" + value.toFixed(0);
                   },
                   fill: '#666',
-                  fontSize: 10
+                  fontSize: 14
                 }}
               />
             </LineChart>
