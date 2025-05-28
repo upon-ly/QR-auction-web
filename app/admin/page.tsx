@@ -12,7 +12,7 @@ import {
 import useEthPrice from "@/hooks/useEthPrice";
 import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink, Dices } from "lucide-react";
+// import { ExternalLink, Dices } from "lucide-react";
 import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
 import { TestimonialsAdmin } from "./testimonials";
 import { EngagementManager } from "@/components/admin/EngagementManager";
@@ -29,6 +29,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { useRedirectCostPerClick } from "@/hooks/useRedirectCostPerClick";
 
 
 // Hook for Farcaster metrics
@@ -96,99 +97,99 @@ function useFarcasterMetrics() {
 }
 
 // Farcaster Analytics Component
-function FarcasterAnalytics() {
-  const metrics = useFarcasterMetrics();
+// function FarcasterAnalytics() {
+//   const metrics = useFarcasterMetrics();
 
-  if (metrics.isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array(12).fill(0).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                <Skeleton className="h-4 w-40" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                <Skeleton className="h-8 w-20" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
+//   if (metrics.isLoading) {
+//     return (
+//       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+//         {Array(12).fill(0).map((_, i) => (
+//           <Card key={i}>
+//             <CardHeader className="pb-2">
+//               <CardTitle className="text-sm font-medium">
+//                 <Skeleton className="h-4 w-40" />
+//               </CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="text-2xl font-bold">
+//                 <Skeleton className="h-8 w-20" />
+//               </div>
+//             </CardContent>
+//           </Card>
+//         ))}
+//       </div>
+//     );
+//   }
 
-  if (metrics.error) {
-    return (
-      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
-        <p className="text-red-700 dark:text-red-400">
-          There was an error loading the Farcaster user data. Please try again later.
-        </p>
-      </div>
-    );
-  }
+//   if (metrics.error) {
+//     return (
+//       <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+//         <p className="text-red-700 dark:text-red-400">
+//           There was an error loading the Farcaster user data. Please try again later.
+//         </p>
+//       </div>
+//     );
+//   }
 
-  return (
-    <div>
-      <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics</h3>
-        <p className="text-purple-700 dark:text-purple-400">
-          Real-time user statistics from Farcaster notifications system
-        </p>
-      </div>
+//   return (
+//     <div>
+//       <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics</h3>
+//         <p className="text-purple-700 dark:text-purple-400">
+//           Real-time user statistics from Farcaster notifications system
+//         </p>
+//       </div>
 
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4">User Overview</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.totalFrameUsers}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {metrics.usersAddedLastWeek} registered in the last 7 days
-              </div>
-            </CardContent>
-          </Card>
+//       <div className="mb-8">
+//         <h3 className="text-xl font-semibold mb-4">User Overview</h3>
+//         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+//           <Card>
+//             <CardHeader className="pb-2">
+//               <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="text-2xl font-bold">{metrics.totalFrameUsers}</div>
+//               <div className="text-xs text-gray-500 mt-1">
+//                 {metrics.usersAddedLastWeek} registered in the last 7 days
+//               </div>
+//             </CardContent>
+//           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Enabled Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.tokens.enabled}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}% of total tokens
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
-                <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}%` }}></div>
-              </div>
-            </CardContent>
-          </Card>
+//           <Card>
+//             <CardHeader className="pb-2">
+//               <CardTitle className="text-sm font-medium">Enabled Notifications</CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="text-2xl font-bold">{metrics.tokens.enabled}</div>
+//               <div className="text-xs text-gray-500 mt-1">
+//                 {Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}% of total tokens
+//               </div>
+//               <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
+//                 <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.enabled / metrics.tokens.total * 100)}%` }}></div>
+//               </div>
+//             </CardContent>
+//           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Disabled Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.tokens.disabled}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}% of total tokens
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
-                <div className="bg-red-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}%` }}></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
+//           <Card>
+//             <CardHeader className="pb-2">
+//               <CardTitle className="text-sm font-medium">Disabled Notifications</CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="text-2xl font-bold">{metrics.tokens.disabled}</div>
+//               <div className="text-xs text-gray-500 mt-1">
+//                 {Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}% of total tokens
+//               </div>
+//               <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3 dark:bg-gray-700">
+//                 <div className="bg-red-600 h-2.5 rounded-full" style={{ width: `${Math.round(metrics.tokens.disabled / metrics.tokens.total * 100)}%` }}></div>
+//               </div>
+//             </CardContent>
+//           </Card>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 // Cost Per Click Analytics Component
 function CostPerClickAnalytics() {
@@ -1380,6 +1381,7 @@ function RedirectClickAnalytics() {
 // Clicks Analytics Component - focuses on redirect click data
 function ClicksAnalytics() {
   const redirectData = useRedirectClickAnalytics();
+  const costPerClickData = useRedirectCostPerClick();
   const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
   const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
   
@@ -1405,7 +1407,20 @@ function ClicksAnalytics() {
       .sort((a, b) => a.auction_id - b.auction_id);
   }, [redirectData.auctionData, auctionRange, showOnlyWithClicks]);
 
-  if (redirectData.isLoading) {
+  // Apply filters to the cost per click data
+  const filteredCostData = useMemo(() => {
+    if (!costPerClickData.auctionData || !auctionRange) return [];
+    
+    return costPerClickData.auctionData
+      .filter(item => {
+        const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
+        const hasClicks = showOnlyWithClicks ? item.click_count > 0 : true;
+        return inRange && hasClicks;
+      })
+      .sort((a, b) => a.auction_id - b.auction_id);
+  }, [costPerClickData.auctionData, auctionRange, showOnlyWithClicks]);
+
+  if (redirectData.isLoading || costPerClickData.isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-[300px] w-full" />
@@ -1429,7 +1444,7 @@ function ClicksAnalytics() {
     );
   }
 
-  if (redirectData.error) {
+  if (redirectData.error || costPerClickData.error) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
         <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
@@ -1467,6 +1482,16 @@ function ClicksAnalytics() {
   const filteredUniqueClicks = filteredRedirectData.reduce((sum, item) => sum + item.unique_clicks, 0);
   const auctionsWithClicks = filteredRedirectData.filter(item => item.total_clicks > 0);
   const clickedAuctionsCount = auctionsWithClicks.length;
+
+  // Format currency for tooltips
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
 
   return (
     <div>
@@ -1614,6 +1639,108 @@ function ClicksAnalytics() {
         </div>
       </div>
 
+      {/* Cost Per Click by Auction Chart */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Cost Per Click by Auction</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={filteredCostData}
+              margin={{
+                top: 20,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                label={{ value: 'USD per Click', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  return [formatCurrency(value as number), name];
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="cost_per_click" 
+                name="Cost Per Click" 
+                stroke="#8884d8" 
+                activeDot={{ r: 8 }} 
+                label={{ 
+                  position: 'top', 
+                  offset: 15,
+                  angle: -45,
+                  formatter: (value: number) => {
+                    // Use a shorter currency format to save space
+                    return "$" + value.toFixed(2);
+                  },
+                  fill: '#666',
+                  fontSize: 10
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Winning Bid by Auction Chart */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Winning Bid by Auction</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={filteredCostData}
+              margin={{
+                top: 20,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  return [formatCurrency(value as number), name];
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="usd_value" 
+                name="Winning Bid" 
+                stroke="#82ca9d" 
+                activeDot={{ r: 8 }}
+                label={{ 
+                  position: 'top', 
+                  offset: 15,
+                  angle: -45,
+                  formatter: (value: number) => {
+                    // Use a shorter currency format to save space
+                    return "$" + value.toFixed(0);
+                  },
+                  fill: '#666',
+                  fontSize: 10
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Unique vs Total Clicks Comparison */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
         <h4 className="text-lg font-medium mb-4">Unique vs Total Clicks Distribution</h4>
@@ -1640,7 +1767,7 @@ function ClicksAnalytics() {
         </div>
       </div>
 
-      {/* Click Sources Chart (4th position) */}
+      {/* Click Sources Chart (5th position) */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
         <h4 className="text-lg font-medium mb-4">Click Sources Distribution</h4>
         <div className="h-[300px] w-full">
@@ -2137,41 +2264,41 @@ export default function AdminDashboard() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
   // Filter and sort clanker daily data
-  const filteredClankerData = useMemo(() => {
-    if (!clankerDailyData.length) return [];
+  // const filteredClankerData = useMemo(() => {
+  //   if (!clankerDailyData.length) return [];
     
-    // Sort by selected field
-    const sorted = [...clankerDailyData].sort((a, b) => {
-      if (sortField === "day") {
-        // For dates, we need special handling
-        const dateA = new Date(a.day);
-        const dateB = new Date(b.day);
-        return sortDirection === "asc" 
-          ? dateA.getTime() - dateB.getTime() 
-          : dateB.getTime() - dateA.getTime();
-      }
+  //   // Sort by selected field
+  //   const sorted = [...clankerDailyData].sort((a, b) => {
+  //     if (sortField === "day") {
+  //       // For dates, we need special handling
+  //       const dateA = new Date(a.day);
+  //       const dateB = new Date(b.day);
+  //       return sortDirection === "asc" 
+  //         ? dateA.getTime() - dateB.getTime() 
+  //         : dateB.getTime() - dateA.getTime();
+  //     }
       
-      // For numeric fields
-      const valueA = a[sortField] as number;
-      const valueB = b[sortField] as number;
+  //     // For numeric fields
+  //     const valueA = a[sortField] as number;
+  //     const valueB = b[sortField] as number;
       
-      return sortDirection === "asc" ? valueA - valueB : valueB - valueA;
-    });
+  //     return sortDirection === "asc" ? valueA - valueB : valueB - valueA;
+  //   });
     
-    return sorted;
-  }, [clankerDailyData, sortField, sortDirection]);
+  //   return sorted;
+  // }, [clankerDailyData, sortField, sortDirection]);
   
   // Handle column sort 
-  const handleSort = (field: keyof ClankerFeesData) => {
-    if (sortField === field) {
-      // Toggle direction if already sorting by this field
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      // Set new sort field with default desc direction
-      setSortField(field);
-      setSortDirection("desc");
-    }
-  };
+  // const handleSort = (field: keyof ClankerFeesData) => {
+  //   if (sortField === field) {
+  //     // Toggle direction if already sorting by this field
+  //     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+  //   } else {
+  //     // Set new sort field with default desc direction
+  //     setSortField(field);
+  //     setSortDirection("desc");
+  //   }
+  // };
 
   // Use the hooks for price data
   useEthPrice(); // Keep the hook without destructuring
@@ -2262,15 +2389,15 @@ export default function AdminDashboard() {
     });
   };
 
-  const formatQrValue = (qrValue: number) => {
-    return `${formatNumber(qrValue, 0)} $QR`;
-  };
+  // const formatQrValue = (qrValue: number) => {
+  //   return `${formatNumber(qrValue, 0)} $QR`;
+  // };
 
-  // Calculate USD values from QR amounts in V2 data
-  const getV2UsdValue = (qrAmount: number) => {
-    if (qrPriceLoading || !qrPrice) return '-';
-    return formatAmountToUsd(qrAmount);
-  };
+  // // Calculate USD values from QR amounts in V2 data
+  // const getV2UsdValue = (qrAmount: number) => {
+  //   if (qrPriceLoading || !qrPrice) return '-';
+  //   return formatAmountToUsd(qrAmount);
+  // };
 
   if (!isConnected) {
     return (
