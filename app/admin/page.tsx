@@ -1581,20 +1581,6 @@ function ClicksAnalytics() {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Click-through Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round((clickedAuctionsCount / Math.max(filteredRedirectData.length, 1)) * 100) || 0}%
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Auctions with at least 1 click
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Click Count by Auction Chart */}
@@ -2441,13 +2427,13 @@ export default function AdminDashboard() {
 
         <Tabs defaultValue="clicks">
           <TabsList className="mb-6">
-            <TabsTrigger value="clicks">Clicks</TabsTrigger>
-            <TabsTrigger value="claims">Claims</TabsTrigger>
-            <TabsTrigger value="auctions">Auctions</TabsTrigger>
-            <TabsTrigger value="farcaster">Farcaster (TBD)</TabsTrigger>
-            <TabsTrigger value="clanker">Clanker (TBD)</TabsTrigger>
-            <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
-            <TabsTrigger value="boostcaster">Boostcaster</TabsTrigger>
+            <TabsTrigger value="clicks" className="md:px-2.5">Clicks</TabsTrigger>
+            <TabsTrigger value="claims" className="md:px-2.5">Claims</TabsTrigger>
+            <TabsTrigger value="auctions" className="md:px-4">Auctions (TBU)</TabsTrigger>
+            <TabsTrigger value="farcaster" className="md:px-4">Farcaster (TBU)</TabsTrigger>
+            <TabsTrigger value="clanker" className="md:px-4">Clanker (TBU)</TabsTrigger>
+            <TabsTrigger value="testimonials" className="md:px-4">Testimonials</TabsTrigger>
+            <TabsTrigger value="boostcaster" className="md:px-4">Boostcaster</TabsTrigger>
           </TabsList>
 
           {/* Clicks Dashboard */}
@@ -2468,7 +2454,7 @@ export default function AdminDashboard() {
           {/* Farcaster Analytics Dashboard */}
           <TabsContent value="farcaster">
             <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics (TBD)</h3>
+              <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics (TBU)</h3>
               <p className="text-purple-700 dark:text-purple-400">
                 This section will contain Farcaster-specific analytics. Implementation coming soon.
               </p>
@@ -2478,7 +2464,7 @@ export default function AdminDashboard() {
           {/* Clanker Fees Dashboard */}
           <TabsContent value="clanker">
             <div className="p-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-orange-800 dark:text-orange-300 mb-2">Clanker Analytics (TBD)</h3>
+              <h3 className="text-lg font-medium text-orange-800 dark:text-orange-300 mb-2">Clanker Analytics (TBU)</h3>
               <p className="text-orange-700 dark:text-orange-400">
                 This section will contain Clanker-specific analytics. Implementation coming soon.
               </p>
