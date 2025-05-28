@@ -38,7 +38,9 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Copy,
+  Clock
 } from "lucide-react";
 
 interface Signer {
@@ -74,6 +76,16 @@ interface EngagementTarget {
   selectedUsers: number[]; // Array of FIDs for manual selection
 }
 
+interface RecentExecution {
+  id: string;
+  castHash: string;
+  executedAt: string;
+  successful: number;
+  failed: number;
+  totalActions: number;
+  type: 'smart' | 'manual';
+}
+
 export function EngagementManager() {
   const { address } = useAccount();
   const [signers, setSigners] = useState<Signer[]>([]);
@@ -101,11 +113,13 @@ export function EngagementManager() {
   
   const [isExecuting, setIsExecuting] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [recentExecutions, setRecentExecutions] = useState<RecentExecution[]>([]);
 
   // Fetch available signers
   useEffect(() => {
     if (address) {
       fetchSigners();
+      loadRecentExecutions();
     }
   }, [address]);
 
@@ -320,6 +334,16 @@ export function EngagementManager() {
       // Refresh signers to update any status changes
       fetchSigners();
       
+      // Save execution to localStorage
+      saveExecution({
+        castHash: target.castHash,
+        executedAt: new Date().toISOString(),
+        successful: result.successful,
+        failed: result.failed,
+        totalActions: result.successful + result.failed,
+        type: target.selectedUsers.length > 0 ? 'manual' : 'smart'
+      });
+      
     } catch (error) {
       console.error('Error executing engagement:', error);
       toast.error('Failed to execute engagement');
@@ -339,6 +363,53 @@ export function EngagementManager() {
       permissions: ['like', 'recast'],
       excludeUsed: true
     });
+  };
+
+  // Load recent executions from localStorage
+  const loadRecentExecutions = () => {
+    try {
+      const stored = localStorage.getItem('recent-executions');
+      if (stored) {
+        const executions = JSON.parse(stored) as RecentExecution[];
+        // Sort by most recent first and limit to 10
+        const sortedExecutions = executions
+          .sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime())
+          .slice(0, 10);
+        setRecentExecutions(sortedExecutions);
+      }
+    } catch (error) {
+      console.error('Error loading recent executions:', error);
+    }
+  };
+
+  // Save execution to localStorage
+  const saveExecution = (execution: Omit<RecentExecution, 'id'>) => {
+    try {
+      const newExecution: RecentExecution = {
+        ...execution,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+      };
+      
+      const stored = localStorage.getItem('recent-executions');
+      const existing = stored ? JSON.parse(stored) as RecentExecution[] : [];
+      const updated = [newExecution, ...existing].slice(0, 10); // Keep only last 10
+      
+      localStorage.setItem('recent-executions', JSON.stringify(updated));
+      setRecentExecutions(updated);
+    } catch (error) {
+      console.error('Error saving execution:', error);
+    }
+  };
+
+  // Copy cast hash to clipboard
+  const copyCastHash = async (castHash: string) => {
+    try {
+      await navigator.clipboard.writeText(castHash);
+      toast.success('Cast hash copied to clipboard');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      toast.error('Failed to copy cast hash');
+    }
   };
 
   if (loading) {
@@ -1196,6 +1267,59 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                     checked={previewMode}
                     onCheckedChange={setPreviewMode}
                   />
+                </div>
+
+                {/* Recent Executions */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    Recent Executions
+                  </div>
+                  {recentExecutions.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-xs">No recent executions</p>
+                      <p className="text-xs text-gray-400">Execute an engagement to see it here</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {recentExecutions.map((execution) => (
+                        <div key={execution.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={execution.type === 'smart' ? 'default' : 'secondary'} className="text-xs">
+                                {execution.type === 'smart' ? 'Smart' : 'Manual'}
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                {new Date(execution.executedAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-gray-700 dark:text-gray-300 truncate">
+                                {execution.castHash.slice(0, 12)}...{execution.castHash.slice(-8)}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 w-5 p-0 hover:bg-blue-100"
+                                onClick={() => copyCastHash(execution.castHash)}
+                                title="Copy full cast hash"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                              <span className="text-xs text-green-600">
+                                ✓ {execution.successful}
+                              </span>
+                              {execution.failed > 0 && (
+                                <span className="text-xs text-red-600">
+                                  ✗ {execution.failed}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
