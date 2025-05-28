@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/supabase';
+import { useAccount } from 'wagmi';
 import { Trash2, Loader2, Star, StarOff, ArrowUpCircle, ArrowDownCircle, AlignJustify } from 'lucide-react';
 import { toast } from 'sonner';
 import { TwitterEmbed } from '@/components/TwitterEmbed';
@@ -31,6 +31,7 @@ interface LoadingStates {
 }
 
 export function TestimonialsAdmin() {
+  const { address } = useAccount();
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [newUrl, setNewUrl] = useState('');
@@ -41,29 +42,29 @@ export function TestimonialsAdmin() {
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({});
   
   useEffect(() => {
-    fetchTestimonials();
-  }, [refreshKey]);
+    if (address) {
+      fetchTestimonials();
+    }
+  }, [refreshKey, address]);
   
   const fetchTestimonials = async () => {
+    if (!address) return;
+    
     try {
       setPageLoading(true);
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('*')
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        throw error;
+      
+      const response = await fetch('/api/admin/testimonials', {
+        headers: {
+          'Authorization': `Bearer ${address}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status}`);
       }
       
-      // Mark all testimonials as approved for display
-      const approvedData = data?.map(item => ({
-        ...item,
-        is_approved: true
-      })) || [];
-      
-      setTestimonials(approvedData);
+      const data = await response.json();
+      setTestimonials(data.testimonials || []);
     } catch (error) {
       console.error('Error fetching testimonials:', error);
       toast.error('Failed to load testimonials');
@@ -88,24 +89,31 @@ export function TestimonialsAdmin() {
       return;
     }
     
+    if (!address) {
+      toast.error('Wallet not connected');
+      return;
+    }
+    
     try {
       setAddingNew(true);
       
       // Auto-detect type if not explicitly set
       const urlType = detectUrlType(newUrl);
       
-      const { error } = await supabase
-        .from('testimonials')
-        .insert([{
+      const response = await fetch('/api/admin/testimonials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`
+        },
+        body: JSON.stringify({
           url: newUrl,
-          type: newType || urlType,
-          is_approved: true, // Auto-approve testimonials
-          is_featured: false,
-          priority: 0
-        }]);
-        
-      if (error) {
-        throw error;
+          type: newType || urlType
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to add: ${response.status}`);
       }
       
       toast.success('Testimonial added successfully');
@@ -121,19 +129,31 @@ export function TestimonialsAdmin() {
   };
   
   const updateTestimonial = async (id: number, updates: Partial<Testimonial>, actionType: string) => {
+    if (!address) {
+      toast.error('Wallet not connected');
+      return;
+    }
+    
     const loadingKey = `${id}-${actionType}`;
     
     try {
       // Set loading state for this specific operation
       setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
       
-      const { error } = await supabase
-        .from('testimonials')
-        .update(updates)
-        .eq('id', id);
-        
-      if (error) {
-        throw error;
+      const response = await fetch('/api/admin/testimonials', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`
+        },
+        body: JSON.stringify({
+          id,
+          updates
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update: ${response.status}`);
       }
       
       toast.success('Testimonial updated');
@@ -148,19 +168,26 @@ export function TestimonialsAdmin() {
   };
   
   const deleteTestimonial = async (id: number) => {
+    if (!address) {
+      toast.error('Wallet not connected');
+      return;
+    }
+    
     const loadingKey = `${id}-delete`;
     
     try {
       // Set loading state for this specific delete operation
       setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
       
-      const { error } = await supabase
-        .from('testimonials')
-        .delete()
-        .eq('id', id);
-        
-      if (error) {
-        throw error;
+      const response = await fetch(`/api/admin/testimonials?id=${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${address}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete: ${response.status}`);
       }
       
       toast.success('Testimonial deleted');
@@ -190,6 +217,18 @@ export function TestimonialsAdmin() {
   const isLoading = (id: number, actionType: string) => {
     return !!loadingStates[`${id}-${actionType}`];
   };
+
+  // Show loading if no address yet
+  if (!address) {
+    return (
+      <div className="flex justify-center my-12">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-500 mx-auto mb-2" />
+          <p className="text-gray-500">Please connect your wallet</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
