@@ -1,3 +1,4 @@
+/* eslint-disable */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -33,68 +34,68 @@ import { useRedirectCostPerClick } from "@/hooks/useRedirectCostPerClick";
 
 
 // Hook for Farcaster metrics
-function useFarcasterMetrics() {
-  const { address } = useAccount();
-  const [metrics, setMetrics] = useState<{
-    totalFrameUsers: number;
-    usersAddedLastWeek: number;
-    tokens: {
-      total: number;
-      enabled: number;
-      disabled: number;
-    };
-    dailyGrowth: {
-      date: string;
-      newUsers: number;
-      total: number;
-    }[];
-    isLoading: boolean;
-    error: Error | null;
-  }>({
-    totalFrameUsers: 0,
-    usersAddedLastWeek: 0,
-    tokens: {
-      total: 0,
-      enabled: 0,
-      disabled: 0
-    },
-    dailyGrowth: [],
-    isLoading: true,
-    error: null
-  });
+// function useFarcasterMetrics() {
+//   const { address } = useAccount();
+//   const [metrics, setMetrics] = useState<{
+//     totalFrameUsers: number;
+//     usersAddedLastWeek: number;
+//     tokens: {
+//       total: number;
+//       enabled: number;
+//       disabled: number;
+//     };
+//     dailyGrowth: {
+//       date: string;
+//       newUsers: number;
+//       total: number;
+//     }[];
+//     isLoading: boolean;
+//     error: Error | null;
+//   }>({
+//     totalFrameUsers: 0,
+//     usersAddedLastWeek: 0,
+//     tokens: {
+//       total: 0,
+//       enabled: 0,
+//       disabled: 0
+//     },
+//     dailyGrowth: [],
+//     isLoading: true,
+//     error: null
+//   });
 
-  useEffect(() => {
-    if (!address) return;
+//   useEffect(() => {
+//     if (!address) return;
     
-    const fetchData = async () => {
-      try {
-        // Set authorization header with the wallet address for authentication
-        const response = await fetch('/api/farcaster-metrics');
+//     const fetchData = async () => {
+//       try {
+//         // Set authorization header with the wallet address for authentication
+//         const response = await fetch('/api/farcaster-metrics');
         
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
+//         if (!response.ok) {
+//           throw new Error(`API error: ${response.status}`);
+//         }
         
-        const data = await response.json();
-        setMetrics({
-          ...data,
-          isLoading: false,
-          error: null
-        });
-      } catch (error) {
-        setMetrics(prev => ({
-          ...prev,
-          isLoading: false,
-          error: error instanceof Error ? error : new Error('An unknown error occurred')
-        }));
-      }
-    };
+//         const data = await response.json();
+//         setMetrics({
+//           ...data,
+//           isLoading: false,
+//           error: null
+//         });
+//       } catch (error) {
+//         setMetrics(prev => ({
+//           ...prev,
+//           isLoading: false,
+//           error: error instanceof Error ? error : new Error('An unknown error occurred')
+//         }));
+//       }
+//     };
 
-    fetchData();
-  }, [address]);
+//     fetchData();
+//   }, [address]);
 
-  return metrics;
-}
+//   return metrics;
+// }
 
 // Farcaster Analytics Component
 // function FarcasterAnalytics() {
@@ -192,481 +193,481 @@ function useFarcasterMetrics() {
 // }
 
 // Cost Per Click Analytics Component
-function CostPerClickAnalytics() {
-  const { address } = useAccount();
-  const [data, setData] = useState<{
-    auctionData: {
-      auction_id: number;
-      date: string;
-      usd_value: number;
-      click_count: number;
-      cost_per_click: number;
-    }[];
-    stats?: {
-      totalAuctions: number;
-      auctionsWithClicks: number;
-      totalClicks: number;
-      totalUsdValue: number;
-      minAuctionId: number;
-      maxAuctionId: number;
-      earliestAuctionIdWithClicks: number;
-    };
-    isLoading: boolean;
-    error: Error | null;
-  }>({
-    auctionData: [],
-    isLoading: true,
-    error: null
-  });
+// function CostPerClickAnalytics() {
+//   const { address } = useAccount();
+//   const [data, setData] = useState<{
+//     auctionData: {
+//       auction_id: number;
+//       date: string;
+//       usd_value: number;
+//       click_count: number;
+//       cost_per_click: number;
+//     }[];
+//     stats?: {
+//       totalAuctions: number;
+//       auctionsWithClicks: number;
+//       totalClicks: number;
+//       totalUsdValue: number;
+//       minAuctionId: number;
+//       maxAuctionId: number;
+//       earliestAuctionIdWithClicks: number;
+//     };
+//     isLoading: boolean;
+//     error: Error | null;
+//   }>({
+//     auctionData: [],
+//     isLoading: true,
+//     error: null
+//   });
   
-  // Filter states - initialize with null values since we don't know the range yet
-  const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
-  const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
+//   // Filter states - initialize with null values since we don't know the range yet
+//   const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
+//   const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
   
-  useEffect(() => {
-    if (!address) return;
+//   useEffect(() => {
+//     if (!address) return;
     
-    const fetchData = async () => {
-      try {
-        // Include the wallet address in the authorization header
-        const response = await fetch('/api/cost-per-click', {
-          headers: {
-            'Authorization': `Bearer ${address}`
-          }
-        });
+//     const fetchData = async () => {
+//       try {
+//         // Include the wallet address in the authorization header
+//         const response = await fetch('/api/cost-per-click', {
+//           headers: {
+//             'Authorization': `Bearer ${address}`
+//           }
+//         });
         
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
+//         if (!response.ok) {
+//           throw new Error(`API error: ${response.status}`);
+//         }
         
-        const resultData = await response.json();
+//         const resultData = await response.json();
         
-        // Set the initial auction range based on the data
-        if (resultData.stats) {
-          const minId = resultData.stats.earliestAuctionIdWithClicks || resultData.stats.minAuctionId;
-          const maxId = resultData.stats.maxAuctionId;
-          setAuctionRange([minId, maxId]);
-        }
+//         // Set the initial auction range based on the data
+//         if (resultData.stats) {
+//           const minId = resultData.stats.earliestAuctionIdWithClicks || resultData.stats.minAuctionId;
+//           const maxId = resultData.stats.maxAuctionId;
+//           setAuctionRange([minId, maxId]);
+//         }
         
-        setData({
-          auctionData: resultData.auctionData,
-          stats: resultData.stats,
-          isLoading: false,
-          error: null
-        });
-      } catch (error) {
-        console.error('Error fetching cost per click data:', error);
-        setData(prev => ({
-          ...prev,
-          isLoading: false,
-          error: error instanceof Error ? error : new Error('An unknown error occurred')
-        }));
-      }
-    };
+//         setData({
+//           auctionData: resultData.auctionData,
+//           stats: resultData.stats,
+//           isLoading: false,
+//           error: null
+//         });
+//       } catch (error) {
+//         console.error('Error fetching cost per click data:', error);
+//         setData(prev => ({
+//           ...prev,
+//           isLoading: false,
+//           error: error instanceof Error ? error : new Error('An unknown error occurred')
+//         }));
+//       }
+//     };
 
-    fetchData();
-  }, [address]);
+//     fetchData();
+//   }, [address]);
 
-  // Apply filters to the auction data
-  const filteredData = useMemo(() => {
-    if (!data.auctionData || !auctionRange) return [];
+//   // Apply filters to the auction data
+//   const filteredData = useMemo(() => {
+//     if (!data.auctionData || !auctionRange) return [];
     
-    return data.auctionData
-      .filter(item => {
-        // Filter by auction ID range
-        const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
-        // Filter by click count if option is enabled
-        const hasClicks = showOnlyWithClicks ? item.click_count > 0 : true;
-        return inRange && hasClicks;
-      })
-      .sort((a, b) => a.auction_id - b.auction_id);
-  }, [data.auctionData, auctionRange, showOnlyWithClicks]);
+//     return data.auctionData
+//       .filter(item => {
+//         // Filter by auction ID range
+//         const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
+//         // Filter by click count if option is enabled
+//         const hasClicks = showOnlyWithClicks ? item.click_count > 0 : true;
+//         return inRange && hasClicks;
+//       })
+//       .sort((a, b) => a.auction_id - b.auction_id);
+//   }, [data.auctionData, auctionRange, showOnlyWithClicks]);
 
-  if (data.isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-[300px] w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Array(3).fill(0).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  <Skeleton className="h-4 w-40" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <Skeleton className="h-8 w-20" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+//   if (data.isLoading) {
+//     return (
+//       <div className="space-y-4">
+//         <Skeleton className="h-[300px] w-full" />
+//         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//           {Array(3).fill(0).map((_, i) => (
+//             <Card key={i}>
+//               <CardHeader className="pb-2">
+//                 <CardTitle className="text-sm font-medium">
+//                   <Skeleton className="h-4 w-40" />
+//                 </CardTitle>
+//               </CardHeader>
+//               <CardContent>
+//                 <div className="text-2xl font-bold">
+//                   <Skeleton className="h-8 w-20" />
+//                 </div>
+//               </CardContent>
+//             </Card>
+//           ))}
+//         </div>
+//       </div>
+//     );
+//   }
 
-  if (data.error) {
-    return (
-      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
-        <p className="text-red-700 dark:text-red-400">
-          There was an error loading the cost per click data. Please try again later.
-        </p>
-      </div>
-    );
-  }
+//   if (data.error) {
+//     return (
+//       <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+//         <p className="text-red-700 dark:text-red-400">
+//           There was an error loading the cost per click data. Please try again later.
+//         </p>
+//       </div>
+//     );
+//   }
 
-  // If we have no data yet
-  if (data.auctionData.length === 0) {
-    return (
-      <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
-        <p className="text-amber-700 dark:text-amber-400">
-          Cost per click data is not available yet. This feature requires data from both winning bids and link visits.
-        </p>
-      </div>
-    );
-  }
+//   // If we have no data yet
+//   if (data.auctionData.length === 0) {
+//     return (
+//       <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
+//         <p className="text-amber-700 dark:text-amber-400">
+//           Cost per click data is not available yet. This feature requires data from both winning bids and link visits.
+//         </p>
+//       </div>
+//     );
+//   }
 
-  // If we don't have a range yet, show a loading state
-  if (!auctionRange) {
-    return (
-      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
-        <p className="text-blue-700 dark:text-blue-400">
-          Loading auction data and calculating metrics...
-        </p>
-      </div>
-    );
-  }
+//   // If we don't have a range yet, show a loading state
+//   if (!auctionRange) {
+//     return (
+//       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
+//         <p className="text-blue-700 dark:text-blue-400">
+//           Loading auction data and calculating metrics...
+//         </p>
+//       </div>
+//     );
+//   }
 
-  // Calculate stats for the filtered data
-  const filteredClicks = filteredData.reduce((sum, item) => sum + item.click_count, 0);
-  const filteredSpent = filteredData.reduce((sum, item) => sum + item.usd_value, 0);
-  const filteredAvgCostPerClick = filteredClicks > 0 ? filteredSpent / filteredClicks : 0;
+//   // Calculate stats for the filtered data
+//   const filteredClicks = filteredData.reduce((sum, item) => sum + item.click_count, 0);
+//   const filteredSpent = filteredData.reduce((sum, item) => sum + item.usd_value, 0);
+//   const filteredAvgCostPerClick = filteredClicks > 0 ? filteredSpent / filteredClicks : 0;
   
-  // Calculate stats for auctions with clicks
-  const auctionsWithClicks = filteredData.filter(item => item.click_count > 0);
-  const clickedAuctionsCount = auctionsWithClicks.length;
+//   // Calculate stats for auctions with clicks
+//   const auctionsWithClicks = filteredData.filter(item => item.click_count > 0);
+//   const clickedAuctionsCount = auctionsWithClicks.length;
   
-  // Format currency for tooltips
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
+//   // Format currency for tooltips
+//   const formatCurrency = (value: number) => {
+//     return new Intl.NumberFormat('en-US', {
+//       style: 'currency',
+//       currency: 'USD',
+//       minimumFractionDigits: 2,
+//       maximumFractionDigits: 2
+//     }).format(value);
+//   };
 
-  return (
-    <div>
-      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Cost Per Click Analysis</h3>
-        <p className="text-blue-700 dark:text-blue-400">
-          Analyze how much bidders are paying per click. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}, which is the earliest auction with link click data.
-        </p>
-        <div className="text-xs text-blue-600 dark:text-blue-500 mt-2">
-          Note: &ldquo;Clicks&rdquo; represent the total number of link visits on each auction&apos;s link, counting all records in the link_visit_claims table.
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-              Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
-                value={auctionRange[0]}
-                onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
-                className="flex-1"
-              />
-              <input
-                type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
-                value={auctionRange[1]}
-                onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
-                className="flex-1"
-              />
-            </div>
-          </div>
-          <div className="flex items-center">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showOnlyWithClicks}
-                onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
-                className="sr-only peer"
-              />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-blue-800 dark:text-blue-300">
-                Show only auctions with clicks
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
+//   return (
+//     <div>
+//       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Cost Per Click Analysis</h3>
+//         <p className="text-blue-700 dark:text-blue-400">
+//           Analyze how much bidders are paying per click. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}, which is the earliest auction with link click data.
+//         </p>
+//         <div className="text-xs text-blue-600 dark:text-blue-500 mt-2">
+//           Note: &ldquo;Clicks&rdquo; represent the total number of link visits on each auction&apos;s link, counting all records in the link_visit_claims table.
+//         </div>
+//         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+//           <div>
+//             <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+//               Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
+//             </label>
+//             <div className="flex items-center space-x-2">
+//               <input
+//                 type="range"
+//                 min={data.stats?.minAuctionId || 0}
+//                 max={data.stats?.maxAuctionId || 100}
+//                 value={auctionRange[0]}
+//                 onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
+//                 className="flex-1"
+//               />
+//               <input
+//                 type="range"
+//                 min={data.stats?.minAuctionId || 0}
+//                 max={data.stats?.maxAuctionId || 100}
+//                 value={auctionRange[1]}
+//                 onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
+//                 className="flex-1"
+//               />
+//             </div>
+//           </div>
+//           <div className="flex items-center">
+//             <label className="inline-flex items-center cursor-pointer">
+//               <input
+//                 type="checkbox"
+//                 checked={showOnlyWithClicks}
+//                 onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
+//                 className="sr-only peer"
+//               />
+//               <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+//               <span className="ms-3 text-sm font-medium text-blue-800 dark:text-blue-300">
+//                 Show only auctions with clicks
+//               </span>
+//             </label>
+//           </div>
+//         </div>
+//       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredData.length}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {clickedAuctionsCount} with clicks ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
-            </div>
-          </CardContent>
-        </Card>
+//       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Auctions</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">{filteredData.length}</div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               {clickedAuctionsCount} with clicks ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Avg {(filteredClicks / clickedAuctionsCount).toFixed(1)} per auction with clicks
-            </div>
-          </CardContent>
-        </Card>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               Avg {(filteredClicks / clickedAuctionsCount).toFixed(1)} per auction with clicks
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total USD Spent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(filteredSpent)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Avg {formatCurrency(filteredSpent / filteredData.length)} per auction
-            </div>
-          </CardContent>
-        </Card>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Total USD Spent</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">
+//               {formatCurrency(filteredSpent)}
+//             </div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               Avg {formatCurrency(filteredSpent / filteredData.length)} per auction
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Cost Per Click</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(filteredAvgCostPerClick)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Based on auctions with &gt;0 clicks
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Avg. Cost Per Click</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">
+//               {formatCurrency(filteredAvgCostPerClick)}
+//             </div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               Based on auctions with &gt;0 clicks
+//             </div>
+//           </CardContent>
+//         </Card>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Click Count by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={filteredData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="auction_id" 
-                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
-              />
-              <YAxis 
-                label={{ value: 'Number of Clicks', angle: -90, position: 'insideLeft' }} 
-              />
-              <Tooltip />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="click_count" 
-                name="Click Count" 
-                stroke="#ffc658" 
-                activeDot={{ r: 8 }}
-                label={{ 
-                  position: 'top',
-                  offset: 15,
-                  angle: -45,
-                  formatter: (value: number) => value.toLocaleString(),
-                  fill: '#666',
-                  fontSize: 10
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Click Count by Auction</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <LineChart
+//               data={filteredData}
+//               margin={{
+//                 top: 5,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis 
+//                 dataKey="auction_id" 
+//                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+//               />
+//               <YAxis 
+//                 label={{ value: 'Number of Clicks', angle: -90, position: 'insideLeft' }} 
+//               />
+//               <Tooltip />
+//               <Legend />
+//               <Line 
+//                 type="monotone" 
+//                 dataKey="click_count" 
+//                 name="Click Count" 
+//                 stroke="#ffc658" 
+//                 activeDot={{ r: 8 }}
+//                 label={{ 
+//                   position: 'top',
+//                   offset: 15,
+//                   angle: -45,
+//                   formatter: (value: number) => value.toLocaleString(),
+//                   fill: '#666',
+//                   fontSize: 10
+//                 }}
+//               />
+//             </LineChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Cost Per Click by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={filteredData}
-              margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="auction_id" 
-                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
-              />
-              <YAxis 
-                label={{ value: 'USD per Click', angle: -90, position: 'insideLeft' }} 
-              />
-              <Tooltip 
-                formatter={(value, name) => {
-                  return [formatCurrency(value as number), name];
-                }}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="cost_per_click" 
-                name="Cost Per Click" 
-                stroke="#8884d8" 
-                activeDot={{ r: 8 }} 
-                label={{ 
-                  position: 'top', 
-                  offset: 15,
-                  angle: -45,
-                  formatter: (value: number) => {
-                    // Use a shorter currency format to save space
-                    return "$" + value.toFixed(2);
-                  },
-                  fill: '#666',
-                  fontSize: 10
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Cost Per Click by Auction</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <LineChart
+//               data={filteredData}
+//               margin={{
+//                 top: 20,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis 
+//                 dataKey="auction_id" 
+//                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+//               />
+//               <YAxis 
+//                 label={{ value: 'USD per Click', angle: -90, position: 'insideLeft' }} 
+//               />
+//               <Tooltip 
+//                 formatter={(value, name) => {
+//                   return [formatCurrency(value as number), name];
+//                 }}
+//               />
+//               <Legend />
+//               <Line 
+//                 type="monotone" 
+//                 dataKey="cost_per_click" 
+//                 name="Cost Per Click" 
+//                 stroke="#8884d8" 
+//                 activeDot={{ r: 8 }} 
+//                 label={{ 
+//                   position: 'top', 
+//                   offset: 15,
+//                   angle: -45,
+//                   formatter: (value: number) => {
+//                     // Use a shorter currency format to save space
+//                     return "$" + value.toFixed(2);
+//                   },
+//                   fill: '#666',
+//                   fontSize: 10
+//                 }}
+//               />
+//             </LineChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Winning Bid by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={filteredData}
-              margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="auction_id" 
-                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
-              />
-              <YAxis 
-                label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
-              />
-              <Tooltip 
-                formatter={(value, name) => {
-                  return [formatCurrency(value as number), name];
-                }}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="usd_value" 
-                name="Winning Bid" 
-                stroke="#82ca9d" 
-                activeDot={{ r: 8 }}
-                label={{ 
-                  position: 'top', 
-                  offset: 15,
-                  angle: -45,
-                  formatter: (value: number) => {
-                    // Use a shorter currency format to save space
-                    return "$" + value.toFixed(0);
-                  },
-                  fill: '#666',
-                  fontSize: 10
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Winning Bid by Auction</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <LineChart
+//               data={filteredData}
+//               margin={{
+//                 top: 20,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis 
+//                 dataKey="auction_id" 
+//                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+//               />
+//               <YAxis 
+//                 label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
+//               />
+//               <Tooltip 
+//                 formatter={(value, name) => {
+//                   return [formatCurrency(value as number), name];
+//                 }}
+//               />
+//               <Legend />
+//               <Line 
+//                 type="monotone" 
+//                 dataKey="usd_value" 
+//                 name="Winning Bid" 
+//                 stroke="#82ca9d" 
+//                 activeDot={{ r: 8 }}
+//                 label={{ 
+//                   position: 'top', 
+//                   offset: 15,
+//                   angle: -45,
+//                   formatter: (value: number) => {
+//                     // Use a shorter currency format to save space
+//                     return "$" + value.toFixed(0);
+//                   },
+//                   fill: '#666',
+//                   fontSize: 10
+//                 }}
+//               />
+//             </LineChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Click Distribution by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={filteredData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="auction_id" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="click_count" name="Clicks" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Click Distribution by Auction</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <BarChart
+//               data={filteredData}
+//               margin={{
+//                 top: 5,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis dataKey="auction_id" />
+//               <YAxis />
+//               <Tooltip />
+//               <Legend />
+//               <Bar dataKey="click_count" name="Clicks" fill="#8884d8" />
+//             </BarChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="text-lg font-medium">Auction Data</h4>
-          <div className="text-sm text-gray-500">
-            Showing {filteredData.length} of {data.auctionData.length} auctions
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left p-3">Auction ID</th>
-                <th className="text-left p-3">Date</th>
-                <th className="text-right p-3">Winning Bid (USD)</th>
-                <th className="text-right p-3">Clicks</th>
-                <th className="text-right p-3">Cost Per Click</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((item, index) => (
-                <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
-                  <td className="p-3">{item.auction_id}</td>
-                  <td className="p-3">{item.date}</td>
-                  <td className="text-right p-3">{formatCurrency(item.usd_value)}</td>
-                  <td className="text-right p-3">{item.click_count}</td>
-                  <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+//         <div className="flex justify-between items-center mb-4">
+//           <h4 className="text-lg font-medium">Auction Data</h4>
+//           <div className="text-sm text-gray-500">
+//             Showing {filteredData.length} of {data.auctionData.length} auctions
+//           </div>
+//         </div>
+//         <div className="overflow-x-auto">
+//           <table className="w-full border-collapse">
+//             <thead>
+//               <tr className="border-b border-gray-200 dark:border-gray-700">
+//                 <th className="text-left p-3">Auction ID</th>
+//                 <th className="text-left p-3">Date</th>
+//                 <th className="text-right p-3">Winning Bid (USD)</th>
+//                 <th className="text-right p-3">Clicks</th>
+//                 <th className="text-right p-3">Cost Per Click</th>
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {filteredData.map((item, index) => (
+//                 <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+//                   <td className="p-3">{item.auction_id}</td>
+//                   <td className="p-3">{item.date}</td>
+//                   <td className="text-right p-3">{formatCurrency(item.usd_value)}</td>
+//                   <td className="text-right p-3">{item.click_count}</td>
+//                   <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
+//                 </tr>
+//               ))}
+//             </tbody>
+//           </table>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 // Subgraph Analytics Component
 function SubgraphAnalytics() {
@@ -1073,310 +1074,310 @@ function useRedirectClickAnalytics() {
 }
 
 // Redirect Click Analytics Component
-function RedirectClickAnalytics() {
-  const data = useRedirectClickAnalytics();
-  const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
-  const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
+// function RedirectClickAnalytics() {
+//   const data = useRedirectClickAnalytics();
+//   const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
+//   const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
   
-  // Set initial range when data loads
-  useEffect(() => {
-    if (data.stats && !auctionRange) {
-      const minId = data.stats.earliestAuctionIdWithClicks || data.stats.minAuctionId;
-      const maxId = data.stats.maxAuctionId;
-      setAuctionRange([minId, maxId]);
-    }
-  }, [data.stats, auctionRange]);
+//   // Set initial range when data loads
+//   useEffect(() => {
+//     if (data.stats && !auctionRange) {
+//       const minId = data.stats.earliestAuctionIdWithClicks || data.stats.minAuctionId;
+//       const maxId = data.stats.maxAuctionId;
+//       setAuctionRange([minId, maxId]);
+//     }
+//   }, [data.stats, auctionRange]);
 
-  // Apply filters to the auction data
-  const filteredData = useMemo(() => {
-    if (!data.auctionData || !auctionRange) return [];
+//   // Apply filters to the auction data
+//   const filteredData = useMemo(() => {
+//     if (!data.auctionData || !auctionRange) return [];
     
-    return data.auctionData
-      .filter(item => {
-        const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
-        const hasClicks = showOnlyWithClicks ? item.total_clicks > 0 : true;
-        return inRange && hasClicks;
-      })
-      .sort((a, b) => a.auction_id - b.auction_id);
-  }, [data.auctionData, auctionRange, showOnlyWithClicks]);
+//     return data.auctionData
+//       .filter(item => {
+//         const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
+//         const hasClicks = showOnlyWithClicks ? item.total_clicks > 0 : true;
+//         return inRange && hasClicks;
+//       })
+//       .sort((a, b) => a.auction_id - b.auction_id);
+//   }, [data.auctionData, auctionRange, showOnlyWithClicks]);
 
-  if (data.isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-[300px] w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Array(3).fill(0).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  <Skeleton className="h-4 w-40" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <Skeleton className="h-8 w-20" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+//   if (data.isLoading) {
+//     return (
+//       <div className="space-y-4">
+//         <Skeleton className="h-[300px] w-full" />
+//         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//           {Array(3).fill(0).map((_, i) => (
+//             <Card key={i}>
+//               <CardHeader className="pb-2">
+//                 <CardTitle className="text-sm font-medium">
+//                   <Skeleton className="h-4 w-40" />
+//                 </CardTitle>
+//               </CardHeader>
+//               <CardContent>
+//                 <div className="text-2xl font-bold">
+//                   <Skeleton className="h-8 w-20" />
+//                 </div>
+//               </CardContent>
+//             </Card>
+//           ))}
+//         </div>
+//       </div>
+//     );
+//   }
 
-  if (data.error) {
-    return (
-      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
-        <p className="text-red-700 dark:text-red-400">
-          There was an error loading the redirect click data. Please try again later.
-        </p>
-      </div>
-    );
-  }
+//   if (data.error) {
+//     return (
+//       <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+//         <p className="text-red-700 dark:text-red-400">
+//           There was an error loading the redirect click data. Please try again later.
+//         </p>
+//       </div>
+//     );
+//   }
 
-  if (data.auctionData.length === 0) {
-    return (
-      <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
-        <p className="text-amber-700 dark:text-amber-400">
-          Redirect click data is not available yet. This feature tracks clicks from the QR arrow, winner links, and popup buttons.
-        </p>
-      </div>
-    );
-  }
+//   if (data.auctionData.length === 0) {
+//     return (
+//       <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
+//         <p className="text-amber-700 dark:text-amber-400">
+//           Redirect click data is not available yet. This feature tracks clicks from the QR arrow, winner links, and popup buttons.
+//         </p>
+//       </div>
+//     );
+//   }
 
-  if (!auctionRange) {
-    return (
-      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
-        <p className="text-blue-700 dark:text-blue-400">
-          Loading redirect click data and calculating metrics...
-        </p>
-      </div>
-    );
-  }
+//   if (!auctionRange) {
+//     return (
+//       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
+//         <p className="text-blue-700 dark:text-blue-400">
+//           Loading redirect click data and calculating metrics...
+//         </p>
+//       </div>
+//     );
+//   }
 
-  // Calculate stats for the filtered data
-  const filteredClicks = filteredData.reduce((sum, item) => sum + item.total_clicks, 0);
-  const filteredUniqueClicks = filteredData.reduce((sum, item) => sum + item.unique_clicks, 0);
-  const auctionsWithClicks = filteredData.filter(item => item.total_clicks > 0);
-  const clickedAuctionsCount = auctionsWithClicks.length;
+//   // Calculate stats for the filtered data
+//   const filteredClicks = filteredData.reduce((sum, item) => sum + item.total_clicks, 0);
+//   const filteredUniqueClicks = filteredData.reduce((sum, item) => sum + item.unique_clicks, 0);
+//   const auctionsWithClicks = filteredData.filter(item => item.total_clicks > 0);
+//   const clickedAuctionsCount = auctionsWithClicks.length;
 
-  return (
-    <div>
-      <div className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">Redirect Click Analytics</h3>
-        <p className="text-green-700 dark:text-green-400">
-          Track clicks from QR arrow, winner links/images, and popup buttons. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}.
-        </p>
-        <div className="text-xs text-green-600 dark:text-green-500 mt-2">
-          Note: This tracks all redirect clicks through our tracking system, including unique IP addresses.
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-green-800 dark:text-green-300 mb-2">
-              Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
-                value={auctionRange[0]}
-                onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
-                className="flex-1"
-              />
-              <input
-                type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
-                value={auctionRange[1]}
-                onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
-                className="flex-1"
-              />
-            </div>
-          </div>
-          <div className="flex items-center">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showOnlyWithClicks}
-                onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
-                className="sr-only peer"
-              />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
-              <span className="ms-3 text-sm font-medium text-green-800 dark:text-green-300">
-                Show only auctions with clicks
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
+//   return (
+//     <div>
+//       <div className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-6">
+//         <h3 className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">Redirect Click Analytics</h3>
+//         <p className="text-green-700 dark:text-green-400">
+//           Track clicks from QR arrow, winner links/images, and popup buttons. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}.
+//         </p>
+//         <div className="text-xs text-green-600 dark:text-green-500 mt-2">
+//           Note: This tracks all redirect clicks through our tracking system, including unique IP addresses.
+//         </div>
+//         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+//           <div>
+//             <label className="block text-sm font-medium text-green-800 dark:text-green-300 mb-2">
+//               Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
+//             </label>
+//             <div className="flex items-center space-x-2">
+//               <input
+//                 type="range"
+//                 min={data.stats?.minAuctionId || 0}
+//                 max={data.stats?.maxAuctionId || 100}
+//                 value={auctionRange[0]}
+//                 onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
+//                 className="flex-1"
+//               />
+//               <input
+//                 type="range"
+//                 min={data.stats?.minAuctionId || 0}
+//                 max={data.stats?.maxAuctionId || 100}
+//                 value={auctionRange[1]}
+//                 onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
+//                 className="flex-1"
+//               />
+//             </div>
+//           </div>
+//           <div className="flex items-center">
+//             <label className="inline-flex items-center cursor-pointer">
+//               <input
+//                 type="checkbox"
+//                 checked={showOnlyWithClicks}
+//                 onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
+//                 className="sr-only peer"
+//               />
+//               <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+//               <span className="ms-3 text-sm font-medium text-green-800 dark:text-green-300">
+//                 Show only auctions with clicks
+//               </span>
+//             </label>
+//           </div>
+//         </div>
+//       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredData.length}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {clickedAuctionsCount} with clicks ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
-            </div>
-          </CardContent>
-        </Card>
+//       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Auctions</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">{filteredData.length}</div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               {clickedAuctionsCount} with clicks ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Avg {(filteredClicks / Math.max(clickedAuctionsCount, 1)).toFixed(1)} per auction with clicks
-            </div>
-          </CardContent>
-        </Card>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               Avg {(filteredClicks / Math.max(clickedAuctionsCount, 1)).toFixed(1)} per auction with clicks
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Unique Clicks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredUniqueClicks.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {Math.round((filteredUniqueClicks / Math.max(filteredClicks, 1)) * 100)}% of total clicks
-            </div>
-          </CardContent>
-        </Card>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Unique Clicks</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">{filteredUniqueClicks.toLocaleString()}</div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               {Math.round((filteredUniqueClicks / Math.max(filteredClicks, 1)) * 100)}% of total clicks
+//             </div>
+//           </CardContent>
+//         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Click-through Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round((clickedAuctionsCount / Math.max(filteredData.length, 1)) * 100) || 0}%
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Auctions with at least 1 click
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+//         <Card>
+//           <CardHeader className="pb-2">
+//             <CardTitle className="text-sm font-medium">Click-through Rate</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="text-2xl font-bold">
+//               {Math.round((clickedAuctionsCount / Math.max(filteredData.length, 1)) * 100) || 0}%
+//             </div>
+//             <div className="text-xs text-gray-500 mt-1">
+//               Auctions with at least 1 click
+//             </div>
+//           </CardContent>
+//         </Card>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Click Count by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={filteredData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="auction_id" 
-                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
-              />
-              <YAxis 
-                label={{ value: 'Number of Clicks', angle: -90, position: 'insideLeft' }} 
-              />
-              <Tooltip />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="total_clicks" 
-                name="Total Clicks" 
-                stroke="#10b981" 
-                activeDot={{ r: 8 }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="unique_clicks" 
-                name="Unique Clicks" 
-                stroke="#3b82f6" 
-                activeDot={{ r: 8 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Click Count by Auction</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <LineChart
+//               data={filteredData}
+//               margin={{
+//                 top: 5,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis 
+//                 dataKey="auction_id" 
+//                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+//               />
+//               <YAxis 
+//                 label={{ value: 'Number of Clicks', angle: -90, position: 'insideLeft' }} 
+//               />
+//               <Tooltip />
+//               <Legend />
+//               <Line 
+//                 type="monotone" 
+//                 dataKey="total_clicks" 
+//                 name="Total Clicks" 
+//                 stroke="#10b981" 
+//                 activeDot={{ r: 8 }} 
+//               />
+//               <Line 
+//                 type="monotone" 
+//                 dataKey="unique_clicks" 
+//                 name="Unique Clicks" 
+//                 stroke="#3b82f6" 
+//                 activeDot={{ r: 8 }}
+//               />
+//             </LineChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Click Sources Distribution</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={filteredData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="auction_id" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="click_sources.qr_arrow" name="QR Arrow" fill="#8884d8" stackId="a" />
-              <Bar dataKey="click_sources.winner_link" name="Winner Link" fill="#82ca9d" stackId="a" />
-              <Bar dataKey="click_sources.winner_image" name="Winner Image" fill="#ffc658" stackId="a" />
-              <Bar dataKey="click_sources.popup_button" name="Popup Button" fill="#ff7300" stackId="a" />
-              <Bar dataKey="click_sources.popup_image" name="Popup Image" fill="#00ff00" stackId="a" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+//         <h4 className="text-lg font-medium mb-4">Click Sources Distribution</h4>
+//         <div className="h-[300px] w-full">
+//           <ResponsiveContainer width="100%" height="100%">
+//             <BarChart
+//               data={filteredData}
+//               margin={{
+//                 top: 5,
+//                 right: 30,
+//                 left: 20,
+//                 bottom: 5,
+//               }}
+//             >
+//               <CartesianGrid strokeDasharray="3 3" />
+//               <XAxis dataKey="auction_id" />
+//               <YAxis />
+//               <Tooltip />
+//               <Legend />
+//               <Bar dataKey="click_sources.qr_arrow" name="QR Arrow" fill="#8884d8" stackId="a" />
+//               <Bar dataKey="click_sources.winner_link" name="Winner Link" fill="#82ca9d" stackId="a" />
+//               <Bar dataKey="click_sources.winner_image" name="Winner Image" fill="#ffc658" stackId="a" />
+//               <Bar dataKey="click_sources.popup_button" name="Popup Button" fill="#ff7300" stackId="a" />
+//               <Bar dataKey="click_sources.popup_image" name="Popup Image" fill="#00ff00" stackId="a" />
+//             </BarChart>
+//           </ResponsiveContainer>
+//         </div>
+//       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="text-lg font-medium">Auction Data</h4>
-          <div className="text-sm text-gray-500">
-            Showing {filteredData.length} of {data.auctionData.length} auctions
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left p-3">Auction ID</th>
-                <th className="text-left p-3">Date</th>
-                <th className="text-right p-3">Total Clicks</th>
-                <th className="text-right p-3">Unique Clicks</th>
-                <th className="text-right p-3">QR Arrow</th>
-                <th className="text-right p-3">Winner Link</th>
-                <th className="text-right p-3">Winner Image</th>
-                <th className="text-right p-3">Popup</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((item, index) => (
-                <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
-                  <td className="p-3">{item.auction_id}</td>
-                  <td className="p-3">{item.date}</td>
-                  <td className="text-right p-3">{item.total_clicks}</td>
-                  <td className="text-right p-3">{item.unique_clicks}</td>
-                  <td className="text-right p-3">{item.click_sources.qr_arrow}</td>
-                  <td className="text-right p-3">{item.click_sources.winner_link}</td>
-                  <td className="text-right p-3">{item.click_sources.winner_image}</td>
-                  <td className="text-right p-3">{item.click_sources.popup_button + item.click_sources.popup_image}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
+//       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+//         <div className="flex justify-between items-center mb-4">
+//           <h4 className="text-lg font-medium">Auction Data</h4>
+//           <div className="text-sm text-gray-500">
+//             Showing {filteredData.length} of {data.auctionData.length} auctions
+//           </div>
+//         </div>
+//         <div className="overflow-x-auto">
+//           <table className="w-full border-collapse">
+//             <thead>
+//               <tr className="border-b border-gray-200 dark:border-gray-700">
+//                 <th className="text-left p-3">Auction ID</th>
+//                 <th className="text-left p-3">Date</th>
+//                 <th className="text-right p-3">Total Clicks</th>
+//                 <th className="text-right p-3">Unique Clicks</th>
+//                 <th className="text-right p-3">QR Arrow</th>
+//                 <th className="text-right p-3">Winner Link</th>
+//                 <th className="text-right p-3">Winner Image</th>
+//                 <th className="text-right p-3">Popup</th>
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {filteredData.map((item, index) => (
+//                 <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+//                   <td className="p-3">{item.auction_id}</td>
+//                   <td className="p-3">{item.date}</td>
+//                   <td className="text-right p-3">{item.total_clicks}</td>
+//                   <td className="text-right p-3">{item.unique_clicks}</td>
+//                   <td className="text-right p-3">{item.click_sources.qr_arrow}</td>
+//                   <td className="text-right p-3">{item.click_sources.winner_link}</td>
+//                   <td className="text-right p-3">{item.click_sources.winner_image}</td>
+//                   <td className="text-right p-3">{item.click_sources.popup_button + item.click_sources.popup_image}</td>
+//                 </tr>
+//               ))}
+//             </tbody>
+//           </table>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 // Clicks Analytics Component - focuses on redirect click data
 function ClicksAnalytics() {
