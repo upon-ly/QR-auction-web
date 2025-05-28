@@ -166,7 +166,7 @@ export default async function RedirectPage({
       const { error } = await supabase
         .from('redirect_click_tracking')
         .insert({
-          auction_id: currentTokenId,
+          auction_id: currentTokenId - 1,
           ip_address: ipAddress,
           user_agent: userAgent,
           referrer: referrer,
