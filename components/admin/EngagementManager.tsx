@@ -101,7 +101,7 @@ export function EngagementManager() {
   });
   
   const [isExecuting, setIsExecuting] = useState(false);
-  const [previewMode, setPreviewMode] = useState(true);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Fetch available signers
   useEffect(() => {
