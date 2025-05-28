@@ -2424,62 +2424,64 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <Tabs defaultValue="clicks">
-          <TabsList className="mb-6">
-            <TabsTrigger value="clicks" className="md:px-2.5">Clicks</TabsTrigger>
-            <TabsTrigger value="claims" className="md:px-2.5">Claims</TabsTrigger>
-            <TabsTrigger value="auctions" className="md:px-4">Auctions (TBU)</TabsTrigger>
-            <TabsTrigger value="farcaster" className="md:px-4">Farcaster (TBU)</TabsTrigger>
-            <TabsTrigger value="clanker" className="md:px-4">Clanker (TBU)</TabsTrigger>
-            <TabsTrigger value="testimonials" className="md:px-4">Testimonials</TabsTrigger>
-            <TabsTrigger value="boostcaster" className="md:px-4">Boostcaster</TabsTrigger>
-          </TabsList>
+        <div className="max-w-fit">
+          <Tabs defaultValue="clicks">
+            <TabsList className="mb-6">
+              <TabsTrigger value="clicks" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clicks</TabsTrigger>
+              <TabsTrigger value="claims" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Claims</TabsTrigger>
+              <TabsTrigger value="auctions" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Auctions (TBU)</TabsTrigger>
+              <TabsTrigger value="farcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Farcaster (TBU)</TabsTrigger>
+              <TabsTrigger value="clanker" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clanker (TBU)</TabsTrigger>
+              <TabsTrigger value="testimonials" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Testimonials</TabsTrigger>
+              <TabsTrigger value="boostcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Boostcaster</TabsTrigger>
+            </TabsList>
 
-          {/* Clicks Dashboard */}
-          <TabsContent value="clicks">
-            <ClicksAnalytics />
-          </TabsContent>
+            {/* Clicks Dashboard */}
+            <TabsContent value="clicks">
+              <ClicksAnalytics />
+            </TabsContent>
 
-          {/* Claims Dashboard */}
-          <TabsContent value="claims">
-            <ClaimsAnalytics />
-          </TabsContent>
+            {/* Claims Dashboard */}
+            <TabsContent value="claims">
+              <ClaimsAnalytics />
+            </TabsContent>
 
-          {/* Auctions Analytics Dashboard (formerly Subgraph Analytics) */}
-          <TabsContent value="auctions">
-            <SubgraphAnalytics />
-          </TabsContent>
+            {/* Auctions Analytics Dashboard (formerly Subgraph Analytics) */}
+            <TabsContent value="auctions">
+              <SubgraphAnalytics />
+            </TabsContent>
 
-          {/* Farcaster Analytics Dashboard */}
-          <TabsContent value="farcaster">
-            <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics (TBU)</h3>
-              <p className="text-purple-700 dark:text-purple-400">
-                This section will contain Farcaster-specific analytics. Implementation coming soon.
-              </p>
-            </div>
-          </TabsContent>
+            {/* Farcaster Analytics Dashboard */}
+            <TabsContent value="farcaster">
+              <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
+                <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics (TBU)</h3>
+                <p className="text-purple-700 dark:text-purple-400">
+                  This section will contain Farcaster-specific analytics. Implementation coming soon.
+                </p>
+              </div>
+            </TabsContent>
 
-          {/* Clanker Fees Dashboard */}
-          <TabsContent value="clanker">
-            <div className="p-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg mb-6">
-              <h3 className="text-lg font-medium text-orange-800 dark:text-orange-300 mb-2">Clanker Analytics (TBU)</h3>
-              <p className="text-orange-700 dark:text-orange-400">
-                This section will contain Clanker-specific analytics. Implementation coming soon.
-              </p>
-            </div>
-          </TabsContent>
+            {/* Clanker Fees Dashboard */}
+            <TabsContent value="clanker">
+              <div className="p-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg mb-6">
+                <h3 className="text-lg font-medium text-orange-800 dark:text-orange-300 mb-2">Clanker Analytics (TBU)</h3>
+                <p className="text-orange-700 dark:text-orange-400">
+                  This section will contain Clanker-specific analytics. Implementation coming soon.
+                </p>
+              </div>
+            </TabsContent>
 
-          {/* Testimonials Dashboard */}
-          <TabsContent value="testimonials">
-            <TestimonialsAdmin />
-          </TabsContent>
+            {/* Testimonials Dashboard */}
+            <TabsContent value="testimonials">
+              <TestimonialsAdmin />
+            </TabsContent>
 
-          {/* Boostcaster Dashboard (formerly Smart Engagement) */}
-          <TabsContent value="boostcaster">
-            <EngagementManager />
-          </TabsContent>
-        </Tabs>
+            {/* Boostcaster Dashboard (formerly Smart Engagement) */}
+            <TabsContent value="boostcaster">
+              <EngagementManager />
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Additional metrics placeholders */}
         <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg mt-8">
