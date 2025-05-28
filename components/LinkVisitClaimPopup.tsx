@@ -10,6 +10,7 @@ import { frameSdk } from '@/lib/frame-sdk';
 import { toast } from "sonner";
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useAuctionImage } from '@/hooks/useAuctionImage';
+import { CLICK_SOURCES } from '@/lib/click-tracking';
 
 interface LinkVisitClaimPopupProps {
   isOpen: boolean;
@@ -171,11 +172,14 @@ export function LinkVisitClaimPopup({
     console.log('Link clicked, handling click for URL:', winningUrl);
     
     try {
-      // Open the link directly with frameSdk - no API call/database entry
-      if (winningUrl) {
+      // Create tracked redirect URL for popup image clicks
+      const trackedUrl = `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?source=${encodeURIComponent(CLICK_SOURCES.POPUP_IMAGE)}`;
+      
+      // Open the tracked redirect URL with frameSdk
+      if (trackedUrl) {
         try {
-          console.log('Redirecting to URL:', winningUrl);
-          await frameSdk.redirectToUrl(winningUrl);
+          console.log('Redirecting to tracked URL:', trackedUrl);
+          await frameSdk.redirectToUrl(trackedUrl);
           
           // After visiting, show claim button
           console.log('Link visited, showing claim button');
@@ -185,7 +189,7 @@ export function LinkVisitClaimPopup({
           
         } catch (error) {
           console.error('Error using frameSdk for redirect, falling back to window.open:', error);
-          window.open(winningUrl, '_blank', 'noopener,noreferrer');
+          window.open(trackedUrl, '_blank', 'noopener,noreferrer');
           
           // Still update state after fallback
           setTimeout(() => {

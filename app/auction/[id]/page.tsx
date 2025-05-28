@@ -17,7 +17,6 @@ import { UniswapLogo } from "@/components/UniswapLogo";
 import { toast } from "sonner";
 import { useSafetyDialog } from "@/hooks/useSafetyDialog";
 import { SafetyDialog } from "@/components/SafetyDialog";
-import { SafeExternalLink } from "@/components/SafeExternalLink";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { useAuctionEvents } from "@/hooks/useAuctionEvents";
 import { Button } from "@/components/ui/button";
@@ -35,6 +34,7 @@ import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
 import { removeAuctionImageOverride } from "@/utils/auctionImageOverrides";
+import { CLICK_SOURCES } from "@/lib/click-tracking";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -88,6 +88,11 @@ interface SettingsResponse {
 }
 
 const EARLIEST_AUCTION_ID = 1;
+
+// Helper function to create tracked redirect URL
+const createTrackedRedirectUrl = (clickSource: string) => {
+  return `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?source=${encodeURIComponent(clickSource)}`;
+};
 
 export default function AuctionPage() {
   const params = useParams();
@@ -374,18 +379,20 @@ export default function AuctionPage() {
                 <div className={styles.desktopHeading}>SAME QR. NEW WEBSITE. EVERY DAY.</div>
                 <div className={styles.desktopSubheading}>Win the auction to choose where it points next!</div>
               </div>
-              <SafeExternalLink
-                href={`${process.env.NEXT_PUBLIC_HOST_URL}/redirect`}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.QR_ARROW), e, true);
+                }}
                 className={`absolute top-3 right-3 p-1.5 rounded-full z-10 ${
                   isBaseColors 
                     ? "bg-white/20 hover:bg-white/30" 
                     : "bg-gray-100 hover:bg-gray-200"
                 } transition-colors`}
-                onBeforeNavigate={() => false}
                 aria-label="Open redirect link"
               >
                 <ExternalLink className={`h-5 w-5 ${isBaseColors ? "text-white" : "text-black"}`} />
-              </SafeExternalLink>
+              </button>
               
               <div className="inline-flex flex-col items-center">
                 <QRPage />
@@ -430,7 +437,8 @@ export default function AuctionPage() {
                             playsInline
                             className="object-cover w-full h-full cursor-pointer"
                             onClick={(e) => {
-                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                              e.preventDefault();
+                              handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_IMAGE), e, true);
                             }}
                           />
                         ) : (
@@ -439,7 +447,8 @@ export default function AuctionPage() {
                             alt="Open Graph"
                             className="object-cover w-full h-full cursor-pointer"
                             onClick={(e) => {
-                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                              e.preventDefault();
+                              handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_IMAGE), e, true);
                             }}
                           />
                         )}
@@ -452,7 +461,8 @@ export default function AuctionPage() {
                         <div className="w-full flex justify-center">
                           <button
                             onClick={(e) => {
-                              if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                              e.preventDefault();
+                              handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_LINK), e, true);
                             }}
                             className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                             title={ogUrl}
@@ -493,7 +503,8 @@ export default function AuctionPage() {
                           playsInline
                           className="object-cover w-full h-full cursor-pointer"
                           onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                            e.preventDefault();
+                            handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_IMAGE), e, true);
                           }}
                         />
                       ) : (
@@ -502,7 +513,8 @@ export default function AuctionPage() {
                           alt="Open Graph"
                           className="object-cover w-full h-full cursor-pointer"
                           onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                            e.preventDefault();
+                            handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_IMAGE), e, true);
                           }}
                         />
                       )}
@@ -515,7 +527,8 @@ export default function AuctionPage() {
                       <div className="w-full flex justify-center">
                         <button
                           onClick={(e) => {
-                            if (ogUrl) handleFrameOpenUrl(ogUrl, e, true);
+                            e.preventDefault();
+                            handleFrameOpenUrl(createTrackedRedirectUrl(CLICK_SOURCES.WINNER_LINK), e, true);
                           }}
                           className="inline-flex items-center hover:opacity-80 transition-opacity max-w-full"
                           title={ogUrl}
@@ -710,7 +723,17 @@ export default function AuctionPage() {
         isOpen={isOpen}
         onClose={closeDialog}
         targetUrl={pendingUrl || ""}
-        onContinue={handleContinue}
+        onContinue={() => {
+          // When continuing from safety dialog, use popup button as the click source
+          // since we can't determine the exact source that triggered the dialog
+          const trackedUrl = createTrackedRedirectUrl(CLICK_SOURCES.POPUP_BUTTON);
+          
+          // Close the dialog first
+          closeDialog();
+          
+          // Then navigate using handleFrameOpenUrl for frame compatibility
+          handleFrameOpenUrl(trackedUrl, undefined, true);
+        }}
       />
     </main>
   );

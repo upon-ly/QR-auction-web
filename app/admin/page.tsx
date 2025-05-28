@@ -999,6 +999,384 @@ type ClankerRowData = {
   total_clanker_fee: string | number;
 };
 
+// Hook for Redirect Click Analytics
+function useRedirectClickAnalytics() {
+  const { address } = useAccount();
+  const [data, setData] = useState<{
+    auctionData: {
+      auction_id: number;
+      date: string;
+      total_clicks: number;
+      unique_clicks: number;
+      click_sources: {
+        qr_arrow: number;
+        winner_link: number;
+        winner_image: number;
+        popup_button: number;
+        popup_image: number;
+      };
+    }[];
+    stats?: {
+      totalAuctions: number;
+      auctionsWithClicks: number;
+      totalClicks: number;
+      totalUniqueClicks: number;
+      minAuctionId: number;
+      maxAuctionId: number;
+      earliestAuctionIdWithClicks: number;
+    };
+    isLoading: boolean;
+    error: Error | null;
+  }>({
+    auctionData: [],
+    isLoading: true,
+    error: null
+  });
+  
+  useEffect(() => {
+    if (!address) return;
+    
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/redirect-click-analytics', {
+          headers: {
+            'Authorization': `Bearer ${address}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const resultData = await response.json();
+        setData({
+          auctionData: resultData.auctionData,
+          stats: resultData.stats,
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        console.error('Error fetching redirect click analytics:', error);
+        setData(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error : new Error('An unknown error occurred')
+        }));
+      }
+    };
+
+    fetchData();
+  }, [address]);
+
+  return data;
+}
+
+// Redirect Click Analytics Component
+function RedirectClickAnalytics() {
+  const data = useRedirectClickAnalytics();
+  const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
+  const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
+  
+  // Set initial range when data loads
+  useEffect(() => {
+    if (data.stats && !auctionRange) {
+      const minId = data.stats.earliestAuctionIdWithClicks || data.stats.minAuctionId;
+      const maxId = data.stats.maxAuctionId;
+      setAuctionRange([minId, maxId]);
+    }
+  }, [data.stats, auctionRange]);
+
+  // Apply filters to the auction data
+  const filteredData = useMemo(() => {
+    if (!data.auctionData || !auctionRange) return [];
+    
+    return data.auctionData
+      .filter(item => {
+        const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
+        const hasClicks = showOnlyWithClicks ? item.total_clicks > 0 : true;
+        return inRange && hasClicks;
+      })
+      .sort((a, b) => a.auction_id - b.auction_id);
+  }, [data.auctionData, auctionRange, showOnlyWithClicks]);
+
+  if (data.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-[300px] w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array(3).fill(0).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  <Skeleton className="h-4 w-40" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (data.error) {
+    return (
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
+        <p className="text-red-700 dark:text-red-400">
+          There was an error loading the redirect click data. Please try again later.
+        </p>
+      </div>
+    );
+  }
+
+  if (data.auctionData.length === 0) {
+    return (
+      <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
+        <p className="text-amber-700 dark:text-amber-400">
+          Redirect click data is not available yet. This feature tracks clicks from the QR arrow, winner links, and popup buttons.
+        </p>
+      </div>
+    );
+  }
+
+  if (!auctionRange) {
+    return (
+      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
+        <p className="text-blue-700 dark:text-blue-400">
+          Loading redirect click data and calculating metrics...
+        </p>
+      </div>
+    );
+  }
+
+  // Calculate stats for the filtered data
+  const filteredClicks = filteredData.reduce((sum, item) => sum + item.total_clicks, 0);
+  const filteredUniqueClicks = filteredData.reduce((sum, item) => sum + item.unique_clicks, 0);
+  const auctionsWithClicks = filteredData.filter(item => item.total_clicks > 0);
+  const clickedAuctionsCount = auctionsWithClicks.length;
+
+  return (
+    <div>
+      <div className="p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-6">
+        <h3 className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">Redirect Click Analytics</h3>
+        <p className="text-green-700 dark:text-green-400">
+          Track clicks from QR arrow, winner links/images, and popup buttons. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}.
+        </p>
+        <div className="text-xs text-green-600 dark:text-green-500 mt-2">
+          Note: This tracks all redirect clicks through our tracking system, including unique IP addresses.
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-green-800 dark:text-green-300 mb-2">
+              Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="range"
+                min={data.stats?.minAuctionId || 0}
+                max={data.stats?.maxAuctionId || 100}
+                value={auctionRange[0]}
+                onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
+                className="flex-1"
+              />
+              <input
+                type="range"
+                min={data.stats?.minAuctionId || 0}
+                max={data.stats?.maxAuctionId || 100}
+                value={auctionRange[1]}
+                onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <div className="flex items-center">
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showOnlyWithClicks}
+                onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
+                className="sr-only peer"
+              />
+              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+              <span className="ms-3 text-sm font-medium text-green-800 dark:text-green-300">
+                Show only auctions with clicks
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredData.length}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {clickedAuctionsCount} with clicks ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Avg {(filteredClicks / Math.max(clickedAuctionsCount, 1)).toFixed(1)} per auction with clicks
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Unique Clicks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredUniqueClicks.toLocaleString()}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {Math.round((filteredUniqueClicks / Math.max(filteredClicks, 1)) * 100)}% of total clicks
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Click-through Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Math.round((clickedAuctionsCount / filteredData.length) * 100) || 0}%
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Auctions with at least 1 click
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Click Count by Auction</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={filteredData}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                label={{ value: 'Number of Clicks', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="total_clicks" 
+                name="Total Clicks" 
+                stroke="#10b981" 
+                activeDot={{ r: 8 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="unique_clicks" 
+                name="Unique Clicks" 
+                stroke="#3b82f6" 
+                activeDot={{ r: 8 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Click Sources Distribution</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={filteredData}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="auction_id" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="click_sources.qr_arrow" name="QR Arrow" fill="#8884d8" stackId="a" />
+              <Bar dataKey="click_sources.winner_link" name="Winner Link" fill="#82ca9d" stackId="a" />
+              <Bar dataKey="click_sources.winner_image" name="Winner Image" fill="#ffc658" stackId="a" />
+              <Bar dataKey="click_sources.popup_button" name="Popup Button" fill="#ff7300" stackId="a" />
+              <Bar dataKey="click_sources.popup_image" name="Popup Image" fill="#00ff00" stackId="a" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-lg font-medium">Auction Data</h4>
+          <div className="text-sm text-gray-500">
+            Showing {filteredData.length} of {data.auctionData.length} auctions
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left p-3">Auction ID</th>
+                <th className="text-left p-3">Date</th>
+                <th className="text-right p-3">Total Clicks</th>
+                <th className="text-right p-3">Unique Clicks</th>
+                <th className="text-right p-3">QR Arrow</th>
+                <th className="text-right p-3">Winner Link</th>
+                <th className="text-right p-3">Winner Image</th>
+                <th className="text-right p-3">Popup</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.map((item, index) => (
+                <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="p-3">{item.auction_id}</td>
+                  <td className="p-3">{item.date}</td>
+                  <td className="text-right p-3">{item.total_clicks}</td>
+                  <td className="text-right p-3">{item.unique_clicks}</td>
+                  <td className="text-right p-3">{item.click_sources.qr_arrow}</td>
+                  <td className="text-right p-3">{item.click_sources.winner_link}</td>
+                  <td className="text-right p-3">{item.click_sources.winner_image}</td>
+                  <td className="text-right p-3">{item.click_sources.popup_button + item.click_sources.popup_image}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { address, isConnected } = useAccount();
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -1192,6 +1570,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="clanker">Clanker Fees</TabsTrigger>
             <TabsTrigger value="farcaster">Farcaster</TabsTrigger>
             <TabsTrigger value="costperclick">Cost Per Click</TabsTrigger>
+            <TabsTrigger value="redirectclicks">Redirect Clicks 2</TabsTrigger>
             <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
           </TabsList>
 
@@ -1449,6 +1828,11 @@ export default function AdminDashboard() {
           {/* Cost Per Click Analytics Dashboard */}
           <TabsContent value="costperclick">
             <CostPerClickAnalytics />
+          </TabsContent>
+
+          {/* Redirect Click Analytics Dashboard */}
+          <TabsContent value="redirectclicks">
+            <RedirectClickAnalytics />
           </TabsContent>
 
           {/* Testimonials Dashboard */}
