@@ -1129,29 +1129,61 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <Label htmlFor="numLikes">Likes: {target.numLikes}</Label>
-                    <Slider
-                      value={[target.numLikes]}
-                      onValueChange={([value]) => setTarget(prev => ({ ...prev, numLikes: value }))}
-                      max={engagementStats.likersAvailable}
-                      step={1}
-                    />
-                    <div className="text-xs text-gray-500">
-                      Max available: {engagementStats.likersAvailable}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={engagementStats.likersAvailable}
+                          value={target.numLikes}
+                          onChange={(e) => {
+                            const value = Math.min(Math.max(0, parseInt(e.target.value) || 0), engagementStats.likersAvailable);
+                            setTarget(prev => ({ ...prev, numLikes: value }));
+                          }}
+                          className="w-20"
+                        />
+                        <Slider
+                          value={[target.numLikes]}
+                          onValueChange={([value]) => setTarget(prev => ({ ...prev, numLikes: value }))}
+                          max={engagementStats.likersAvailable}
+                          step={1}
+                          className="flex-1"
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Max available: {engagementStats.likersAvailable}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <Label htmlFor="numRecasts">Recasts: {target.numRecasts}</Label>
-                    <Slider
-                      value={[target.numRecasts]}
-                      onValueChange={([value]) => setTarget(prev => ({ ...prev, numRecasts: value }))}
-                      max={engagementStats.recastersAvailable}
-                      step={1}
-                    />
-                    <div className="text-xs text-gray-500">
-                      Max available: {engagementStats.recastersAvailable}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={engagementStats.recastersAvailable}
+                          value={target.numRecasts}
+                          onChange={(e) => {
+                            const value = Math.min(Math.max(0, parseInt(e.target.value) || 0), engagementStats.recastersAvailable);
+                            setTarget(prev => ({ ...prev, numRecasts: value }));
+                          }}
+                          className="w-20"
+                        />
+                        <Slider
+                          value={[target.numRecasts]}
+                          onValueChange={([value]) => setTarget(prev => ({ ...prev, numRecasts: value }))}
+                          max={engagementStats.recastersAvailable}
+                          step={1}
+                          className="flex-1"
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Max available: {engagementStats.recastersAvailable}
+                      </div>
                     </div>
                   </div>
                 </div>
