@@ -100,10 +100,12 @@ async function logFailedTransaction(params: {
   client_ip?: string;
 }) {
   try {
-    // Extract client IP from request_data if not provided directly
+    // Use the provided client IP directly, with fallback extraction from request_data
     const clientIP = params.client_ip || 
       (params.request_data?.clientIP as string) || 
       'unknown';
+
+    console.log(`🗂️ Logging failed transaction: IP=${clientIP}, FID=${params.fid}, Error=${params.error_code}`);
 
     // Your existing database insert code
     const { data, error } = await supabase
@@ -206,7 +208,9 @@ export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
   
   // Get client IP for logging
-  const clientIP = getClientIP(request);
+  const clientIP = getClientIP(request, true); // Enable debug mode temporarily
+  
+  console.log(`🌐 REQUEST IP DEBUGGING: Detected IP=${clientIP}`);
   
   // Rate limiting FIRST: 3 requests per minute per IP (before any processing)
   if (isRateLimited(clientIP, 3, 60000)) {
@@ -249,7 +253,8 @@ export async function POST(request: NextRequest) {
         winning_url: null,
         error_message: 'Missing required parameters (fid, address, auction_id, or username)',
         error_code: 'VALIDATION_ERROR',
-        request_data: { ...requestData, clientIP } as Record<string, unknown>
+        request_data: { ...requestData, clientIP } as Record<string, unknown>,
+        client_ip: clientIP
       });
       
       // Then trigger auto-block check for this IP
@@ -360,7 +365,8 @@ export async function POST(request: NextRequest) {
         error_message: 'Database error when checking claim status',
         error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
         request_data: requestData as Record<string, unknown>,
-        network_status: 'db_error'
+        network_status: 'db_error',
+        client_ip: clientIP
       });
       
       return NextResponse.json({
@@ -440,7 +446,8 @@ export async function POST(request: NextRequest) {
         error_code: 'INSUFFICIENT_GAS',
         request_data: requestData as Record<string, unknown>,
         gas_price: ethers.formatEther(balance),
-        network_status: 'low_funds'
+        network_status: 'low_funds',
+        client_ip: clientIP
       });
       
       return NextResponse.json({ 
@@ -487,7 +494,8 @@ export async function POST(request: NextRequest) {
           error_message: errorMessage,
           error_code: 'INSUFFICIENT_TOKENS',
           request_data: requestData as Record<string, unknown>,
-          network_status: 'low_tokens'
+          network_status: 'low_tokens',
+          client_ip: clientIP
         });
         
         return NextResponse.json({ 
@@ -532,7 +540,8 @@ export async function POST(request: NextRequest) {
             error_code: 'APPROVAL_FAILED',
             request_data: requestData as Record<string, unknown>,
             tx_hash: txHash,
-            network_status: 'approval_failed'
+            network_status: 'approval_failed',
+            client_ip: clientIP
           });
           
           return NextResponse.json({ 
@@ -562,7 +571,8 @@ export async function POST(request: NextRequest) {
         error_message: `Failed to check token balance: ${errorMessage}`,
         error_code: errorCode || 'TOKEN_CHECK_FAILED',
         request_data: requestData as Record<string, unknown>,
-        network_status: errorCode || 'unknown'
+        network_status: errorCode || 'unknown',
+        client_ip: clientIP
       });
       
       return NextResponse.json({ 
@@ -643,7 +653,8 @@ export async function POST(request: NextRequest) {
               gas_price: gasPrice?.toString(),
               gas_limit: gasLimit,
               network_status: 'tx_failed',
-              retry_count: attempt
+              retry_count: attempt,
+              client_ip: clientIP
             });
           }
           
@@ -700,7 +711,8 @@ export async function POST(request: NextRequest) {
             error_code: updateError.code || 'DB_INSERT_ERROR',
             tx_hash: receipt.hash,
             request_data: requestData as Record<string, unknown>,
-            network_status: 'tx_success_db_fail'
+            network_status: 'tx_success_db_fail',
+            client_ip: clientIP
           });
           
           return NextResponse.json({ 
@@ -749,7 +761,8 @@ export async function POST(request: NextRequest) {
         error_message: errorMessage,
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,
-        network_status: 'failed'
+        network_status: 'failed',
+        client_ip: clientIP
       });
       
       return NextResponse.json({ 
@@ -798,7 +811,8 @@ export async function POST(request: NextRequest) {
         error_message: errorMessage,
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,
-        network_status: 'unexpected_error'
+        network_status: 'unexpected_error',
+        client_ip: clientIP
       });
     } catch (logError) {
       console.error('Failed to log unexpected error:', logError);
