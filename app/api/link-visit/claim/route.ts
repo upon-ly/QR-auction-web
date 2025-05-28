@@ -518,7 +518,14 @@ export async function POST(request: NextRequest) {
           );
           
           console.log(`Approval tx submitted: ${approveTx.hash}`);
-          await approveTx.wait();
+          
+          // Add timeout wrapper around the wait to prevent Vercel timeouts
+          const approvalPromise = approveTx.wait();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Approval transaction timeout after 399 seconds')), 399000)
+          );
+          
+          await Promise.race([approvalPromise, timeoutPromise]);
           console.log('Approval confirmed');
         } catch (approveError: unknown) {
           console.error('Error approving tokens:', approveError);
@@ -529,25 +536,64 @@ export async function POST(request: NextRequest) {
             
           const txHash = (approveError as { hash?: string }).hash;
           
-          // Log token approval error
-          await logFailedTransaction({
-            fid,
-            eth_address: address,
-            auction_id,
-            username,
-            winning_url: winningUrl,
-            error_message: `Token approval failed: ${errorMessage}`,
-            error_code: 'APPROVAL_FAILED',
-            request_data: requestData as Record<string, unknown>,
-            tx_hash: txHash,
-            network_status: 'approval_failed',
-            client_ip: clientIP
-          });
+          // If this was a timeout error and we have a tx hash, check if approval actually succeeded
+          if (errorMessage.includes('timeout') && txHash) {
+            console.log('Approval timed out, checking if it actually succeeded on-chain...');
+            try {
+              const currentAllowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
+              if (currentAllowance >= airdropAmount) {
+                console.log('Approval actually succeeded on-chain despite timeout, continuing...');
+                // Continue with the airdrop - don't return error
+              } else {
+                console.log('Approval did not succeed on-chain, logging failure...');
+                // Log the timeout error and queue for retry
+                await logFailedTransaction({
+                  fid,
+                  eth_address: address,
+                  auction_id,
+                  username,
+                  winning_url: winningUrl,
+                  error_message: `Token approval timed out: ${errorMessage}`,
+                  error_code: 'APPROVAL_TIMEOUT',
+                  request_data: requestData as Record<string, unknown>,
+                  tx_hash: txHash,
+                  network_status: 'approval_timeout',
+                  client_ip: clientIP
+                });
+                
+                return NextResponse.json({ 
+                  success: false, 
+                  error: 'Token approval timed out. Your request has been queued for retry.' 
+                }, { status: 500 });
+              }
+            } catch (recheckError) {
+              console.error('Error rechecking allowance after timeout:', recheckError);
+              // Fall through to normal error handling
+            }
+          }
           
-          return NextResponse.json({ 
-            success: false, 
-            error: 'Failed to approve tokens for transfer. Please try again later.' 
-          }, { status: 500 });
+          // Normal error handling for non-timeout errors or when recheck fails
+          if (!errorMessage.includes('timeout') || !txHash) {
+            // Log token approval error
+            await logFailedTransaction({
+              fid,
+              eth_address: address,
+              auction_id,
+              username,
+              winning_url: winningUrl,
+              error_message: `Token approval failed: ${errorMessage}`,
+              error_code: 'APPROVAL_FAILED',
+              request_data: requestData as Record<string, unknown>,
+              tx_hash: txHash,
+              network_status: 'approval_failed',
+              client_ip: clientIP
+            });
+            
+            return NextResponse.json({ 
+              success: false, 
+              error: 'Failed to approve tokens for transfer. Please try again later.' 
+            }, { status: 500 });
+          }
         }
       } else {
         console.log('Sufficient allowance already exists, skipping approval');
@@ -617,7 +663,14 @@ export async function POST(request: NextRequest) {
           );
           
           console.log(`Airdrop tx submitted: ${tx.hash}`);
-          const receipt = await tx.wait();
+          
+          // Add timeout wrapper around the wait to prevent Vercel timeouts
+          const airdropPromise = tx.wait();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Airdrop transaction timeout after 399 seconds')), 399000)
+          );
+          
+          const receipt = await Promise.race([airdropPromise, timeoutPromise]);
           console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
           
           return receipt;
