@@ -1572,7 +1572,7 @@ function ClicksAnalytics() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Unique Clicks</CardTitle>
+            <CardTitle className="text-sm font-medium">Uniques</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{filteredUniqueClicks.toLocaleString()}</div>
@@ -1617,7 +1617,7 @@ function ClicksAnalytics() {
               <Line 
                 type="monotone" 
                 dataKey="unique_clicks" 
-                name="Unique Clicks" 
+                name="Uniques" 
                 stroke="#3b82f6" 
                 activeDot={{ r: 8 }}
               />
@@ -1748,7 +1748,7 @@ function ClicksAnalytics() {
               <Tooltip />
               <Legend />
               <Bar dataKey="total_clicks" name="Total Clicks" fill="#10b981" />
-              <Bar dataKey="unique_clicks" name="Unique Clicks" fill="#3b82f6" />
+              <Bar dataKey="unique_clicks" name="Uniques" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
         </div>
