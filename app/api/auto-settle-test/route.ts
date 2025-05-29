@@ -37,49 +37,43 @@ export async function POST(request: Request) {
   try {
     console.log('[Auto-Settle] API route called');
 
-    // Check authorization (skip for Vercel cron)
+    // Check authorization (follows Vercel docs exactly)
     const authHeader = request.headers.get('authorization');
-    const userAgent = request.headers.get('user-agent');
-    const manualToken = process.env.AUTO_SETTLE_SECRET;
-    const cronToken = process.env.CRON_SECRET;
+    const cronSecret = process.env.CRON_SECRET;
+    const manualSecret = process.env.AUTO_SETTLE_SECRET;
     
-    console.log('[Auto-Settle] Auth check - User Agent:', userAgent);
-    console.log('[Auto-Settle] Auth check - Auth Header present:', !!authHeader);
+    console.log('[Auto-Settle] Auth check:', {
+      hasCronSecret: !!cronSecret,
+      hasManualSecret: !!manualSecret,
+      hasAuthHeader: !!authHeader,
+      userAgent: request.headers.get('user-agent')
+    });
     
-    // Check if it's a Vercel cron job
-    const isVercelCron = userAgent?.includes('vercel-cron') || userAgent?.includes('Vercel');
-    
-    // Authorization logic:
-    // 1. If CRON_SECRET exists and this looks like a cron job, check against CRON_SECRET
-    // 2. If AUTO_SETTLE_SECRET exists and auth header provided, check against AUTO_SETTLE_SECRET  
-    // 3. If neither secret is set, allow the request (for testing)
-    
-    if (cronToken && isVercelCron) {
-      if (authHeader !== `Bearer ${cronToken}`) {
-        console.log('[Auto-Settle] Cron authorization failed');
+    // If CRON_SECRET is set, check it (per Vercel docs)
+    if (cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        console.log('[Auto-Settle] CRON_SECRET auth failed');
         return NextResponse.json(
-          { success: false, error: 'Unauthorized cron request' },
+          { success: false, error: 'Unauthorized - CRON_SECRET mismatch' },
           { status: 401 }
         );
       }
-      console.log('[Auto-Settle] Cron authorization passed');
-    } else if (manualToken && authHeader) {
-      if (authHeader !== `Bearer ${manualToken}`) {
-        console.log('[Auto-Settle] Manual authorization failed');
+      console.log('[Auto-Settle] CRON_SECRET auth passed');
+    }
+    // If manual secret provided and we have auth header, check it
+    else if (manualSecret && authHeader) {
+      if (authHeader !== `Bearer ${manualSecret}`) {
+        console.log('[Auto-Settle] Manual auth failed');
         return NextResponse.json(
-          { success: false, error: 'Unauthorized manual request' },
+          { success: false, error: 'Unauthorized - Manual secret mismatch' },
           { status: 401 }
         );
       }
-      console.log('[Auto-Settle] Manual authorization passed');
-    } else if (!cronToken && !manualToken) {
-      console.log('[Auto-Settle] No auth tokens configured, allowing request');
-    } else {
-      console.log('[Auto-Settle] Authorization failed - no valid auth method');
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      console.log('[Auto-Settle] Manual auth passed');
+    }
+    // No auth configured - allow (for testing)
+    else {
+      console.log('[Auto-Settle] No auth configured, allowing request');
     }
 
     // Get environment variables
