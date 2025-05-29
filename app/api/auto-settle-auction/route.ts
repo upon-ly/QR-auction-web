@@ -123,8 +123,8 @@ export async function POST(request: Request) {
       // Settle the auction with gas settings
       const tx = await contract.settleCurrentAndCreateNewAuction({
         gasLimit: gasEstimate + 50000n, // Add buffer
-        maxFeePerGas: ethers.parseUnits('20', 'gwei'), // 20 gwei max
-        maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'), // 2 gwei priority
+        maxFeePerGas: ethers.parseUnits('3', 'gwei'), // 3 gwei max (down from 20)
+        maxPriorityFeePerGas: ethers.parseUnits('1', 'gwei'), // 1 gwei priority (down from 2)
       });
       
       console.log(`[Auto-Settle] Settlement transaction sent: ${tx.hash}`);
