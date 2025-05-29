@@ -36,6 +36,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const isBaseColors = useBaseColors();
   const [ogImage, setOgImage] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState<boolean>(false);
+  const [fetchedOgImage, setFetchedOgImage] = useState<string | null>(null);
   const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
@@ -47,8 +48,36 @@ export function WinDetailsView(winnerdata: AuctionType) {
     isError: isWinnerDataError 
   } = useWinnerData(winnerdata.tokenId);
   
-  // Use the auction image hook to get override images with URL fallback
-  const { data: auctionImageData } = useAuctionImage(winnerdata.tokenId.toString(), winnerdata.url);
+  // Fetch OG image for fallback
+  useEffect(() => {
+    const fetchOgImage = async () => {
+      if (!winnerdata.url || winnerdata.url === "" || winnerdata.url === "0x") {
+        return;
+      }
+      
+      try {
+        const ogRes = await fetch(`/api/og?url=${encodeURIComponent(winnerdata.url)}`);
+        const data = await ogRes.json();
+        if (data.error || !data.image) {
+          setFetchedOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+        } else {
+          setFetchedOgImage(data.image);
+        }
+      } catch (err) {
+        console.error("Error fetching OG image:", err);
+        setFetchedOgImage(`${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`);
+      }
+    };
+
+    fetchOgImage();
+  }, [winnerdata.url]);
+  
+  // Use the auction image hook to get override images with URL and OG image fallback
+  const { data: auctionImageData } = useAuctionImage(
+    winnerdata.tokenId.toString(), 
+    winnerdata.url,
+    fetchedOgImage || `${String(process.env.NEXT_PUBLIC_HOST_URL)}/opgIMage.png`
+  );
   
   // Determine auction version
   const auctionVersion = useMemo(() => getAuctionVersion(winnerdata.tokenId), [winnerdata.tokenId]);
@@ -146,12 +175,12 @@ export function WinDetailsView(winnerdata: AuctionType) {
   // Helper function to format bid amount based on auction type
   const formatBidAmount = () => {
     if (isV3Auction) {
-      // For V3, show USDC format
-      return `$${tokenAmount.toFixed(2)}`;
+      // For V3, show USDC format with commas
+      return `$${tokenAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     } else if (isV1Auction) {
-      return `${formatQRAmount(tokenAmount)} ETH`;
+      return `${tokenAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} ETH`;
     } else {
-      return `${formatQRAmount(tokenAmount)} $QR`;
+      return `${tokenAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} $QR`;
     }
   };
 
