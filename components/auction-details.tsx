@@ -288,7 +288,7 @@ export function AuctionDetails({
                 
                 // Prepare values for database insert
                 const winnerData = {
-                  adminAddress: address, // Current user's address for authorization
+                  adminAddress: "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467", // Use hardcoded admin address
                   token_id: Number(id),
                   winner_address: auctionDetail.highestBidder,
                   amount: formatUnits(auctionDetail.highestBid, isV3Auction ? 6 : 18),
