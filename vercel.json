@@ -1,8 +1,8 @@
 {
-  "crons": [
-    {
-      "path": "/api/auto-settle-auction",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-} 
+    "crons": [
+      {
+        "path": "/api/auto-settle-auction",
+        "schedule": "*/3 * * * *"
+      }
+    ]
+  }
