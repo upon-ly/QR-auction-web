@@ -33,9 +33,9 @@ const QRAuctionV3_ABI = [
   }
 ] as const;
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    console.log('[Auto-Settle] API route called');
+    console.log('[Auto-Settle] API route called via GET (cron)');
 
     // Check authorization (follows Vercel docs exactly)
     const authHeader = request.headers.get('authorization');
@@ -205,10 +205,8 @@ export async function POST(request: Request) {
   }
 }
 
-// Also allow GET for testing
-export async function GET() {
-  return NextResponse.json({
-    message: 'Auto-settle auction endpoint. Use POST to trigger settlement check.',
-    timestamp: new Date().toISOString()
-  });
+// Keep POST for manual testing
+export async function POST(request: Request) {
+  // Just call the GET handler logic
+  return GET(request);
 } 
