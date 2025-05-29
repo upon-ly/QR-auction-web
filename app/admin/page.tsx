@@ -637,7 +637,7 @@ function ClicksAnalytics() {
         <h4 className="text-lg font-medium mb-4">Cost Per Click by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredCostData}
               margin={{
                 top: 20,
@@ -652,6 +652,8 @@ function ClicksAnalytics() {
                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
               />
               <YAxis 
+                domain={[0, 1]}
+                ticks={[0, 0.2, 0.4, 0.6, 0.8, 1.0]}
                 label={{ value: 'USD per Click', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -660,12 +662,10 @@ function ClicksAnalytics() {
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
+              <Bar 
                 dataKey="cost_per_click" 
                 name="Cost Per Click" 
-                stroke="#8884d8" 
-                activeDot={{ r: 8 }} 
+                fill="#8884d8"
                 label={{ 
                   position: 'top', 
                   offset: 15,
@@ -675,10 +675,10 @@ function ClicksAnalytics() {
                     return "$" + value.toFixed(2);
                   },
                   fill: '#666',
-                  fontSize: 14
+                  fontSize: 16
                 }}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -688,7 +688,7 @@ function ClicksAnalytics() {
         <h4 className="text-lg font-medium mb-4">Winning Bid by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredCostData}
               margin={{
                 top: 20,
@@ -704,6 +704,7 @@ function ClicksAnalytics() {
               />
               <YAxis 
                 domain={[0, 5000]}
+                ticks={[1000, 2000, 3000, 4000, 5000]}
                 label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -712,12 +713,10 @@ function ClicksAnalytics() {
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
+              <Bar 
                 dataKey="usd_value" 
                 name="Winning Bid" 
-                stroke="#82ca9d" 
-                activeDot={{ r: 8 }}
+                fill="#82ca9d"
                 label={{ 
                   position: 'top', 
                   offset: 15,
@@ -727,10 +726,10 @@ function ClicksAnalytics() {
                     return "$" + value.toFixed(0);
                   },
                   fill: '#666',
-                  fontSize: 14
+                  fontSize: 16
                 }}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -1043,7 +1042,7 @@ function ClaimsAnalytics() {
         <h4 className="text-lg font-medium mb-4">Claim Count by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredData}
               margin={{
                 top: 5,
@@ -1063,22 +1062,20 @@ function ClaimsAnalytics() {
               />
               <Tooltip />
               <Legend />
-              <Line 
-                type="monotone" 
+              <Bar 
                 dataKey="click_count" 
                 name="Claim Count" 
-                stroke="#ffc658" 
-                activeDot={{ r: 8 }}
+                fill="#ffc658"
                 label={{ 
                   position: 'top',
                   offset: 15,
                   angle: -45,
                   formatter: (value: number) => value.toLocaleString(),
                   fill: '#666',
-                  fontSize: 14
+                  fontSize: 16
                 }}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -1087,7 +1084,7 @@ function ClaimsAnalytics() {
         <h4 className="text-lg font-medium mb-4">Cost Per Claim by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredData}
               margin={{
                 top: 20,
@@ -1102,6 +1099,8 @@ function ClaimsAnalytics() {
                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
               />
               <YAxis 
+                domain={[0, 1]}
+                ticks={[0, 0.2, 0.4, 0.6, 0.8, 1.0]}
                 label={{ value: 'USD per Claim', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -1110,12 +1109,10 @@ function ClaimsAnalytics() {
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
+              <Bar 
                 dataKey="cost_per_click" 
                 name="Cost Per Claim" 
-                stroke="#8884d8" 
-                activeDot={{ r: 8 }} 
+                fill="#8884d8"
                 label={{ 
                   position: 'top', 
                   offset: 15,
@@ -1125,10 +1122,10 @@ function ClaimsAnalytics() {
                     return "$" + value.toFixed(2);
                   },
                   fill: '#666',
-                  fontSize: 14
+                  fontSize: 16
                 }}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -1137,7 +1134,7 @@ function ClaimsAnalytics() {
         <h4 className="text-lg font-medium mb-4">Winning Bid by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredData}
               margin={{
                 top: 20,
@@ -1153,6 +1150,7 @@ function ClaimsAnalytics() {
               />
               <YAxis 
                 domain={[0, 5000]}
+                ticks={[1000, 2000, 3000, 4000, 5000]}
                 label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -1161,12 +1159,10 @@ function ClaimsAnalytics() {
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
+              <Bar 
                 dataKey="usd_value" 
                 name="Winning Bid" 
-                stroke="#82ca9d" 
-                activeDot={{ r: 8 }}
+                fill="#82ca9d"
                 label={{ 
                   position: 'top', 
                   offset: 15,
@@ -1176,10 +1172,10 @@ function ClaimsAnalytics() {
                     return "$" + value.toFixed(0);
                   },
                   fill: '#666',
-                  fontSize: 14
+                  fontSize: 16
                 }}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
