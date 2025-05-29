@@ -814,10 +814,10 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
         </Badge>
       </div>
 
-      <Tabs defaultValue="targeting" className="space-y-6">
+      <Tabs defaultValue="execution" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="targeting">🎯 Smart Targeting</TabsTrigger>
           <TabsTrigger value="execution">⚡ Execution</TabsTrigger>
+          <TabsTrigger value="targeting">🎯 Smart Targeting</TabsTrigger>
           <TabsTrigger value="analytics">📊 Analytics</TabsTrigger>
         </TabsList>
 
