@@ -764,6 +764,7 @@ function ClicksAnalytics() {
     </div>
   );
 }
+
 // Claims Analytics Component (uses cost per click data but changes terminology to "claims")
 function ClaimsAnalytics() {
   const { address } = useAccount();
@@ -795,6 +796,69 @@ function ClaimsAnalytics() {
   // Filter states - initialize with null values since we don't know the range yet
   const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
   const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
+  
+  // Calculate week-over-week growth rate
+  const calculateWeekOverWeekGrowth = useMemo(() => {
+    if (!data.auctionData || data.auctionData.length === 0) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Calculate start dates for the two periods
+    const last7DaysEnd = new Date(today);
+    last7DaysEnd.setDate(today.getDate() - 1); // Yesterday (not including today)
+    const last7DaysStart = new Date(last7DaysEnd);
+    last7DaysStart.setDate(last7DaysEnd.getDate() - 6); // 7 days back from yesterday
+    
+    const prior7DaysEnd = new Date(last7DaysStart);
+    prior7DaysEnd.setDate(last7DaysStart.getDate() - 1); // Day before last 7 days
+    const prior7DaysStart = new Date(prior7DaysEnd);
+    prior7DaysStart.setDate(prior7DaysEnd.getDate() - 6); // 7 days back from that
+    
+    // Group claims by date
+    const claimsByDate = data.auctionData.reduce((acc, auction) => {
+      const auctionDate = new Date(auction.date);
+      auctionDate.setHours(0, 0, 0, 0);
+      const dateKey = auctionDate.toISOString().split('T')[0];
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = 0;
+      }
+      acc[dateKey] += auction.click_count;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Calculate claims for last 7 days (excluding today)
+    let last7DaysClaims = 0;
+    for (let d = new Date(last7DaysStart); d <= last7DaysEnd; d.setDate(d.getDate() + 1)) {
+      const dateKey = d.toISOString().split('T')[0];
+      last7DaysClaims += claimsByDate[dateKey] || 0;
+    }
+    
+    // Calculate claims for prior 7 days
+    let prior7DaysClaims = 0;
+    for (let d = new Date(prior7DaysStart); d <= prior7DaysEnd; d.setDate(d.getDate() + 1)) {
+      const dateKey = d.toISOString().split('T')[0];
+      prior7DaysClaims += claimsByDate[dateKey] || 0;
+    }
+    
+    // Calculate growth rate: (current / previous) - 1
+    if (prior7DaysClaims === 0) {
+      return last7DaysClaims > 0 ? Infinity : 0;
+    }
+    
+    const growthRate = (last7DaysClaims / prior7DaysClaims) - 1;
+    
+    return {
+      growthRate,
+      last7DaysClaims,
+      prior7DaysClaims,
+      last7DaysStart: last7DaysStart.toISOString().split('T')[0],
+      last7DaysEnd: last7DaysEnd.toISOString().split('T')[0],
+      prior7DaysStart: prior7DaysStart.toISOString().split('T')[0],
+      prior7DaysEnd: prior7DaysEnd.toISOString().split('T')[0]
+    };
+  }, [data.auctionData]);
   
   useEffect(() => {
     if (!address) return;
@@ -933,6 +997,14 @@ function ClaimsAnalytics() {
     }).format(value);
   };
 
+  // Format percentage for growth rate
+  const formatPercentage = (value: number) => {
+    if (value === Infinity) return "∞";
+    const percentage = value * 100;
+    const sign = percentage >= 0 ? '+' : '';
+    return `${sign}${percentage.toFixed(1)}%`;
+  };
+
   return (
     <div>
       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
@@ -987,12 +1059,17 @@ function ClaimsAnalytics() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
+            <CardTitle className="text-sm font-medium">Claims WoW Growth</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredData.length}</div>
+            <div className={`text-2xl font-bold ${calculateWeekOverWeekGrowth && typeof calculateWeekOverWeekGrowth === 'object' && calculateWeekOverWeekGrowth.growthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {calculateWeekOverWeekGrowth && typeof calculateWeekOverWeekGrowth === 'object' ? formatPercentage(calculateWeekOverWeekGrowth.growthRate) : 'N/A'}
+            </div>
             <div className="text-xs text-gray-500 mt-1">
-              {clickedAuctionsCount} with claims ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
+              {calculateWeekOverWeekGrowth && typeof calculateWeekOverWeekGrowth === 'object' ? 
+                `${calculateWeekOverWeekGrowth.last7DaysClaims} vs ${calculateWeekOverWeekGrowth.prior7DaysClaims} (prior week)` :
+                'Insufficient data'
+              }
             </div>
           </CardContent>
         </Card>
