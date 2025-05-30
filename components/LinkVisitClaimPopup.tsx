@@ -101,7 +101,6 @@ export function LinkVisitClaimPopup({
       }
       // Reset to visit state on error
       setClaimState('visit');
-      toast.error("Failed to connect wallet. Please try again.");
     }
   });
   
