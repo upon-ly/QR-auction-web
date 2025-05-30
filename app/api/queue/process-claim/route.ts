@@ -25,10 +25,25 @@ const receiver = new Receiver({
   nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY || '',
 });
 
-// Contract details
+// Contract details - function to get addresses based on claim source
 const QR_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_QR_COIN || '';
-const AIRDROP_CONTRACT_ADDRESS = process.env.AIRDROP_CONTRACT_ADDRESS2 || '';
-const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY2 || '';
+
+// Use different contracts based on claim source
+const getContractAddresses = (claimSource: string = 'mini_app') => {
+  if (claimSource === 'web') {
+    // Web context: use contract 4
+    return {
+      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS4 || '',
+      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY4 || ''
+    };
+  } else {
+    // Mini-app context: use contract 2 (existing)
+    return {
+      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS2 || '',
+      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY2 || ''
+    };
+  }
+};
 
 // Alchemy RPC URL
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -97,8 +112,26 @@ export async function POST(req: NextRequest) {
     
     console.log(`Processing queued claim: ${failureId}, attempt: ${attempt}`);
     
+    // Get the failure details from the database
+    const { data: failure, error: fetchError } = await supabase
+      .from('link_visit_claim_failures')
+      .select('*')
+      .eq('id', failureId)
+      .single();
+    
+    if (fetchError || !failure) {
+      console.error('Failed to fetch failure record:', fetchError);
+      return NextResponse.json({ success: false, error: 'Failure record not found' });
+    }
+    
+    // Get claim source from the failure record to determine which contracts to use
+    const claimSource = failure.claim_source || 'mini_app';
+    const contractAddresses = getContractAddresses(claimSource);
+    
+    console.log(`Processing queued claim with source: ${claimSource}, using contract: ${contractAddresses.AIRDROP_CONTRACT_ADDRESS}`);
+    
     // Set up lock to prevent concurrent transactions
-    const adminWalletAddress = new ethers.Wallet(ADMIN_PRIVATE_KEY).address.toLowerCase();
+    const adminWalletAddress = new ethers.Wallet(contractAddresses.ADMIN_PRIVATE_KEY).address.toLowerCase();
     const lockKey = `admin-wallet-lock:${adminWalletAddress}`;
     
     // Try to get a lock
@@ -128,18 +161,6 @@ export async function POST(req: NextRequest) {
         processingStarted: new Date().toISOString(),
         currentAttempt: attempt
       });
-      
-      // Get the failure details from the database
-      const { data: failure, error: fetchError } = await supabase
-        .from('link_visit_claim_failures')
-        .select('*')
-        .eq('id', failureId)
-        .single();
-      
-      if (fetchError || !failure) {
-        console.error('Failed to fetch failure record:', fetchError);
-        return NextResponse.json({ success: false, error: 'Failure record not found' });
-      }
       
       // Check if it's already been handled successfully
       const { data: existingClaim } = await supabase
@@ -173,7 +194,7 @@ export async function POST(req: NextRequest) {
       
       // Initialize provider and wallet
       const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
+      const adminWallet = new ethers.Wallet(contractAddresses.ADMIN_PRIVATE_KEY, provider);
       
       // Check wallet balances
       const ethBalance = await provider.getBalance(adminWallet.address);
@@ -199,7 +220,7 @@ export async function POST(req: NextRequest) {
       );
       
       const airdropContract = new ethers.Contract(
-        AIRDROP_CONTRACT_ADDRESS,
+        contractAddresses.AIRDROP_CONTRACT_ADDRESS,
         AirdropABI.abi,
         adminWallet
       );
@@ -221,7 +242,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Check allowance
-      const allowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
+      const allowance = await qrTokenContract.allowance(adminWallet.address, contractAddresses.AIRDROP_CONTRACT_ADDRESS);
       if (allowance < ethers.parseUnits('1000', 18)) {
         console.log('Approving tokens for airdrop contract...');
         
@@ -231,7 +252,7 @@ export async function POST(req: NextRequest) {
         
         // Approve a large amount
         const approveTx = await qrTokenContract.approve(
-          AIRDROP_CONTRACT_ADDRESS,
+          contractAddresses.AIRDROP_CONTRACT_ADDRESS,
           ethers.parseUnits('1000000', 18),
           { gasPrice }
         );
