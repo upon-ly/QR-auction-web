@@ -587,7 +587,7 @@ export function LinkVisitProvider({
             setShowClaimPopup(true);
           }
           setHasCheckedEligibility(true);
-        }, 2000); // Reduced delay since we already waited for status
+        }, 2500); // Reduced delay since we already waited for status
         
         return () => clearTimeout(timer);
       } else {
@@ -623,7 +623,7 @@ export function LinkVisitProvider({
             setShowClaimPopup(true);
           }
           setHasCheckedEligibility(true);
-        }, 500); // Reduced delay
+        }, 1000); // Reduced delay since we already waited for status
         
         return () => clearTimeout(timer);
       } else {
