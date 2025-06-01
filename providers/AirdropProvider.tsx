@@ -142,7 +142,7 @@ export function AirdropProvider({ children }: { children: React.ReactNode }) {
           setShowAirdropPopup(true);
         }
         setHasCheckedEligibility(true);
-      }, 1500);
+      }, 500);
 
       return () => clearTimeout(timer);
     } else {

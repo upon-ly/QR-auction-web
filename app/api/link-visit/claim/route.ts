@@ -23,8 +23,23 @@ if (!supabaseServiceKey) {
 
 // Contract details
 const QR_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_QR_COIN || '';
-const AIRDROP_CONTRACT_ADDRESS = process.env.AIRDROP_CONTRACT_ADDRESS2 || '';
-const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY2 || '';
+
+// Use different contracts based on claim source
+const getContractAddresses = (claimSource: string = 'mini_app') => {
+  if (claimSource === 'web') {
+    // Web context: use contract 4
+    return {
+      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS4 || '',
+      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY4 || ''
+    };
+  } else {
+    // Mini-app context: use contract 2 (existing)
+    return {
+      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS2 || '',
+      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY2 || ''
+    };
+  }
+};
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -68,11 +83,13 @@ const ERC20_ABI = [
 
 // Define request data interface
 interface LinkVisitRequestData {
-  fid: number;
+  fid?: number; // Optional for web users
   address: string;
   auction_id: string;
   username?: string;
   winning_url?: string;
+  claim_source?: string;
+  captcha_token?: string; // Add captcha token
   [key: string]: unknown; // Allow other properties
 }
 
@@ -81,6 +98,42 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
+
+// Function to verify Turnstile captcha token
+async function verifyTurnstileToken(token: string, clientIP: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        secret: process.env.TURNSTILE_SECRET_KEY || '',
+        response: token,
+        remoteip: clientIP,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('✅ Turnstile verification successful');
+      return { success: true };
+    } else {
+      console.log('❌ Turnstile verification failed:', result['error-codes']);
+      return { 
+        success: false, 
+        error: result['error-codes']?.join(', ') || 'Captcha verification failed' 
+      };
+    }
+  } catch (error) {
+    console.error('Error verifying Turnstile token:', error);
+    return { 
+      success: false, 
+      error: 'Captcha verification service unavailable' 
+    };
+  }
+}
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -149,7 +202,7 @@ async function logFailedTransaction(params: {
     if (!nonRetryableErrors.includes(params.error_code || '')) {
       await queueFailedClaim({
         id: data.id,
-        fid: params.fid as number,
+        fid: typeof params.fid === 'number' ? params.fid : 0, // Use 0 for string FIDs (web users)
         eth_address: params.eth_address,
         auction_id: params.auction_id,
         username: params.username as string | null,
@@ -212,12 +265,6 @@ export async function POST(request: NextRequest) {
   
   console.log(`🌐 REQUEST IP DEBUGGING: Detected IP=${clientIP}`);
   
-  // Rate limiting FIRST: 3 requests per minute per IP (before any processing)
-  if (isRateLimited(clientIP, 3, 60000)) {
-    console.log(`🚫 RATE LIMITED: IP=${clientIP} (too many link visit claim requests)`);
-    return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
-  }
-  
   try {
     // Validate API key first
     const apiKey = request.headers.get('x-api-key');
@@ -228,49 +275,204 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Parse request body
+    // Parse request body to determine claim source for differentiated rate limiting
     requestData = await request.json() as LinkVisitRequestData;
-    const { fid, address, auction_id, username, winning_url } = requestData;
+    const { fid, address, auction_id, username, winning_url, claim_source, captcha_token } = requestData;
+    
+    // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
+    const isWebClaim = claim_source === 'web';
+    const rateLimit = isWebClaim ? 2 : 3;
+    const rateLimitWindow = 60000; // 1 minute
+    
+    if (isRateLimited(clientIP, rateLimit, rateLimitWindow)) {
+      console.log(`🚫 RATE LIMITED: IP=${clientIP} (${isWebClaim ? 'web' : 'mini-app'}: ${rateLimit} requests/min exceeded)`);
+      return NextResponse.json({ success: false, error: 'Rate Limited' }, { status: 429 });
+    }
     
     // Log all requests with IP
-    console.log(`💰 LINK VISIT CLAIM: IP=${clientIP}, FID=${fid || 'none'}, auction=${auction_id}, address=${address || 'none'}, username=${username || 'none'}`);
+    console.log(`💰 LINK VISIT CLAIM: IP=${clientIP}, FID=${fid || 'none'}, auction=${auction_id}, address=${address || 'none'}, username=${username || 'none'}, source=${claim_source || 'mini_app'}`);
     
-    // IMMEDIATE BLOCK for known abuser (before any validation)
-    if (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2') {
+    // IP-based anti-bot validation (WEB USERS ONLY)
+    if (claim_source === 'web') {
+      console.log(`🛡️ IP VALIDATION: Checking IP ${clientIP} for web claim protection`);
+      
+      // Check 1: Max 3 claims per IP per auction
+      const { data: ipClaimsThisAuction } = await supabase
+        .from('link_visit_claims')
+        .select('id, claimed_at, eth_address')
+        .eq('auction_id', auction_id)
+        .eq('client_ip', clientIP)
+        .not('claimed_at', 'is', null);
+      
+      if (ipClaimsThisAuction && ipClaimsThisAuction.length >= 3) {
+        console.log(`🚫 IP AUCTION LIMIT EXCEEDED: IP=${clientIP} has ${ipClaimsThisAuction.length} claims for auction ${auction_id} (limit: 3)`);
+        
+        await logFailedTransaction({
+          fid: -1,
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: 'qrcoinweb',
+          winning_url: winning_url || null,
+          error_message: `IP ${clientIP} exceeded per-auction limit: ${ipClaimsThisAuction.length}/3 claims`,
+          error_code: 'IP_AUCTION_LIMIT_EXCEEDED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Rate limit exceeded for this auction',
+          code: 'IP_AUCTION_LIMIT_EXCEEDED'
+        }, { status: 429 });
+      }
+      
+      // Check 2: Max 5 claims per IP per 24 hours
+      const yesterday = new Date();
+      yesterday.setHours(yesterday.getHours() - 24);
+      
+      const { data: ipClaimsDaily, error: ipDailyError } = await supabase
+        .from('link_visit_claims')
+        .select('id, claimed_at, auction_id')
+        .eq('client_ip', clientIP)
+        .gte('claimed_at', yesterday.toISOString())
+        .not('claimed_at', 'is', null);
+      
+      if (ipDailyError) {
+        console.error('Error checking IP daily claims:', ipDailyError);
+      } else if (ipClaimsDaily && ipClaimsDaily.length >= 5) {
+        console.log(`🚫 IP DAILY LIMIT: IP=${clientIP} has ${ipClaimsDaily.length} claims in 24h (max: 5)`);
+        
+        // Log this as a blocked attempt
+        await logFailedTransaction({
+          fid: -1,
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: 'qrcoinweb',
+          winning_url: winning_url || null,
+          error_message: `IP ${clientIP} exceeded daily limit (${ipClaimsDaily.length}/5 claims in 24h)`,
+          error_code: 'IP_DAILY_LIMIT_EXCEEDED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Too many claims from this IP address in the last 24 hours' 
+        }, { status: 429 });
+      }
+      
+      console.log(`✅ IP VALIDATION PASSED: IP=${clientIP} (auction: ${ipClaimsThisAuction?.length || 0}/3, daily: ${ipClaimsDaily?.length || 0}/5)`);
+    }
+    
+    // Captcha verification (for web users only)
+    if (claim_source === 'web') {
+      if (!captcha_token) {
+        console.log(`🚫 CAPTCHA MISSING: IP=${clientIP}, Web claim requires captcha verification`);
+        
+        await logFailedTransaction({
+          fid: -1,
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: 'qrcoinweb',
+          winning_url: winning_url || null,
+          error_message: 'Captcha token required for web claims',
+          error_code: 'CAPTCHA_REQUIRED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Captcha verification required' 
+        }, { status: 400 });
+      }
+      
+      console.log(`🧩 CAPTCHA VERIFICATION: Verifying token for IP=${clientIP}`);
+      const captchaResult = await verifyTurnstileToken(captcha_token, clientIP);
+      
+      if (!captchaResult.success) {
+        console.log(`🚫 CAPTCHA FAILED: IP=${clientIP}, Error=${captchaResult.error}`);
+        
+        await logFailedTransaction({
+          fid: -1,
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: 'qrcoinweb',
+          winning_url: winning_url || null,
+          error_message: `Captcha verification failed: ${captchaResult.error}`,
+          error_code: 'CAPTCHA_VERIFICATION_FAILED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Captcha verification failed' 
+        }, { status: 400 });
+      }
+      
+      console.log(`✅ CAPTCHA VERIFIED: IP=${clientIP}`);
+    }
+    
+    // IMMEDIATE BLOCK for known abuser (before any validation) - only for mini-app users
+    if (claim_source !== 'web' && (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2')) {
       console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    if (!fid || !address || !auction_id || !username) {
-      console.log(`🚫 VALIDATION ERROR: IP=${clientIP}, Missing required parameters (fid, address, auction_id, or username). Received: fid=${fid}, address=${address}, auction_id=${auction_id}, username=${username}`);
-      
-      // Log validation error to database FIRST
-      await logFailedTransaction({
-        fid: fid || 0,
-        eth_address: address || 'unknown',
-        auction_id: auction_id || 'unknown',
-        username: username || undefined,
-        winning_url: null,
-        error_message: 'Missing required parameters (fid, address, auction_id, or username)',
-        error_code: 'VALIDATION_ERROR',
-        request_data: { ...requestData, clientIP } as Record<string, unknown>,
-        client_ip: clientIP
-      });
-      
-      // Then trigger auto-block check for this IP
-      fetch(`${process.env.NEXT_PUBLIC_HOST_URL}/api/admin/auto-block-ip`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ADMIN_API_KEY || '',
-        },
-        body: JSON.stringify({ 
-          ip: clientIP, 
-          reason: 'Missing required parameters in link-visit claim' 
-        }),
-      }).catch(error => console.error('Failed to trigger auto-block check:', error));
-      
-      return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
+    // Validate required parameters based on context
+    let effectiveFid: number;
+    let effectiveUsername: string | null = null;
+    
+    if (claim_source === 'web') {
+      // Web users need address and auction_id
+      if (!address || !auction_id) {
+        console.log(`🚫 WEB VALIDATION ERROR: IP=${clientIP}, Missing required parameters (address or auction_id). Received: address=${address}, auction_id=${auction_id}`);
+
+        const addressHash = address?.slice(2).toLowerCase(); // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
+        effectiveFid = -(hashNumber % 1000000000);
+        
+        await logFailedTransaction({
+          fid: effectiveFid, // Use -1 for web validation errors
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: null,
+          winning_url: null,
+          error_message: 'Missing required parameters for web user (address or auction_id)',
+          error_code: 'WEB_VALIDATION_ERROR',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ success: false, error: 'Missing required parameters (address or auction_id)' }, { status: 400 });
+      }
+      // Create a unique negative FID from wallet address hash for web users
+      const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
+      const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
+      effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
+      effectiveUsername = 'qrcoinweb'; // Use specific username for web users
+    } else {
+      // Mini-app users need fid, address, auction_id, and username
+      if (!fid || !address || !auction_id || !username) {
+        console.log(`🚫 MINI-APP VALIDATION ERROR: IP=${clientIP}, Missing required parameters (fid, address, auction_id, or username). Received: fid=${fid}, address=${address}, auction_id=${auction_id}, username=${username}`);
+        
+        await logFailedTransaction({
+          fid: fid || 0,
+          eth_address: address || 'unknown',
+          auction_id: auction_id || 'unknown',
+          username: username || undefined,
+          winning_url: null,
+          error_message: 'Missing required parameters for mini-app user (fid, address, auction_id, or username)',
+          error_code: 'MINIAPP_VALIDATION_ERROR',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
+      }
+      effectiveFid = fid; // Use actual fid for mini-app users
+      effectiveUsername = username; // Use actual username for mini-app users
     }
     
     // Validate that this is the latest settled auction
@@ -327,25 +529,36 @@ export async function POST(request: NextRequest) {
     // Additional detailed logging
     console.log(`📋 DETAILED CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, auction=${auction_id}, username=${username || 'unknown'}`);
     
-    // Validate Mini App user and verify wallet address in one call
-    const userValidation = await validateMiniAppUser(fid, username, address);
-    if (!userValidation.isValid) {
-      console.log(`User validation failed for FID ${fid}: ${userValidation.error}`);
-      
-      // Don't queue failed transactions for validation errors - just return error
-      // These are user errors, not system failures that need retry
-      return NextResponse.json({ 
-        success: false, 
-        error: userValidation.error || 'Invalid user or spoofed request' 
-      }, { status: 400 });
+    // Validate Mini App user and verify wallet address in one call (skip for web users)
+    if (claim_source !== 'web') {
+      const userValidation = await validateMiniAppUser(effectiveFid, effectiveUsername || undefined, address);
+      if (!userValidation.isValid) {
+        console.log(`User validation failed for FID ${effectiveFid}: ${userValidation.error}`);
+        
+        // Don't queue failed transactions for validation errors - just return error
+        // These are user errors, not system failures that need retry
+        return NextResponse.json({ 
+          success: false, 
+          error: userValidation.error || 'Invalid user or spoofed request' 
+        }, { status: 400 });
+      }
     }
     
     // Check if user has already claimed tokens for this auction (check both FID and address)
-    const { data: claimDataByFid, error: selectErrorByFid } = await supabase
-      .from('link_visit_claims')
-      .select('*')
-      .eq('fid', fid)
-      .eq('auction_id', auction_id);
+    let claimDataByFid = null;
+    let selectErrorByFid = null;
+    
+    // Only check FID for mini-app users (skip for web users since they all use FID -1)
+    if (claim_source !== 'web') {
+      const fidCheck = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('fid', fid)
+        .eq('auction_id', auction_id);
+      
+      claimDataByFid = fidCheck.data;
+      selectErrorByFid = fidCheck.error;
+    }
     
     const { data: claimDataByAddress, error: selectErrorByAddress } = await supabase
       .from('link_visit_claims')
@@ -358,10 +571,10 @@ export async function POST(request: NextRequest) {
       
       // Log database error
       await logFailedTransaction({
-        fid,
+        fid: effectiveFid,
         eth_address: address,
         auction_id,
-        username,
+        username: effectiveUsername,
         error_message: 'Database error when checking claim status',
         error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
         request_data: requestData as Record<string, unknown>,
@@ -376,7 +589,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if this FID has already claimed
-    if (claimDataByFid && claimDataByFid.length > 0 && claimDataByFid[0].claimed_at) {
+    if (claim_source !== 'web' && claimDataByFid && claimDataByFid.length > 0 && claimDataByFid[0].claimed_at) {
       if (claimDataByFid[0].tx_hash) {
         console.log(`User ${fid} has already claimed tokens for auction ${auction_id} at tx ${claimDataByFid[0].tx_hash}`);
         
@@ -425,7 +638,7 @@ export async function POST(request: NextRequest) {
     
     // Initialize ethers provider and wallet
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
+    const adminWallet = new ethers.Wallet(getContractAddresses(claim_source).ADMIN_PRIVATE_KEY, provider);
     
     // Check wallet balance before proceeding
     const balance = await provider.getBalance(adminWallet.address);
@@ -437,10 +650,10 @@ export async function POST(request: NextRequest) {
       
       // Log insufficient funds error
       await logFailedTransaction({
-        fid,
+        fid: effectiveFid,
         eth_address: address,
         auction_id,
-        username,
+        username: effectiveUsername,
         winning_url: winningUrl,
         error_message: errorMessage,
         error_code: 'INSUFFICIENT_GAS',
@@ -464,7 +677,7 @@ export async function POST(request: NextRequest) {
     
     // Create contract instances
     const airdropContract = new ethers.Contract(
-      AIRDROP_CONTRACT_ADDRESS,
+      getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS,
       AirdropABI.abi,
       adminWallet
     );
@@ -486,10 +699,10 @@ export async function POST(request: NextRequest) {
         
         // Log insufficient token error
         await logFailedTransaction({
-          fid,
+          fid: effectiveFid,
           eth_address: address,
           auction_id,
-          username,
+          username: effectiveUsername,
           winning_url: winningUrl,
           error_message: errorMessage,
           error_code: 'INSUFFICIENT_TOKENS',
@@ -504,7 +717,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
       
-      const allowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
+      const allowance = await qrTokenContract.allowance(adminWallet.address, getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS);
       console.log(`Current allowance: ${ethers.formatUnits(allowance, 18)}`);
       
       if (allowance < airdropAmount) {
@@ -513,7 +726,7 @@ export async function POST(request: NextRequest) {
         try {
           // Approve the airdrop contract to spend the tokens
           const approveTx = await qrTokenContract.approve(
-            AIRDROP_CONTRACT_ADDRESS,
+            getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS,
             airdropAmount
           );
           
@@ -540,7 +753,7 @@ export async function POST(request: NextRequest) {
           if (errorMessage.includes('timeout') && txHash) {
             console.log('Approval timed out, checking if it actually succeeded on-chain...');
             try {
-              const currentAllowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
+              const currentAllowance = await qrTokenContract.allowance(adminWallet.address, getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS);
               if (currentAllowance >= airdropAmount) {
                 console.log('Approval actually succeeded on-chain despite timeout, continuing...');
                 // Continue with the airdrop - don't return error
@@ -548,10 +761,10 @@ export async function POST(request: NextRequest) {
                 console.log('Approval did not succeed on-chain, logging failure...');
                 // Log the timeout error and queue for retry
                 await logFailedTransaction({
-                  fid,
+                  fid: effectiveFid,
                   eth_address: address,
                   auction_id,
-                  username,
+                  username: effectiveUsername,
                   winning_url: winningUrl,
                   error_message: `Token approval timed out: ${errorMessage}`,
                   error_code: 'APPROVAL_TIMEOUT',
@@ -576,10 +789,10 @@ export async function POST(request: NextRequest) {
           if (!errorMessage.includes('timeout') || !txHash) {
             // Log token approval error
             await logFailedTransaction({
-              fid,
+              fid: effectiveFid,
               eth_address: address,
               auction_id,
-              username,
+              username: effectiveUsername,
               winning_url: winningUrl,
               error_message: `Token approval failed: ${errorMessage}`,
               error_code: 'APPROVAL_FAILED',
@@ -609,10 +822,10 @@ export async function POST(request: NextRequest) {
       
       // Log token check error
       await logFailedTransaction({
-        fid,
+        fid: effectiveFid,
         eth_address: address,
         auction_id,
-        username,
+        username: effectiveUsername,
         winning_url: winningUrl,
         error_message: `Failed to check token balance: ${errorMessage}`,
         error_code: errorCode || 'TOKEN_CHECK_FAILED',
@@ -694,10 +907,10 @@ export async function POST(request: NextRequest) {
           
           if (!isRetryable || attempt >= 3) {
             await logFailedTransaction({
-              fid,
+              fid: effectiveFid,
               eth_address: address,
               auction_id,
-              username,
+              username: effectiveUsername,
               winning_url: winningUrl,
               error_message: `Transaction failed: ${txErrorMessage}`,
               error_code: errorCode || 'TX_ERROR',
@@ -719,7 +932,7 @@ export async function POST(request: NextRequest) {
       const { error: insertError } = await supabase
         .from('link_visit_claims')
         .insert({
-          fid: fid,
+          fid: effectiveFid,
           auction_id: auction_id,
           eth_address: address, 
           link_visited_at: new Date().toISOString(), // Ensure we mark it as visited
@@ -727,8 +940,10 @@ export async function POST(request: NextRequest) {
           amount: 1000, // 1,000 QR tokens
           tx_hash: receipt.hash,
           success: true,
-          username: username || null,
-          winning_url: winningUrl
+          username: effectiveUsername,
+          winning_url: winningUrl,
+          claim_source: claim_source || 'mini_app',
+          client_ip: clientIP // Track IP for successful claims
         });
         
       if (insertError) {
@@ -742,11 +957,13 @@ export async function POST(request: NextRequest) {
             amount: 1000, // 1,000 QR tokens
             tx_hash: receipt.hash,
             success: true,
-            username: username || null,
-            winning_url: winningUrl
+            username: effectiveUsername,
+            winning_url: winningUrl,
+            claim_source: claim_source || 'mini_app',
+            client_ip: clientIP // Track IP for successful claims
           })
           .match({
-            fid: fid,
+            fid: effectiveFid,
             auction_id: auction_id
           });
           
@@ -755,10 +972,10 @@ export async function POST(request: NextRequest) {
           
           // Log database insert/update error, but the airdrop was successful
           await logFailedTransaction({
-            fid,
+            fid: effectiveFid,
             eth_address: address,
             auction_id,
-            username,
+            username: effectiveUsername,
             winning_url: winningUrl,
             error_message: `Failed to record successful claim: ${updateError.message}`,
             error_code: updateError.code || 'DB_INSERT_ERROR',
@@ -806,10 +1023,10 @@ export async function POST(request: NextRequest) {
       
       // Log the final error after all retries
       await logFailedTransaction({
-        fid,
+        fid: effectiveFid,
         eth_address: address,
         auction_id,
-        username,
+        username: effectiveUsername,
         winning_url: winningUrl,
         error_message: errorMessage,
         error_code: errorCode,
@@ -847,20 +1064,20 @@ export async function POST(request: NextRequest) {
     }
     
     // Extract whatever information we can from the request
-    const fid = typeof requestData.fid === 'number' ? requestData.fid : 0;
-    const address = typeof requestData.address === 'string' ? requestData.address : 'unknown';
-    const auction_id = typeof requestData.auction_id === 'string' ? requestData.auction_id : 'unknown';
-    const username = requestData.username;
-    const winning_url = requestData.winning_url;
+    const fidForLog = typeof requestData.fid === 'number' ? requestData.fid : (requestData.claim_source === 'web' ? -1 : 0);
+    const addressForLog = typeof requestData.address === 'string' ? requestData.address : 'unknown';
+    const auctionIdForLog = typeof requestData.auction_id === 'string' ? requestData.auction_id : 'unknown';
+    const usernameForLog = requestData.claim_source === 'web' ? null : requestData.username;
+    const winningUrlForLog = requestData.winning_url;
     
     // Attempt to log error even in case of unexpected errors
     try {
       await logFailedTransaction({
-        fid,
-        eth_address: address,
-        auction_id,
-        username: username || null,
-        winning_url: winning_url || null,
+        fid: fidForLog,
+        eth_address: addressForLog,
+        auction_id: auctionIdForLog,
+        username: usernameForLog || null,
+        winning_url: winningUrlForLog || null,
         error_message: errorMessage,
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,

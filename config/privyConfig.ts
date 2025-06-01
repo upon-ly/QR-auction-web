@@ -124,7 +124,7 @@ export const getPrivyConfig = () => {
   }
 
   // Determine login methods - no email for Farcaster frames or Warpcast iframes
-  const loginMethods = (isFrame || isWarpcastIframe) ? ["wallet", "farcaster"] as const : ["wallet", "email"] as const;
+  const loginMethods = (isFrame || isWarpcastIframe) ? ["wallet", "farcaster"] as const : ["email", "wallet"] as const;
 
   return {
     ...basePrivyConfig,

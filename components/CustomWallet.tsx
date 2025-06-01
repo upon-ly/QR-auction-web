@@ -158,7 +158,11 @@ export function CustomWallet() {
     if (userEmail) {
       return userEmail.substring(0, 1).toUpperCase();
     } else if (displayName) {
-      return displayName.substring(0, 2).toUpperCase();
+      if (displayName.startsWith('0x')) {
+        return <Wallet className="h-4 w-4"/>;
+      } else {
+        return displayName.substring(0, 2).toUpperCase();
+      }
     }
     return <Wallet className="h-4 w-4"/>;
   };
@@ -1141,8 +1145,8 @@ export function CustomWallet() {
             )}
             onClick={handleConnectWallet}
           >
-            <Wallet className="h-4 w-4 md:hidden" />
-            <span className="hidden md:inline">Connect Wallet</span>
+            
+            <span className="md:inline">Connect Wallet</span>
           </Button>
         )}
       </DialogTrigger>
