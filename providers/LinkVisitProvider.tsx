@@ -454,10 +454,10 @@ export function LinkVisitProvider({
       console.log('===== LINK VISIT TRIGGERED BY OTHER POPUP =====');
       
       // QUICK DISABLE: Exit early for web context
-      // if (isWebContext) {
-      //   console.log('❌ Web popup disabled - skipping web context');
-      //   return;
-      // }
+      if (isWebContext) {
+        console.log('❌ Web popup disabled - skipping web context');
+        return;
+      }
       
       // Don't show popup if wallet status hasn't been determined yet
       if (!walletStatusDetermined) {
@@ -524,10 +524,10 @@ export function LinkVisitProvider({
     console.log('LinkVisit auto-show is enabled - checking eligibility independently');
     
     // QUICK DISABLE: Exit early for web context
-    // if (isWebContext) {
-    //   console.log('❌ Web popup disabled - skipping web context auto-show');
-    //   return;
-    // }
+    if (isWebContext) {
+      console.log('❌ Web popup disabled - skipping web context auto-show');
+      return;
+    }
     
     // Ensure we have explicitly checked claim status before showing popup
     if (!explicitlyCheckedClaim) {
