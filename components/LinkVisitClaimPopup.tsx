@@ -457,7 +457,7 @@ check if any of your wallets have unclaimed airdrops via today’s winner @drops
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0x699edaf6";
+      const quoteCastUrl = "";
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
