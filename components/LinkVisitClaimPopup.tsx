@@ -452,7 +452,7 @@ export function LinkVisitClaimPopup({
       // Mini-app context: Warpcast share (existing logic)
       const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun
 
-Follow @thecryptos.eth, the #1 comic in crypto!`);
+follow @thecryptos.eth, the #1 comic in crypto!`);
       const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
