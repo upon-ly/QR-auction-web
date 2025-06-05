@@ -14,6 +14,7 @@ import {
 import { RandomColorAvatar } from "./RandomAvatar";
 import { SafeExternalLink } from "./SafeExternalLink";
 import { WarpcastLogo } from "./WarpcastLogo";
+import { XLogo } from "./XLogo";
 import { getFarcasterUser } from "@/utils/farcaster";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { formatQRAmount } from "@/utils/formatters";
@@ -25,13 +26,16 @@ type AuctionType = {
   extended: boolean;
   endTime: bigint;
   url: string;
+  name?: string; // Twitter username stored in contract
 };
 
 type NameInfo = {
   displayName: string;
   farcasterUsername: string | null;
+  twitterUsername: string | null;
   basename: string | null;
   pfpUrl: string | null;
+  twitterPfpUrl: string | null;
 };
 
 export function BidCellView({
@@ -45,8 +49,10 @@ export function BidCellView({
   const [nameInfo, setNameInfo] = useState<NameInfo>({
     displayName: `${bid.bidder.slice(0, 4)}...${bid.bidder.slice(-4)}`,
     farcasterUsername: null,
+    twitterUsername: null,
     basename: null,
-    pfpUrl: null
+    pfpUrl: null,
+    twitterPfpUrl: null
   });
 
   // Check auction version based on tokenId
@@ -93,6 +99,15 @@ export function BidCellView({
       // Make sure we're using a valid Ethereum address
       const bidderAddress = bid.bidder;
       
+      // Extract Twitter username from the name field (for V3 auctions)
+      let twitterUsername: string | null = null;
+      if (isV3Auction && bid.name && bid.name.trim() !== "" && !bid.name.includes('.')) {
+        twitterUsername = bid.name.trim();
+      }
+      
+      // Get Twitter PFP from unavatar.io if we have a Twitter username
+      const twitterPfpUrl = twitterUsername ? `https://unavatar.io/x/${twitterUsername}` : null;
+      
       // Fetch name (basename or ENS) using onchainkit
       const name = await getName({
         address: bidderAddress as Address,
@@ -107,9 +122,11 @@ export function BidCellView({
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
       };
       
-      // Prioritize names: Farcaster > getName result > formatted address
+      // Prioritize names: Twitter > Farcaster > getName result > formatted address
       let displayName;
-      if (farcasterUser?.username) {
+      if (twitterUsername) {
+        displayName = `@${twitterUsername}`;
+      } else if (farcasterUser?.username) {
         // Quick temp fix - replace !217978 with softwarecurator
         const username = farcasterUser.username === "!217978" ? "softwarecurator" : farcasterUser.username;
         displayName = `@${username}`;
@@ -126,20 +143,22 @@ export function BidCellView({
       setNameInfo({
         displayName,
         farcasterUsername: farcasterUser?.username === "!217978" ? "softwarecurator" : (farcasterUser?.username || null),
+        twitterUsername: twitterUsername || null,
         basename: name === "!217978" ? "softwarecurator" : name, // Store the getName result in basename
-        pfpUrl: farcasterUser?.pfpUrl || null
+        pfpUrl: farcasterUser?.pfpUrl || null,
+        twitterPfpUrl
       });
     };
 
     fetchNames();
-  }, [bid.bidder]);
+  }, [bid.bidder, bid.name, isV3Auction]);
 
   return (
     <div className="flex items-center justify-between py-2 group">
       <div className="flex items-center space-x-3 min-w-0">
-        {nameInfo.pfpUrl ? (
+        {(nameInfo.twitterPfpUrl || nameInfo.pfpUrl) ? (
           <img 
-            src={nameInfo.pfpUrl} 
+            src={nameInfo.twitterPfpUrl || nameInfo.pfpUrl || undefined} 
             alt="Profile" 
             className="w-7 h-7 rounded-full object-cover"
           />
@@ -149,7 +168,13 @@ export function BidCellView({
         <div className="min-w-0">
           <div className="flex items-center gap-1">
             <p className="font-medium truncate">{nameInfo.displayName}</p>
-            {nameInfo.farcasterUsername && (
+            {nameInfo.twitterUsername ? (
+              <XLogo 
+                size="sm" 
+                username={nameInfo.twitterUsername} 
+                className="ml-0.5 opacity-80 hover:opacity-100"
+              />
+            ) : nameInfo.farcasterUsername && (
               <WarpcastLogo 
                 size="md" 
                 username={nameInfo.farcasterUsername} 

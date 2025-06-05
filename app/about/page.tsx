@@ -93,7 +93,11 @@ export default function AboutPage() {
             className="inline-flex items-center hover:opacity-80 transition-opacity"
             aria-label="X (formerly Twitter)"
           >
-            <XLogo />
+            <XLogo 
+              size="md"
+              
+              className="ml-1 opacity-80 hover:opacity-100"
+            />
           </a>
           <a
             href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"

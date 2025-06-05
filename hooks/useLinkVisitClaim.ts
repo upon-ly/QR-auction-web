@@ -11,7 +11,7 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
   const [lastVisitedUrl, setLastVisitedUrl] = useState<string | null>(null);
 
   // Web-specific hooks
-  const { authenticated, user } = usePrivy();
+  const { authenticated, user, getAccessToken } = usePrivy();
   const { address } = useAccount();
   const { client: smartWalletClient } = useSmartWallets();
   
@@ -22,6 +22,19 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
   const effectiveWalletAddress = isWebContext 
     ? (smartWalletAddress || smartWalletClient?.account?.address || address)
     : walletAddress;
+
+  // Get Twitter username for web context
+  const getTwitterUsername = () => {
+    if (!isWebContext || !authenticated || !user?.linkedAccounts) {
+      return null;
+    }
+    
+    const twitterAccount = user.linkedAccounts.find((account: { type: string; username?: string }) => 
+      account.type === 'twitter_oauth'
+    );
+    
+    return twitterAccount?.username || null;
+  };
 
   // Handle the link click
   const handleLinkClick = async (winningUrl: string): Promise<boolean> => {
@@ -40,6 +53,9 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
         const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
         const effectiveFid = -(hashNumber % 1000000000);
         
+        // Get Twitter username for web context
+        const twitterUsername = getTwitterUsername();
+        
         // Record the click in the database
         const response = await fetch('/api/link-click', {
           method: 'POST',
@@ -47,11 +63,11 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            fid: effectiveFid, // Placeholder for web users
+            fid: effectiveFid, // Negative wallet address-based FID for web users
             auctionId: auctionId,
             winningUrl: winningUrl,
             address: effectiveWalletAddress,
-            username: 'qrcoinweb',
+            username: twitterUsername,
             claimSource: 'web'
           })
         });
@@ -186,18 +202,40 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
       // Add final confirmation of the address being used for airdrop
       console.log('💰 AIRDROP TARGET ADDRESS:', effectiveWalletAddress, isWebContext ? '(web - should be smart wallet if available)' : '(mini-app)');
       
+      // Get Twitter username for web context
+      const twitterUsername = isWebContext ? getTwitterUsername() : frameContext?.user?.username;
+      
+      // Calculate FID for web context
+      const webFid = isWebContext ? (() => {
+        const addressHash = effectiveWalletAddress?.slice(2).toLowerCase();
+        const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
+        return -(hashNumber % 1000000000);
+      })() : frameContext?.user?.fid;
+      
+      // Get Privy auth token for web users to verify authentication
+      let authToken: string | undefined;
+      if (isWebContext && authenticated) {
+        try {
+          authToken = await getAccessToken();
+        } catch (error) {
+          console.error('Failed to get Privy auth token:', error);
+          // Continue without token - backend will reject if needed
+        }
+      }
+      
       // Call backend API to execute the token transfer
       const response = await fetch('/api/link-visit/claim', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': process.env.NEXT_PUBLIC_LINK_CLICK_API_KEY || '',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
         body: JSON.stringify({
-          fid: isWebContext ? -1 : frameContext?.user?.fid, // Use -1 for web users
+          fid: webFid,
           address: effectiveWalletAddress,
           auction_id: auctionId,
-          username: isWebContext ? 'qrcoinweb' : frameContext?.user?.username,
+          username: twitterUsername,
           winning_url: lastVisitedUrl || `https://qrcoin.fun/auction/${auctionId}`,
           claim_source: isWebContext ? 'web' : 'mini_app',
           captcha_token: captchaToken // Add captcha token

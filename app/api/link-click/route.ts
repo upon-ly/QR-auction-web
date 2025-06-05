@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       winning_url: winningUrl,
       link_visited_at: new Date().toISOString(),
       eth_address: address || null,
-      username: claimSource === 'web' ? 'qrcoinweb' : (username || null),
+      username: username || null, // Use actual username from request
       claim_source: claimSource || 'mini_app'
     };
 

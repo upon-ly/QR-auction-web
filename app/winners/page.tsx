@@ -32,6 +32,7 @@ type WinnerData = {
   url: string | null;
   display_name: string | null;
   farcaster_username: string | null;
+  twitter_username: string | null;
   basename: string | null;
   usd_value: number | null;
   is_v1_auction: boolean | null;
@@ -213,12 +214,14 @@ export default function WinnersPage() {
     fetchPfps();
   }, [winners, profilePictures]);
   
-  // Get display name based on priority: basename > farcaster username > ens name > truncated address
+  // Get display name based on priority: twitter username > farcaster username > basename > ens name > truncated address
   const getDisplayName = (winner: WinnerData) => {
-    if (winner.basename) {
-      return winner.basename;
+    if (winner.twitter_username) {
+      return `@${winner.twitter_username}`;
     } else if (winner.farcaster_username) {
       return `@${winner.farcaster_username}`;
+    } else if (winner.basename) {
+      return winner.basename;
     } else if (winner.ens_name) {
       return winner.ens_name;
     } else {
@@ -227,24 +230,31 @@ export default function WinnersPage() {
     }
   };
 
-  // Function to handle user name click - open Warpcast profile if it exists
+  // Function to handle user name click - open Twitter or Warpcast profile if available
   const handleNameClick = async (winner: WinnerData, e?: React.MouseEvent) => {
-    if (winner.farcaster_username) {
-      // Open Warpcast profile in new tab
+    let url: string | null = null;
+    
+    if (winner.twitter_username) {
+      // Open Twitter profile
+      url = `https://x.com/${winner.twitter_username}`;
+    } else if (winner.farcaster_username) {
+      // Open Warpcast profile
       let username = winner.farcaster_username;
       
       // Quick temp fix - replace !217978 with softwarecurator (copied from WarpcastLogo component)
       username = username === "!217978" ? "softwarecurator" : username;
       
-      const url = `https://warpcast.com/${username}`;
-      
+      url = `https://warpcast.com/${username}`;
+    }
+    
+    if (url) {
       if (e) e.preventDefault();
       
       if (isFrameRef.current) {
         try {
           await frameSdk.redirectToUrl(url);
         } catch (error) {
-          console.error("Error opening Warpcast profile in frame:", error);
+          console.error("Error opening profile in frame:", error);
         }
       } else {
         window.open(url, '_blank', "noopener,noreferrer");
@@ -296,7 +306,9 @@ export default function WinnersPage() {
           const nameA = getDisplayName(a).toLowerCase();
           const nameB = getDisplayName(b).toLowerCase();
           
-          // Sort by whether they have Farcaster first
+          // Sort by whether they have Twitter first, then Farcaster, then alphabetically
+          if (a.twitter_username && !b.twitter_username) return -1 * sortMultiplier;
+          if (!a.twitter_username && b.twitter_username) return 1 * sortMultiplier;
           if (a.farcaster_username && !b.farcaster_username) return -1 * sortMultiplier;
           if (!a.farcaster_username && b.farcaster_username) return 1 * sortMultiplier;
           
@@ -329,12 +341,18 @@ export default function WinnersPage() {
       : <ArrowDown className="inline-block w-4 h-4 ml-1" />;
   };
 
-  // Get profile picture for a winner - prioritize our cached versions
+  // Get profile picture for a winner - prioritize Twitter, then our cached versions, then database
   const getProfilePicture = (winner: WinnerData) => {
-    // First check our local state/cache for fetched pictures
+    // First check if we have a Twitter username - use unavatar.io for Twitter pfps
+    if (winner.twitter_username) {
+      return `https://unavatar.io/x/${winner.twitter_username}`;
+    }
+    
+    // Then check our local state/cache for fetched Farcaster pictures
     if (profilePictures[winner.token_id]) {
       return profilePictures[winner.token_id];
     }
+    
     // Then use the one from database if available
     if (winner.pfp_url && winner.pfp_url !== "null") {
       // Add to our cache for future use
@@ -452,12 +470,20 @@ export default function WinnersPage() {
                           )}
                           <div className="flex items-center truncate max-w-[110px] md:max-w-full">
                             <span 
-                              className={`truncate ${winner.farcaster_username ? 'hover:underline cursor-pointer' : ''}`}
-                              onClick={(e) => winner.farcaster_username ? handleNameClick(winner, e as React.MouseEvent) : undefined}
+                              className={`truncate ${(winner.twitter_username || winner.farcaster_username) ? 'hover:underline cursor-pointer' : ''}`}
+                              onClick={(e) => (winner.twitter_username || winner.farcaster_username) ? handleNameClick(winner, e as React.MouseEvent) : undefined}
                             >
                               {getDisplayName(winner)}
                             </span>
-                            {winner.farcaster_username && (
+                            {winner.twitter_username ? (
+                              <div className="hidden md:block flex-shrink-0 mt-1">
+                                <XLogo 
+                                  size="md" 
+                                  username={winner.twitter_username} 
+                                  className="ml-1 opacity-80 hover:opacity-100"
+                                />
+                              </div>
+                            ) : winner.farcaster_username && (
                               <div className="hidden md:block flex-shrink-0 mt-1">
                                 <WarpcastLogo 
                                   size="sm" 
@@ -511,7 +537,7 @@ export default function WinnersPage() {
             aria-label="X (formerly Twitter)"
             onClick={(e) => handleExternalLink(e, "https://x.com/QRcoindotfun")}
           >
-            <XLogo />
+            <XLogo type="footer" />
           </a>
           <a
             href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"

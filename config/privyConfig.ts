@@ -96,7 +96,7 @@ export { isInFarcasterFrame, isMobileBrowser, isInWarpcastIframe };
 // Define the config structure, but determine frame-specific parts later
 const basePrivyConfig = {
   appearance: {
-    showWalletLoginFirst: true,
+    showWalletLoginFirst: false, // Changed to false to prioritize social logins
     accentColor: "hsl(var(--primary))", // Primary color from CSS
     logo: `https://qrcoin.fun/qrLogo.png`,
   },
@@ -111,32 +111,54 @@ export const getPrivyConfig = () => {
   const isMobile = isMobileBrowser();
   const isWarpcastIframe = isInWarpcastIframe();
   
+  // NEW: Twitter-first configuration for website users
+  const isWebsiteContext = !isFrame && !isWarpcastIframe;
+  
   // Wallet list configuration based on device and frame context
-  let walletList;
-  if (isFrame) {
+  let walletList: string[];
+  if (isFrame || isWarpcastIframe) {
+    // Frame context: keep existing behavior
     walletList = ['detected_ethereum_wallets'];
+  } else if (isWebsiteContext) {
+    // Website context: include wallets for connectWallet() but prioritize social in login
+    walletList = isMobile 
+      ? ['coinbase_wallet', 'rainbow', 'metamask', 'wallet_connect']
+      : ['coinbase_wallet', 'rainbow', 'metamask', 'wallet_connect'];
   } else if (isMobile) {
+    // Legacy mobile behavior
     walletList = ['coinbase_wallet', 'rainbow', 'metamask', 'wallet_connect'];
-  } else if (isWarpcastIframe) {
-    walletList = ['detected_ethereum_wallets'];
   } else {
-    walletList = ['coinbase_wallet', 'rainbow', 'metamask', 'wallet_connect', 'detected_ethereum_wallets'];
+    // Legacy desktop behavior
+    walletList = ['coinbase_wallet', 'rainbow', 'metamask', 'wallet_connect'];
   }
 
-  // Determine login methods - no email for Farcaster frames or Warpcast iframes
-  const loginMethods = (isFrame || isWarpcastIframe) ? ["wallet", "farcaster"] as const : ["email", "wallet"] as const;
+  // Determine login methods based on context
+  let loginMethods: readonly string[];
+  if (isFrame || isWarpcastIframe) {
+    // Frame context: keep existing behavior
+    loginMethods = ["wallet", "farcaster"] as const;
+  } else if (isWebsiteContext) {
+    // Website context: Twitter and Farcaster only
+    loginMethods = ["twitter"] as const;
+  } else {
+    // Legacy behavior for other contexts
+    loginMethods = ["email", "wallet"] as const;
+  }
 
   return {
     ...basePrivyConfig,
     appearance: {
       ...basePrivyConfig.appearance,
       walletList,
+      showWalletLoginFirst: isWebsiteContext ? false : basePrivyConfig.appearance.showWalletLoginFirst,
     },
     embeddedWallets: {
-      createOnLogin: isFrame ? false : "users-without-wallets" as const,
+      // Don't create wallets automatically for Twitter/Farcaster users on website
+      // They should connect their existing wallets instead
+      createOnLogin: isWebsiteContext ? false : (isFrame ? false : "users-without-wallets" as const),
     },
     loginMethods,
-    // Special configuration for external wallets, focusing on safe options for Rainbow
+    // External wallet configuration - only used for "Connect different wallet" flow
     externalWallets: {
       // Fix Rainbow wallet connection issue with specific settings
       rainbow: {

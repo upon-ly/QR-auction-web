@@ -12,6 +12,7 @@ import { formatEther, formatUnits } from "viem";
 import { HowItWorksDialog } from "./HowItWorksDialog";
 
 import { useFetchSettledAuc } from "@/hooks/useFetchSettledAuc";
+import { useFetchBids } from "@/hooks/useFetchBids";
 import { useFetchAuctionDetails } from "@/hooks/useFetchAuctionDetails";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { useWriteActions } from "@/hooks/useWriteActions";
@@ -38,6 +39,7 @@ import { frameSdk } from "@/lib/frame-sdk";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 import { queryClient } from "@/providers/provider";
+import { XLogo } from "./XLogo";
 
 interface AuctionDetailsProps {
   id: number;
@@ -56,6 +58,7 @@ type AuctionType = {
 type NameInfo = {
   displayName: string;
   farcasterUsername: string | null;
+  twitterUsername: string | null;
   basename: string | null;
   pfpUrl: string | null;
 };
@@ -81,11 +84,13 @@ export function AuctionDetails({
   const [bidderNameInfo, setBidderNameInfo] = useState<NameInfo>({
     displayName: "",
     farcasterUsername: null,
+    twitterUsername: null,
     basename: null,
     pfpUrl: null
   });
 
   const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc(BigInt(id));
+  const { fetchHistoricalAuctions } = useFetchBids(BigInt(id));
   const { refetch, forceRefetch, auctionDetail, contractReadError } = useFetchAuctionDetails(BigInt(id));
   const { refetchSettings, settingDetail, error: settingsError } = useFetchAuctionSettings(BigInt(id));
 
@@ -295,6 +300,7 @@ export function AuctionDetails({
                   url: auctionDetail.qrMetadata?.urlString || null,
                   display_name: bidderNameInfo.displayName || null,
                   farcaster_username: bidderNameInfo.farcasterUsername || null,
+                  twitter_username: bidderNameInfo.twitterUsername || null,
                   basename: bidderNameInfo.basename || null,
                   pfp_url: bidderNameInfo.pfpUrl || null,
                   usd_value: isV3Auction 
@@ -513,6 +519,43 @@ export function AuctionDetails({
       // Make sure we're using a valid Ethereum address (0x...)
       const bidderAddress = auctionDetail.highestBidder;
       
+      // Initialize variables
+      let twitterUsername: string | null = null;
+      let basename: string | null = null;
+      
+      // For V3 auctions, get Twitter username from the most recent bid event (like bid history modal does)
+      if (isV3Auction) {
+        try {
+          // Get the latest bid events for this auction to find the Twitter username
+          const bids = await fetchHistoricalAuctions();
+          if (bids && bids.length > 0) {
+            // Find bids for this auction and get the most recent one from the highest bidder
+            const auctionBids = bids.filter((bid: any) => 
+              bid.tokenId === auctionDetail.tokenId && 
+              bid.bidder.toLowerCase() === bidderAddress.toLowerCase()
+            );
+            
+            if (auctionBids.length > 0) {
+              // Sort by amount to get the highest bid from this bidder
+              auctionBids.sort((a: any, b: any) => Number(b.amount) - Number(a.amount));
+              const latestBid = auctionBids[0];
+              
+              // Extract Twitter username from the bid's name field (same logic as BidCellView)
+              if (latestBid.name && latestBid.name.trim() !== "" && !latestBid.name.includes('.')) {
+                twitterUsername = latestBid.name.trim();
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching bid events for Twitter username:", error);
+        }
+      }
+      
+      // Fallback to basename from auctionDetail.highestBidderName if available
+      if (!twitterUsername && auctionDetail.highestBidderName && auctionDetail.highestBidderName.trim() !== "") {
+        basename = auctionDetail.highestBidderName;
+      }
+      
       // Fetch Farcaster username from the API
       const farcasterUser = await getFarcasterUser(bidderAddress);
       
@@ -521,19 +564,17 @@ export function AuctionDetails({
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
       };
       
-      // We can use the highestBidderName that's already fetched in useFetchAuctionDetails
-      // since getName already handles the priority between basename and ENS name
-      const name = auctionDetail.highestBidderName;
-      
-      // Prioritize names: Farcaster > getName result > formatted address
+      // Prioritize names: Twitter > Farcaster > basename/ENS > formatted address
       let displayName;
-      if (farcasterUser?.username) {
+      if (twitterUsername) {
+        displayName = `@${twitterUsername}`;
+      } else if (farcasterUser?.username) {
         // Quick temp fix - replace !217978 with softwarecurator
         const username = farcasterUser.username === "!217978" ? "softwarecurator" : farcasterUser.username;
         displayName = `@${username}`;
-      } else if (name) {
+      } else if (basename) {
         // Quick temp fix - replace !217978 with softwarecurator
-        displayName = name === "!217978" ? "softwarecurator" : name;
+        displayName = basename === "!217978" ? "softwarecurator" : basename;
       } else if (bidderAddress.startsWith('0x')) {
         displayName = formatAddress(bidderAddress);
       } else {
@@ -544,7 +585,8 @@ export function AuctionDetails({
       setBidderNameInfo({
         displayName,
         farcasterUsername: farcasterUser?.username === "!217978" ? "softwarecurator" : (farcasterUser?.username || null),
-        basename: name === "!217978" ? "softwarecurator" : (name || null),
+        twitterUsername,
+        basename: basename === "!217978" ? "softwarecurator" : basename,
         pfpUrl: farcasterUser?.pfpUrl || null
       });
     };
@@ -552,7 +594,7 @@ export function AuctionDetails({
     if (auctionDetail?.highestBidder) {
       fetchBidderName();
     }
-  }, [auctionDetail]);
+  }, [auctionDetail, isV3Auction, fetchHistoricalAuctions]);
 
   // Use the auction events hook to listen for real-time updates
   useAuctionEvents({
@@ -774,10 +816,16 @@ export function AuctionDetails({
                           Highest bidder: 
                           <span className="ml-1 flex items-center">
                             {bidderNameInfo.displayName}
-                            {bidderNameInfo.farcasterUsername && (
+                            {bidderNameInfo.twitterUsername ? (
+                              <XLogo 
+                                size="sm" 
+                                username={bidderNameInfo.twitterUsername || undefined} 
+                                className="ml-1 opacity-80 hover:opacity-100"
+                              />
+                            ) : bidderNameInfo.farcasterUsername && (
                               <WarpcastLogo 
                                 size="sm" 
-                                username={bidderNameInfo.farcasterUsername} 
+                                username={bidderNameInfo.farcasterUsername || undefined} 
                                 className="ml-1 opacity-80 hover:opacity-100"
                               />
                             )}
@@ -834,10 +882,16 @@ export function AuctionDetails({
                             )}
                             <span className="flex items-center">
                               {bidderNameInfo.displayName}
-                              {bidderNameInfo.farcasterUsername && (
+                              {bidderNameInfo.twitterUsername ? (
+                                <XLogo 
+                                  size="sm" 
+                                  username={bidderNameInfo.twitterUsername || undefined} 
+                                  className="ml-0.5 opacity-80 hover:opacity-100"
+                                />
+                              ) : bidderNameInfo.farcasterUsername && (
                                 <WarpcastLogo 
-                                  size="md" 
-                                  username={bidderNameInfo.farcasterUsername} 
+                                  size="sm" 
+                                  username={bidderNameInfo.farcasterUsername || undefined} 
                                   className="ml-0.5 opacity-80 hover:opacity-100"
                                 />
                               )}

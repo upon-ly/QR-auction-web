@@ -32,31 +32,26 @@ export function PopupCoordinator({ children }: { children: React.ReactNode }) {
 
   // Request to show a popup - returns true if granted, false if denied
   const requestPopup = (type: PopupType): boolean => {
-    console.log(`[PopupCoordinator] Request to show ${type} popup`);
     
     // If no popup is currently showing, grant immediately
     if (currentPopup === null) {
-      console.log(`[PopupCoordinator] Granting ${type} popup (no current popup)`);
       setCurrentPopup(type);
       return true;
     }
     
     // If requesting popup has higher priority than current, grant it
     if (POPUP_PRIORITY[type] < POPUP_PRIORITY[currentPopup]) {
-      console.log(`[PopupCoordinator] Granting ${type} popup (higher priority than ${currentPopup})`);
       setCurrentPopup(type);
       return true;
     }
     
     // Otherwise, add to pending requests
-    console.log(`[PopupCoordinator] Denying ${type} popup (lower priority than ${currentPopup})`);
     setPendingRequests(prev => new Set([...prev, type]));
     return false;
   };
 
   // Release a popup and check for pending requests
   const releasePopup = (type: PopupType) => {
-    console.log(`[PopupCoordinator] Releasing ${type} popup`);
     
     // Only release if this popup is currently active
     if (currentPopup === type) {
@@ -69,7 +64,6 @@ export function PopupCoordinator({ children }: { children: React.ReactNode }) {
         );
         const nextPopup = sortedPending[0];
         
-        console.log(`[PopupCoordinator] Granting pending ${nextPopup} popup`);
         setCurrentPopup(nextPopup);
         setPendingRequests(prev => {
           const newSet = new Set(prev);
@@ -94,7 +88,6 @@ export function PopupCoordinator({ children }: { children: React.ReactNode }) {
 
   // Debug logging
   useEffect(() => {
-    console.log(`[PopupCoordinator] Current popup: ${currentPopup}, Pending: [${Array.from(pendingRequests).join(', ')}]`);
   }, [currentPopup, pendingRequests]);
 
   return (

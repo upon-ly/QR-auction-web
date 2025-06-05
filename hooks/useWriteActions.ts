@@ -5,7 +5,8 @@ import { Address, encodeFunctionData } from "viem";
 import { useWriteContract } from "wagmi";
 import { USDC_TOKEN_ADDRESS } from "@/config/tokens";
 import { frameSdk } from "@/lib/frame-sdk";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 
 // ERC20 ABI for token approval
 const erc20ABI = [
@@ -26,6 +27,18 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
   const { writeContractAsync: bidAuction } = useWriteContract();
   const { writeContractAsync: settleAndCreate } = useWriteContract();
   const { writeContractAsync: approveToken } = useWriteContract();
+  
+  // Get user info from Privy to capture Twitter username
+  const { user } = usePrivy();
+  
+  // Get Twitter username from user's linked accounts
+  const twitterUsername = useMemo(() => {
+    if (user?.linkedAccounts) {
+      const twitterAccount = user.linkedAccounts.find((account: any) => account.type === 'twitter_oauth');
+      return (twitterAccount as { username?: string })?.username || null;
+    }
+    return null;
+  }, [user?.linkedAccounts]);
   
   // Reference to track if we're in frame context
   const isFrame = useRef(false);
@@ -80,6 +93,10 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       console.log(`Bidding on V3 auction #${tokenId.toString()}`);
       console.log(`Using USDC token, address: ${USDC_TOKEN_ADDRESS}`);
       
+      // Determine the name to use - Twitter username for website users, empty for frame users
+      const bidderName = isFrame.current ? "" : (twitterUsername || "");
+      console.log("Using bidder name:", bidderName);
+      
       // Check if we're in a Farcaster frame context
       console.log("Bidding environment:", { isFrame: isFrame.current });
       
@@ -105,14 +122,14 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         await new Promise(resolve => setTimeout(resolve, 5000));
         onPhaseChange?.('executing');
         
-        // Use the 3-parameter version of createBid instead of the backward compatibility one
-        console.log("Placing bid with smart wallet and URL:", urlString);
+        // Use the 3-parameter version of createBid with Twitter username
+        console.log("Placing bid with smart wallet, URL:", urlString, "Name:", bidderName);
         
         const bidTxData = {
           address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
           abi: QRAuctionV3.abi,
           functionName: "createBid",
-          args: [tokenId, urlString, ""], // Add empty string as name parameter
+          args: [tokenId, urlString, bidderName], // Use Twitter username as name parameter
         };
         
         const tx = await smartWalletClient.writeContract(bidTxData);
@@ -178,11 +195,11 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
           // Now create the bid transaction
           onPhaseChange?.('executing');
           
-          // Encode bid function call data (tokenId, urlString, empty name)
+          // Encode bid function call data (tokenId, urlString, name)
           const bidData = encodeFunctionData({
             abi: QRAuctionV3.abi,
             functionName: "createBid",
-            args: [tokenId, urlString, ""]
+            args: [tokenId, urlString, bidderName] // Use empty string for frame users
           });
           
           // Create bid transaction parameters
@@ -230,13 +247,13 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       // Notify that we're in confirmation phase
       onPhaseChange?.('confirming');
       
-      // Use the 3-parameter version of createBid instead of the backward compatibility one
-      console.log("Placing bid with EOA and URL:", urlString);
+      // Use the 3-parameter version of createBid with Twitter username
+      console.log("Placing bid with EOA, URL:", urlString, "Name:", bidderName);
       const tx = await bidAuction({
         address: process.env.NEXT_PUBLIC_QRAuctionV3 as Address,
         abi: QRAuctionV3.abi,
         functionName: "createBid",
-        args: [tokenId, urlString, ""], // Add empty string as name parameter
+        args: [tokenId, urlString, bidderName], // Use Twitter username as name parameter
       });
 
       // After submitting the transaction, move to executing phase

@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       url,
       display_name,
       farcaster_username,
+      twitter_username,
       basename,
       usd_value,
       is_v1_auction,
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
         url: url || null,
         display_name: display_name || null,
         farcaster_username: farcaster_username || null,
+        twitter_username: twitter_username || null,
         basename: basename || null,
         usd_value: usd_value || null,
         is_v1_auction: is_v1_auction || false, // Default to false instead of null

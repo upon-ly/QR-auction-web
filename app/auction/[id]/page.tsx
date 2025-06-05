@@ -640,7 +640,9 @@ export default function AuctionPage() {
               }
             }}
           >
-            <XLogo />
+            <XLogo 
+              type="footer"
+            />
           </a>
           <a
             href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"

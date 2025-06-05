@@ -15,6 +15,7 @@ type AuctionType = {
   extended: boolean;
   endTime: bigint;
   url: string;
+  name?: string;
   _id: string;
 };
 
@@ -94,6 +95,7 @@ export function useFetchBids(tokenId?: bigint) {
         let extended: boolean = false;
         let endTime: bigint = 0n;
         let url: string = "";
+        let name: string | undefined = undefined;
         const _id: string = uuidv4();
 
         if ("args" in event && event.args && event.args[0]) {
@@ -120,6 +122,18 @@ export function useFetchBids(tokenId?: bigint) {
           url = event.args[5];
         }
 
+        // For V3 auctions, also read the name field (index 6)
+        if ("args" in event && event.args && event.args[6]) {
+          // Check if this specific event is from a V3 auction (tokenId >= 62)
+          const eventIsV3 = tokenId >= 62n;
+          if (eventIsV3) {
+            const nameValue = event.args[6];
+            if (typeof nameValue === 'string' && nameValue.trim() !== '') {
+              name = nameValue;
+            }
+          }
+        }
+
         return {
           tokenId,
           bidder,
@@ -127,6 +141,7 @@ export function useFetchBids(tokenId?: bigint) {
           extended,
           endTime,
           url,
+          name,
           _id,
         };
       });

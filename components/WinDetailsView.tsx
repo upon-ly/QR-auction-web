@@ -20,6 +20,8 @@ import { getAuctionVersion } from "@/utils/auctionPriceData";
 import { useWinnerData } from "@/hooks/useWinnerData";
 import { frameSdk } from "@/lib/frame-sdk";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
+import { useFetchBids } from "@/hooks/useFetchBids";
+import { XLogo } from "./XLogo";
 
 
 type AuctionType = {
@@ -37,7 +39,13 @@ export function WinDetailsView(winnerdata: AuctionType) {
   const [ogImage, setOgImage] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState<boolean>(false);
   const [fetchedOgImage, setFetchedOgImage] = useState<string | null>(null);
-  const [nameInfo, setNameInfo] = useState<{ pfpUrl?: string; displayName: string; farcasterUsername?: string }>({
+  const [nameInfo, setNameInfo] = useState<{ 
+    pfpUrl?: string; 
+    displayName: string; 
+    farcasterUsername?: string;
+    twitterUsername?: string | null;
+    twitterPfpUrl?: string;
+  }>({
     displayName: `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
   });
   
@@ -47,6 +55,9 @@ export function WinDetailsView(winnerdata: AuctionType) {
     isLoading: isWinnerDataLoading, 
     isError: isWinnerDataError 
   } = useWinnerData(winnerdata.tokenId);
+  
+  // Add bid history hook to fetch Twitter usernames
+  const { fetchHistoricalAuctions } = useFetchBids(winnerdata.tokenId);
   
   // Fetch OG image for fallback
   useEffect(() => {
@@ -150,19 +161,74 @@ export function WinDetailsView(winnerdata: AuctionType) {
       // Fetch Farcaster data
       const farcasterUser = await getFarcasterUser(winnerdata.winner);
       
+      // Initialize variables
+      let twitterUsername: string | null = null;
+      let basename: string | null = null;
+      
+      // For V3 auctions, get Twitter username from the most recent bid event (like auction-details.tsx does)
+      if (isV3Auction) {
+        try {
+          // Get the latest bid events for this auction to find the Twitter username
+          const bids = await fetchHistoricalAuctions();
+          if (bids && bids.length > 0) {
+            // Find bids for this auction and get the most recent one from the highest bidder
+            const auctionBids = bids.filter((bid: { tokenId: bigint; bidder: string; amount: bigint; name?: string }) => 
+              bid.tokenId === winnerdata.tokenId && 
+              bid.bidder.toLowerCase() === winnerdata.winner.toLowerCase()
+            );
+            
+            if (auctionBids.length > 0) {
+              // Sort by amount to get the highest bid from this bidder
+              auctionBids.sort((a: { amount: bigint }, b: { amount: bigint }) => Number(b.amount) - Number(a.amount));
+              const latestBid = auctionBids[0];
+              
+              // Extract Twitter username from the bid's name field (same logic as BidCellView)
+              if (latestBid.name && latestBid.name.trim() !== "" && !latestBid.name.includes('.')) {
+                twitterUsername = latestBid.name.trim();
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching bid events for Twitter username:", error);
+        }
+      }
+      
+      // Get Twitter PFP directly from unavatar.io if we have a Twitter username
+      const twitterPfpUrl = twitterUsername ? `https://unavatar.io/x/${twitterUsername}` : undefined;
+      
+      // Fallback to basename from name if available
+      if (!twitterUsername && name && name.trim() !== "") {
+        basename = name;
+      }
+      
       // Quick temp fix - replace !217978 with softwarecurator
       const fixedName = name === "!217978" ? "softwarecurator" : name;
       const fixedUsername = farcasterUser?.username === "!217978" ? "softwarecurator" : farcasterUser?.username;
+      const fixedBasename = basename === "!217978" ? "softwarecurator" : basename;
+      
+      // Prioritize names: Twitter > Farcaster > basename/ENS > formatted address
+      let displayName;
+      if (twitterUsername) {
+        displayName = `@${twitterUsername}`;
+      } else if (fixedUsername) {
+        displayName = `@${fixedUsername}`;
+      } else if (fixedBasename) {
+        displayName = fixedBasename;
+      } else {
+        displayName = `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`;
+      }
       
       setNameInfo({
-        displayName: fixedName || `${winnerdata.winner.slice(0, 4)}...${winnerdata.winner.slice(-4)}`,
+        displayName,
         pfpUrl: farcasterUser?.pfpUrl,
-        farcasterUsername: fixedUsername
+        farcasterUsername: fixedUsername,
+        twitterUsername: twitterUsername || undefined,
+        twitterPfpUrl
       });
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [winnerdata.tokenId]);
+  }, [winnerdata.tokenId, winnerdata.winner, isV3Auction, fetchHistoricalAuctions]);
 
   // Update local state when auction image data changes
   useEffect(() => {
@@ -239,9 +305,9 @@ export function WinDetailsView(winnerdata: AuctionType) {
         <div className="flex flex-col items-end" style={{ minWidth: '160px', maxWidth: '200px' }}>
           <div className={`${isBaseColors ? "text-foreground" : "text-gray-600 dark:text-[#696969]"} w-full text-right mb-1`}>Won by</div>
           <div className="flex justify-end items-center w-full">
-            {nameInfo.pfpUrl ? (
+            {(nameInfo.twitterPfpUrl || nameInfo.pfpUrl) ? (
               <img 
-                src={nameInfo.pfpUrl} 
+                src={nameInfo.twitterPfpUrl || nameInfo.pfpUrl} 
                 alt="Profile" 
                 className="w-6 h-6 rounded-full object-cover mr-1 flex-shrink-0"
               />
@@ -251,16 +317,24 @@ export function WinDetailsView(winnerdata: AuctionType) {
               </div>
             )}
             
-            {nameInfo.farcasterUsername ? (
+            {nameInfo.farcasterUsername || nameInfo.twitterUsername ? (
               <div className="flex items-center overflow-hidden">
                 <div className="text-right whitespace-nowrap text-ellipsis overflow-hidden max-w-[170px]">
-                  @{nameInfo.farcasterUsername}
+                  {nameInfo.twitterUsername ? `@${nameInfo.twitterUsername}` : `@${nameInfo.farcasterUsername}`}
                 </div>
-                <WarpcastLogo 
-                  size="md" 
-                  username={nameInfo.farcasterUsername} 
-                  className="ml-1 flex-shrink-0"
-                />
+                {nameInfo.twitterUsername ? (
+                  <XLogo 
+                    size="md" 
+                    username={nameInfo.twitterUsername} 
+                    className="ml-1 flex-shrink-0 opacity-80 hover:opacity-100"
+                  />
+                ) : (
+                  <WarpcastLogo 
+                    size="md" 
+                    username={nameInfo.farcasterUsername!} 
+                    className="ml-1 flex-shrink-0"
+                  />
+                )}
               </div>
             ) : (
               <span className="truncate max-w-[170px] text-right">

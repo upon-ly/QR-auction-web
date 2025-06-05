@@ -18,6 +18,7 @@ export interface Database {
           url: string | null
           display_name: string | null
           farcaster_username: string | null
+          twitter_username: string | null
           basename: string | null
           usd_value: number | null
           is_v1_auction: boolean | null
@@ -33,6 +34,7 @@ export interface Database {
           url?: string | null
           display_name?: string | null
           farcaster_username?: string | null
+          twitter_username?: string | null
           basename?: string | null
           usd_value?: number | null
           is_v1_auction?: boolean | null
@@ -48,6 +50,7 @@ export interface Database {
           url?: string | null
           display_name?: string | null
           farcaster_username?: string | null
+          twitter_username?: string | null
           basename?: string | null
           usd_value?: number | null
           is_v1_auction?: boolean | null

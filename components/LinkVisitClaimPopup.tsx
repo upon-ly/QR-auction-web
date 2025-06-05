@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogPortal } from './ui/dialog';
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from './ui/button';
@@ -12,7 +12,7 @@ import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useAuctionImage } from '@/hooks/useAuctionImage';
 import { CLICK_SOURCES } from '@/lib/click-tracking';
-import { usePrivy, useLogin } from "@privy-io/react-auth";
+import { usePrivy, useLogin, useConnectWallet } from "@privy-io/react-auth";
 import { Turnstile } from '@marsidev/react-turnstile';
 
 interface LinkVisitClaimPopupProps {
@@ -23,9 +23,11 @@ interface LinkVisitClaimPopupProps {
   winningImage: string;
   auctionId: number;
   onClaim: (captchaToken: string) => Promise<{ txHash?: string }>;
+  isPrivyModalActive: boolean;
+  isTwitterUserNeedsWallet: boolean;
 }
 
-// Custom dialog overlay with lower z-index (40 instead of 50)
+// Custom dialog overlay with standard z-index
 function CustomDialogOverlay({
   className,
   ...props
@@ -34,7 +36,7 @@ function CustomDialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/80",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/80",
         className
       )}
       {...props}
@@ -42,7 +44,7 @@ function CustomDialogOverlay({
   );
 }
 
-// Custom dialog content with lower z-index (40 instead of 50)
+// Custom dialog content with standard z-index
 function CustomDialogContent({
   className,
   children,
@@ -54,7 +56,7 @@ function CustomDialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-40 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
           "sm:max-w-sm bg-card border-border max-h-[85vh] overflow-y-auto",
           className
         )}
@@ -77,24 +79,54 @@ export function LinkVisitClaimPopup({
   winningUrl,
   winningImage,
   auctionId,
-  onClaim
+  onClaim,
+  isPrivyModalActive,
+  isTwitterUserNeedsWallet
 }: LinkVisitClaimPopupProps) {
   // Web context detection
   const [isWebContext, setIsWebContext] = useState(false);
   const [persistentToastId, setPersistentToastId] = useState<string | number | null>(null);
   const { authenticated } = usePrivy();
+  const { connectWallet } = useConnectWallet();
+  
+  // NEW: Track click state in localStorage
+  const CLICK_STATE_KEY = 'qrcoin_link_clicked';
+  
+  const setClickedInStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CLICK_STATE_KEY, 'true');
+    }
+  }, []);
+  
+  const getClickedFromStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(CLICK_STATE_KEY) === 'true';
+    }
+    return false;
+  }, []);
+  
+  const clearClickedFromStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(CLICK_STATE_KEY);
+    }
+  }, []);
+
+  // Check both hook state and localStorage for click status
+  const hasClickedAny = hasClicked || getClickedFromStorage();
+  
+  
   const { login } = useLogin({
     onComplete: () => {
-      console.log("Login completed, dismissing persistent toast");
       setIsConnecting(false);
       if (persistentToastId) {
         toast.dismiss(persistentToastId);
         setPersistentToastId(null);
       }
-      // Don't automatically transition here - let the useEffect handle it
+      
+      // The LinkVisitProvider will handle wallet connection for Twitter users
+      // Don't call connectWallet() here to avoid double wallet modals
     },
-    onError: (error: Error) => {
-      console.error("Login error:", error);
+    onError: () => {
       setIsConnecting(false);
       if (persistentToastId) {
         toast.dismiss(persistentToastId);
@@ -111,8 +143,7 @@ export function LinkVisitClaimPopup({
       try {
         const context = await frameSdk.getContext();
         setIsWebContext(!context?.user?.fid);
-      } catch (error) {
-        console.error("Error detecting context:", error);
+      } catch {
         setIsWebContext(true);
       }
     }
@@ -126,7 +157,7 @@ export function LinkVisitClaimPopup({
   const isFrameRef = useRef(false);
   const isClaimingRef = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [hasClickedLocally, setHasClickedLocally] = useState(false); // Track click in this session
+  const [isAutoConnectingWallet, setIsAutoConnectingWallet] = useState(false);
   
   // Captcha state
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -145,7 +176,6 @@ export function LinkVisitClaimPopup({
   // Reset state when dialog opens based on hasClicked and context
   useEffect(() => {
     if (isOpen) {
-      console.log('LinkVisitClaimPopup opened:', { hasClicked, hasClickedLocally, isWebContext, authenticated, claimState });
       
       setClaimState(prevState => {
         // Don't reset if we're already in success state
@@ -161,68 +191,109 @@ export function LinkVisitClaimPopup({
         if ((prevState === 'captcha' || prevState === 'claim') && authenticated) return prevState;
         
         if (isWebContext) {
-          // Web flow: visit -> (trigger wallet connection) -> captcha -> claim -> success
+          // Web flow: visit -> (trigger wallet connection) -> claim -> success (skip captcha for authenticated users)
           if (!authenticated) {
             return 'visit'; // Will trigger wallet connection after visiting
-          } else if (hasClicked || hasClickedLocally) {
+          } else if (hasClickedAny) {
             if (hasClaimed) {
               return 'already_claimed';
             } else {
-              return 'captcha'; // Go to captcha state for web users
+              // Clear the click state when entering claim state
+              clearClickedFromStorage();
+              return 'claim'; // Go directly to claim state for authenticated users
             }
           } else {
             return 'visit';
           }
         } else {
           // Mini-app flow: visit -> claim -> success (skip captcha)
-          return (hasClicked || hasClickedLocally) ? 'claim' : 'visit';
+          if (hasClickedAny) {
+            // Clear the click state when entering claim state
+            clearClickedFromStorage();
+            return 'claim';
+          } else {
+            return 'visit';
+          }
         }
       });
     }
-  }, [isOpen, hasClicked, hasClickedLocally, isWebContext, authenticated, claimState]);
+  }, [isOpen, hasClicked, hasClickedAny, isWebContext, authenticated, claimState, hasClaimed, clearClickedFromStorage]);
 
   // Handle automatic state transition when authentication changes
   useEffect(() => {
     if (isWebContext && authenticated && !isEligibilityLoading) {
-      // If user is authenticated and we're in connecting state, move to captcha
+      // If user is authenticated and we're in connecting state, move to claim (skip captcha)
       if (claimState === 'connecting' && !isConnecting) {
-        console.log('Authentication completed, checking if user has already claimed...');
         
         // Check if user has already claimed - if so, show already_claimed state
         if (hasClaimed) {
-          console.log('User has already claimed, showing already_claimed state');
           setClaimState('already_claimed');
         } else {
-          console.log('User has not claimed, transitioning to captcha state');
-          setClaimState('captcha');
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim');
         }
       }
-      // If user is authenticated and has clicked (either from hook or locally), and we're still in visit state
-      else if (claimState === 'visit' && (hasClicked || hasClickedLocally)) {
+      // If user is authenticated and has clicked (either from hook or localStorage), and we're still in visit state
+      else if (claimState === 'visit' && hasClickedAny) {
         if (hasClaimed) {
-          console.log('User authenticated, has clicked, but already claimed - showing already_claimed state');
           setClaimState('already_claimed');
         } else {
-          console.log('User authenticated and has clicked, transitioning to captcha state');
-          setClaimState('captcha');
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim');
         }
       }
     }
-  }, [authenticated, hasClicked, hasClickedLocally, hasClaimed, claimState, isWebContext, isConnecting, isEligibilityLoading]);
+  }, [authenticated, hasClickedAny, hasClaimed, claimState, isWebContext, isConnecting, isEligibilityLoading, clearClickedFromStorage]);
 
-  // Handle mini-app auto-transition when hasClickedLocally changes
+  // Handle mini-app auto-transition when hasClickedAny changes
   useEffect(() => {
-    if (!isWebContext && hasClickedLocally && claimState === 'visit') {
-      console.log('Mini-app user clicked locally, auto-transitioning to claim state');
+    if (!isWebContext && hasClickedAny && claimState === 'visit') {
       if (hasClaimed) {
-        console.log('Mini-app user has already claimed, showing already_claimed state');
         setClaimState('already_claimed');
       } else {
-        console.log('Mini-app user has not claimed, going to claim state');
+        // Clear the click state when transitioning to claim state
+        clearClickedFromStorage();
         setClaimState('claim');
       }
     }
-  }, [hasClickedLocally, isWebContext, claimState, hasClaimed]);
+  }, [hasClickedAny, isWebContext, claimState, hasClaimed, clearClickedFromStorage]);
+
+  // NEW: Handle real-time claim status changes when popup is already open
+  useEffect(() => {
+    // If popup is open and we're in claim state, but user has now claimed, show already_claimed
+    if (isOpen && claimState === 'claim' && hasClaimed) {
+      setClaimState('already_claimed');
+    }
+  }, [isOpen, claimState, hasClaimed]);
+
+  // NEW: Auto-connect wallet for Twitter users who need it when entering claim state
+  useEffect(() => {
+    if (isOpen && claimState === 'claim' && isTwitterUserNeedsWallet && authenticated && !isAutoConnectingWallet) {
+      // Automatically trigger wallet connection for Twitter users
+      setIsAutoConnectingWallet(true);
+      connectWallet({
+        onSuccess: () => {
+          setIsAutoConnectingWallet(false);
+          // Keep the popup open - wallet is now connected
+          // The component will re-render with isTwitterUserNeedsWallet = false
+          toast.success('Wallet connected! You can now claim your $QR');
+          
+          // Clear the flow state since wallet is now connected
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('qrcoin_claim_flow_state');
+          }
+        },
+        onError: () => {
+          setIsAutoConnectingWallet(false);
+          toast.error('Please connect a wallet to claim your $QR');
+          // Go back to visit state if wallet connection fails
+          setClaimState('visit');
+        }
+      });
+    }
+  }, [isOpen, claimState, isTwitterUserNeedsWallet, authenticated, isAutoConnectingWallet, connectWallet]);
 
   // Check if we're running in a Farcaster frame context
   useEffect(() => {
@@ -230,9 +301,7 @@ export function LinkVisitClaimPopup({
       try {
         const context = await frameSdk.getContext();
         isFrameRef.current = !!context?.user;
-        console.log("Frame context check in ClaimPopup:", isFrameRef.current ? "In frame" : "Not in frame");
-      } catch (error) {
-        console.error("Error checking frame context:", error);
+      } catch {
       }
     }
     checkFrameContext();
@@ -290,8 +359,15 @@ export function LinkVisitClaimPopup({
   const handleClaimAction = async () => {
     if (isClaimLoading || isClaimingRef.current) return;
     
-    // Check if captcha is required and verified (web users only)
-    if (isWebContext && !captchaToken) {
+    // NEW: Prevent claiming if Twitter user needs wallet
+    if (isTwitterUserNeedsWallet) {
+      toast.error('Please connect a wallet first to claim your $QR');
+      return;
+    }
+    
+    // NEW: Skip captcha for authenticated users (Twitter provides verification)
+    // Only require captcha for non-authenticated web users
+    if (isWebContext && !authenticated && !captchaToken) {
       toast.error('Please complete the verification first.');
       return;
     }
@@ -300,6 +376,9 @@ export function LinkVisitClaimPopup({
     
     try {
       setClaimState('success');
+      
+      // Clear the click state since they've successfully claimed
+      clearClickedFromStorage();
       
       toast.success('1,000 $QR has been sent to your wallet.', {
         style: {
@@ -310,9 +389,8 @@ export function LinkVisitClaimPopup({
         duration: 5000,
       });
       
-      // Pass captcha token to claim function (null for mini-app users)
-      onClaim(captchaToken || '').catch(err => {
-        console.error('Background claim error:', err);
+      // Pass captcha token to claim function (empty string for authenticated users)
+      onClaim(captchaToken || '').catch(() => {
       });
     } finally {
       setTimeout(() => {
@@ -323,35 +401,38 @@ export function LinkVisitClaimPopup({
 
   // Handle link click
   const onLinkClick = async () => {
-    console.log('Link clicked, handling click for URL:', winningUrl);
     
-    // Mark as clicked locally immediately
-    setHasClickedLocally(true);
+    // Mark as clicked in localStorage immediately
+    setClickedInStorage();
     
     try {
       if (isWebContext) {
         // Web context: use redirect route for consistent tracking
         const trackedUrl = `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?source=${encodeURIComponent(CLICK_SOURCES.POPUP_IMAGE)}`;
         
-        console.log('Opening tracked URL in new tab (web context):', trackedUrl);
         window.open(trackedUrl, '_blank', 'noopener,noreferrer');
         
         // Move to next state based on authentication status
         if (!authenticated) {
+          // NEW: Set flow state when starting Twitter auth flow
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('qrcoin_claim_flow_state', 'claiming');
+          }
           // Trigger wallet connection
           handleConnectWallet();
         } else if (isEligibilityLoading) {
           // Wait for eligibility check to complete
-          console.log('Waiting for eligibility check to complete...');
-          setClaimState('captcha'); // Go to captcha state for web users
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim'); // Go directly to claim state for authenticated users
         } else {
           // Already authenticated and eligibility check complete, check if they've already claimed
           if (hasClaimed) {
-            console.log('User is authenticated and has already claimed, showing already_claimed state');
             setClaimState('already_claimed');
           } else {
-            console.log('User is authenticated and has not claimed, going to captcha state');
-            setClaimState('captcha'); // Go to captcha state for web users
+            // Clear the click state when transitioning to claim state
+            clearClickedFromStorage();
+            setClaimState('claim'); // Go directly to claim state for authenticated users
           }
         }
       } else {
@@ -362,18 +443,17 @@ export function LinkVisitClaimPopup({
           await frameSdk.redirectToUrl(trackedUrl);
           setTimeout(() => {
             if (hasClaimed) {
-              console.log('Mini-app user has already claimed, showing already_claimed state');
               setClaimState('already_claimed');
             } else {
+              // Clear the click state when transitioning to claim state
+              clearClickedFromStorage();
               setClaimState('claim');
             }
           }, 1000);
-        } catch (error) {
-          console.error("Error redirecting to URL:", error);
+        } catch {
           window.open(trackedUrl, '_blank', 'noopener,noreferrer');
           setTimeout(() => {
             if (hasClaimed) {
-              console.log('Mini-app user has already claimed (fallback), showing already_claimed state');
               setClaimState('already_claimed');
             } else {
               setClaimState('claim');
@@ -381,22 +461,20 @@ export function LinkVisitClaimPopup({
           }, 1000);
         }
       }
-    } catch (error) {
-      console.error('Error handling link click:', error);
+    } catch {
       toast.error('Failed to open link. Please try again.');
     }
   };
 
   // Handle connect wallet (web only)
   const handleConnectWallet = () => {
-    console.log('Triggering Privy login modal');
     
     // Set connecting state to show appropriate UI
     setIsConnecting(true);
     setClaimState('connecting');
     
-    // Show persistent toast
-    const toastId = toast.info('Connect wallet or enter email to claim 1000 $QR', {
+    // Show persistent toast with updated message
+    const toastId = toast.info('Sign in with X (Twitter) to claim 1,000 $QR', {
       duration: Infinity, // Persistent until manually dismissed
     });
     setPersistentToastId(toastId);
@@ -407,34 +485,33 @@ export function LinkVisitClaimPopup({
 
   // Handle captcha verification
   const handleCaptchaSuccess = (token: string) => {
-    console.log('Captcha verified successfully, advancing to claim state');
     setCaptchaToken(token);
     setShowCaptcha(false);
+    // Clear the click state when transitioning to claim state
+    clearClickedFromStorage();
     // Auto-advance to claim state
     setClaimState('claim');
   };
 
   const handleCaptchaError = () => {
-    console.error('Captcha verification failed');
     setCaptchaToken(null);
     setShowCaptcha(false);
     toast.error('Captcha verification failed. Please try again.');
   };
 
   const handleCaptchaExpire = () => {
-    console.log('Captcha expired');
     setCaptchaToken(null);
     setShowCaptcha(false);
     // Reset to captcha state to try again
     setClaimState('captcha');
   };
 
-  // Show captcha when entering claim state (web users only)
+  // Show captcha when entering claim state (only for non-authenticated web users)
   useEffect(() => {
-    if (claimState === 'claim' && isWebContext && !showCaptcha && !captchaToken) {
+    if (claimState === 'claim' && isWebContext && !authenticated && !showCaptcha && !captchaToken) {
       setShowCaptcha(true);
     }
-  }, [claimState, isWebContext, showCaptcha, captchaToken]);
+  }, [claimState, isWebContext, authenticated, showCaptcha, captchaToken]);
 
   // Handle share
   const handleShare = async () => {
@@ -463,8 +540,7 @@ export function LinkVisitClaimPopup({
       if (isFrameRef.current) {
         try {
           await frameSdk.redirectToUrl(shareUrl);
-        } catch (error) {
-          console.error("Error opening Warpcast in frame:", error);
+        } catch {
         }
       } else {
         window.open(shareUrl, '_blank', "noopener,noreferrer");
@@ -475,9 +551,24 @@ export function LinkVisitClaimPopup({
   };
 
   return (
-    <Dialog open={isOpen && claimState !== 'connecting'} onOpenChange={(open) => {
-      // Allow normal closing when not in connecting state
-      if (!open && claimState !== 'connecting') {
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      // Only prevent closing during active wallet connection process
+      if (!open && claimState === 'connecting' && isConnecting) {
+        return;
+      }
+      
+      // Only prevent closing if Privy modal is actively showing (not just flagged)
+      if (!open && isPrivyModalActive && isConnecting) {
+        return;
+      }
+      
+      // NEW: Prevent closing if Twitter user is connecting wallet in claim state
+      if (!open && claimState === 'claim' && isTwitterUserNeedsWallet && isAutoConnectingWallet) {
+        return;
+      }
+      
+      // Allow normal closing for all other cases
+      if (!open) {
         onClose();
       }
     }} modal={true}>
@@ -679,22 +770,29 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  Thanks for checking out today&apos;s winner!
+                  {isTwitterUserNeedsWallet && isAutoConnectingWallet ? 
+                    'Connecting your wallet...' :
+                    isTwitterUserNeedsWallet ? 
+                    'Connect a wallet to claim your $QR' :
+                    'Thanks for checking out today\'s winner!'}
                 </motion.p>
                 
                 <motion.div
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="w-full flex justify-center mt-2 min-h-[65px]"
+                  className="w-full flex justify-center mt-2"
                 >
                   <Button 
                     variant="default" 
                     className="light:bg-black dark:bg-white text-primary-foreground dark:text-black px-6 py-2 rounded-md focus:outline-none focus:ring-0 h-9"
                     onClick={handleClaimAction}
-                    disabled={isClaimLoading}
+                    disabled={isClaimLoading || isTwitterUserNeedsWallet}
                   >
-                    {isClaimLoading ? 'Processing...' : 'Claim'}
+                    {isClaimLoading ? 'Processing...' : 
+                     (isTwitterUserNeedsWallet && isAutoConnectingWallet) ? 'Connecting Wallet...' : 
+                     isTwitterUserNeedsWallet ? 'Connect Wallet' :
+                     'Claim'}
                   </Button>
                 </motion.div>
               </>
@@ -784,7 +882,7 @@ export function LinkVisitClaimPopup({
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="w-full flex justify-center mt-2 min-h-[65px]"
+                  className="w-full flex justify-center mt-2"
                 >
                   <div className="flex flex-col items-center gap-3">
                     <Turnstile
@@ -806,4 +904,4 @@ export function LinkVisitClaimPopup({
       </CustomDialogContent>
     </Dialog>
   );
-} 
+}

@@ -75,6 +75,7 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
     }
   }
   
+  // Main auction data call
   const { data: auctionDetails, refetch, error: contractReadError } = useReadContract({
     address: contractAddress,
     abi: contractAbi,
@@ -84,6 +85,19 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
     query: {
       enabled: shouldFetch,
       gcTime: 60000, // Keep data in cache for 1 minute
+    }
+  });
+
+  // For V3 auctions, also get the bidder name from the contract
+  const { data: bidderNameFromContract } = useReadContract({
+    address: isV3Auction ? contractAddress : undefined,
+    abi: QRAuctionV3.abi,
+    functionName: "getBidderName",
+    args: auctionDetail?.highestBidder ? [auctionDetail.highestBidder] : undefined,
+    config: wagmiConfig,
+    query: {
+      enabled: Boolean(isV3Auction && auctionDetail?.highestBidder && auctionDetail.highestBidder !== "0x0000000000000000000000000000000000000000"),
+      gcTime: 60000,
     }
   });
 
@@ -163,7 +177,15 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
           qrMetadata: details[6],
         };
         
-        // Set the auction data immediately without name
+        // For V3 auctions, use the contract-stored name if available
+        if (isV3Auction && bidderNameFromContract && typeof bidderNameFromContract === 'string' && bidderNameFromContract.trim() !== "") {
+          auctionData.highestBidderName = bidderNameFromContract;
+          if (DEBUG) {
+            console.log(`Using contract-stored name for V3 auction: "${bidderNameFromContract}"`);
+          }
+        }
+        
+        // Set the auction data immediately
         setAuctiondetails(auctionData);
         
         // Cache the data
@@ -172,24 +194,28 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
         // Track that we've fetched this token ID
         lastFetchedTokenId.current = tokenId;
         
-        // Fetch name asynchronously for display purposes
+        // For V1/V2 auctions or if V3 doesn't have a contract name, fetch ENS/basename asynchronously
+        if (!isV3Auction || !auctionData.highestBidderName) {
         try {
           const name = await getName({
             address: bidderAddress as Address,
             chain: base,
           });
 
-          // Update with name
+            // Only update if we don't already have a contract name (for V3) or if this is V1/V2
+            if (!isV3Auction || !auctionData.highestBidderName) {
           const updatedData = {
             ...auctionData,
-            highestBidderName: name || undefined
+                highestBidderName: name || auctionData.highestBidderName
           };
           
           setAuctiondetails(updatedData);
           auctionCache.set(cacheKey, updatedData);
+            }
         } catch (nameError) {
           if (DEBUG) {
-            console.error("Error fetching name:", nameError);
+              console.error("Error fetching ENS/basename:", nameError);
+            }
           }
         }
       } catch (error) {
@@ -200,7 +226,7 @@ export function useFetchAuctionDetails(tokenId?: bigint) {
     };
 
     fetchDetails();
-  }, [refetch, auctionDetails, tokenId, contractAddress, auctionDetail]);
+  }, [refetch, auctionDetails, tokenId, contractAddress, auctionDetail, isV3Auction, bidderNameFromContract]);
 
   // Force refetch function that bypasses the cache
   const forceRefetch = useCallback(async () => {

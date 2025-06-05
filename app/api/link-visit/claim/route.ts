@@ -99,42 +99,6 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Import queue functionality
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
 
-// Function to verify Turnstile captcha token
-async function verifyTurnstileToken(token: string, clientIP: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        secret: process.env.TURNSTILE_SECRET_KEY || '',
-        response: token,
-        remoteip: clientIP,
-      }),
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      console.log('✅ Turnstile verification successful');
-      return { success: true };
-    } else {
-      console.log('❌ Turnstile verification failed:', result['error-codes']);
-      return { 
-        success: false, 
-        error: result['error-codes']?.join(', ') || 'Captcha verification failed' 
-      };
-    }
-  } catch (error) {
-    console.error('Error verifying Turnstile token:', error);
-    return { 
-      success: false, 
-      error: 'Captcha verification service unavailable' 
-    };
-  }
-}
-
 // Function to log errors to the database
 async function logFailedTransaction(params: {
   fid: number | string;
@@ -277,7 +241,7 @@ export async function POST(request: NextRequest) {
     
     // Parse request body to determine claim source for differentiated rate limiting
     requestData = await request.json() as LinkVisitRequestData;
-    const { fid, address, auction_id, username, winning_url, claim_source, captcha_token } = requestData;
+    const { fid, address, auction_id, username, winning_url, claim_source } = requestData;
     
     // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
     const isWebClaim = claim_source === 'web';
@@ -311,7 +275,7 @@ export async function POST(request: NextRequest) {
           fid: -1,
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
-          username: 'qrcoinweb',
+          username: username || null,
           winning_url: winning_url || null,
           error_message: `IP ${clientIP} exceeded per-auction limit: ${ipClaimsThisAuction.length}/3 claims`,
           error_code: 'IP_AUCTION_LIMIT_EXCEEDED',
@@ -347,7 +311,7 @@ export async function POST(request: NextRequest) {
           fid: -1,
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
-          username: 'qrcoinweb',
+          username: username || null,
           winning_url: winning_url || null,
           error_message: `IP ${clientIP} exceeded daily limit (${ipClaimsDaily.length}/5 claims in 24h)`,
           error_code: 'IP_DAILY_LIMIT_EXCEEDED',
@@ -364,56 +328,6 @@ export async function POST(request: NextRequest) {
       console.log(`✅ IP VALIDATION PASSED: IP=${clientIP} (auction: ${ipClaimsThisAuction?.length || 0}/3, daily: ${ipClaimsDaily?.length || 0}/5)`);
     }
     
-    // Captcha verification (for web users only)
-    if (claim_source === 'web') {
-      if (!captcha_token) {
-        console.log(`🚫 CAPTCHA MISSING: IP=${clientIP}, Web claim requires captcha verification`);
-        
-        await logFailedTransaction({
-          fid: -1,
-          eth_address: address || 'unknown',
-          auction_id: auction_id || 'unknown',
-          username: 'qrcoinweb',
-          winning_url: winning_url || null,
-          error_message: 'Captcha token required for web claims',
-          error_code: 'CAPTCHA_REQUIRED',
-          request_data: { ...requestData, clientIP } as Record<string, unknown>,
-          client_ip: clientIP
-        });
-        
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Captcha verification required' 
-        }, { status: 400 });
-      }
-      
-      console.log(`🧩 CAPTCHA VERIFICATION: Verifying token for IP=${clientIP}`);
-      const captchaResult = await verifyTurnstileToken(captcha_token, clientIP);
-      
-      if (!captchaResult.success) {
-        console.log(`🚫 CAPTCHA FAILED: IP=${clientIP}, Error=${captchaResult.error}`);
-        
-        await logFailedTransaction({
-          fid: -1,
-          eth_address: address || 'unknown',
-          auction_id: auction_id || 'unknown',
-          username: 'qrcoinweb',
-          winning_url: winning_url || null,
-          error_message: `Captcha verification failed: ${captchaResult.error}`,
-          error_code: 'CAPTCHA_VERIFICATION_FAILED',
-          request_data: { ...requestData, clientIP } as Record<string, unknown>,
-          client_ip: clientIP
-        });
-        
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Captcha verification failed' 
-        }, { status: 400 });
-      }
-      
-      console.log(`✅ CAPTCHA VERIFIED: IP=${clientIP}`);
-    }
-    
     // IMMEDIATE BLOCK for known abuser (before any validation) - only for mini-app users
     if (claim_source !== 'web' && (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2')) {
       console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
@@ -425,6 +339,42 @@ export async function POST(request: NextRequest) {
     let effectiveUsername: string | null = null;
     
     if (claim_source === 'web') {
+      // Verify auth token for web users (Twitter authentication)
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Missing or invalid authorization header`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Authentication required. Please sign in with Twitter.' 
+        }, { status: 401 });
+      }
+      
+      const authToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+      
+      // Verify the Privy auth token
+      try {
+        // For now, just check that token exists and is not empty
+        // In production, you would verify this token with Privy's API
+        // Documentation: https://docs.privy.io/guide/server/authorization/verification
+        if (!authToken || authToken.length < 10) {
+          throw new Error('Invalid auth token format');
+        }
+        
+        // TODO: Add actual Privy token verification here
+        // const privyUser = await verifyPrivyToken(authToken);
+        // if (!privyUser || !privyUser.twitter) {
+        //   throw new Error('User not authenticated with Twitter');
+        // }
+        
+        console.log(`✅ WEB AUTH: IP=${clientIP}, Auth token present and valid format`);
+      } catch (error) {
+        console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid authentication. Please sign in again.' 
+        }, { status: 401 });
+      }
+      
       // Web users need address and auction_id
       if (!address || !auction_id) {
         console.log(`🚫 WEB VALIDATION ERROR: IP=${clientIP}, Missing required parameters (address or auction_id). Received: address=${address}, auction_id=${auction_id}`);
@@ -437,7 +387,7 @@ export async function POST(request: NextRequest) {
           fid: effectiveFid, // Use -1 for web validation errors
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
-          username: null,
+          username: username || null,
           winning_url: null,
           error_message: 'Missing required parameters for web user (address or auction_id)',
           error_code: 'WEB_VALIDATION_ERROR',
@@ -451,7 +401,7 @@ export async function POST(request: NextRequest) {
       const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
       const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
       effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
-      effectiveUsername = 'qrcoinweb'; // Use specific username for web users
+      effectiveUsername = username || null; // Use actual username from request or null
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {
