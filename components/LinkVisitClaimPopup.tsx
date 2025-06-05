@@ -520,7 +520,7 @@ export function LinkVisitClaimPopup({
       const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
       
       // TODO: Replace this with the actual tweet URL you want to quote
-      const tweetToQuote = "https://qrcoin.fun";
+      const tweetToQuote = "https://x.com/qrcoindotfun/status/1930745505698513379";
       
       const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote)}`;
       
