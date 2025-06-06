@@ -8,7 +8,8 @@ const NEYNAR_API_URL = 'https://api.neynar.com/v2';
 const ADMIN_ADDRESSES = [
   "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
   "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474"
+  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
+  "0xf7d4041e751E0b4f6eA72Eb82F2b200D278704A4"
 ];
 
 export async function POST(request: NextRequest) {
