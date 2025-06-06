@@ -527,12 +527,14 @@ export function LinkVisitClaimPopup({
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
       // Mini-app context: Warpcast share (existing logic)
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun
+        
+ARE YOU CABAL?`);
       const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0x0474cf43";
+      const quoteCastUrl = "";
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
