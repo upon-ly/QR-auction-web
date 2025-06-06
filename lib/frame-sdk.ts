@@ -4,20 +4,6 @@
 import sdk from "@farcaster/frame-sdk";
 import type { Context } from "@farcaster/frame-sdk";
 
-// Add this type declaration at the top of the file
-declare global {
-  interface Window {
-    ethereum?:
-      | {
-          request: (args: {
-            method: string;
-            params?: unknown[];
-          }) => Promise<unknown>;
-        }
-      | any;
-  }
-}
-
 // Define a type for our extended SDK
 export interface ExtendedFrameSdk {
   getContext: () => Promise<Context.FrameContext>;
@@ -166,7 +152,7 @@ export const frameSdk: ExtendedFrameSdk = {
       if (typeof window.ethereum !== "undefined") {
         console.log("Falling back to window.ethereum for signing");
 
-        const accounts = await window.ethereum.request({
+        const accounts = await (window.ethereum as any).request({
           method: "eth_requestAccounts",
         });
 
@@ -194,7 +180,7 @@ export const frameSdk: ExtendedFrameSdk = {
           address
         );
 
-        const signature = await window.ethereum.request({
+        const signature = await (window.ethereum as any).request({
           method: "personal_sign",
           params: [data, address] as [`0x${string}`, `0x${string}`],
         });

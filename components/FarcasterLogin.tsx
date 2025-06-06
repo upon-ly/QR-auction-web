@@ -68,8 +68,11 @@ export function FarcasterLogin() {
             const { nonce } = await initLoginToFrame();
             console.log("Got nonce for Farcaster login:", nonce);
             
-            // Request signature from Farcaster
-            const result = await sdk.actions.signIn({ nonce });
+            // Request signature from Farcaster with auth address support
+            const result = await sdk.actions.signIn({ 
+              nonce,
+              acceptAuthAddress: true 
+            });
             console.log("Got signature from Farcaster");
             
             // Complete authentication with Privy
