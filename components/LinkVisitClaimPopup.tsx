@@ -517,10 +517,10 @@ export function LinkVisitClaimPopup({
   const handleShare = async () => {
     if (isWebContext) {
       // Web context: Twitter/X share with quote tweet
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`literally free money. i’m officially $QR coded. @qrcoindotfun`);
       
       // TODO: Replace this with the actual tweet URL you want to quote
-      const tweetToQuote = "https://x.com/qrcoindotfun/status/1930745505698513379";
+      const tweetToQuote = "https://x.com/qrcoindotfun/status/1931046288100937807";
       
       const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote)}`;
       
