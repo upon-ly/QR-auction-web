@@ -534,7 +534,7 @@ comment to earn on theclip.fun!`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0x92d5aaee";
+      const quoteCastUrl = "";
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
