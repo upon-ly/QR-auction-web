@@ -532,7 +532,7 @@ export function LinkVisitClaimPopup({
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "";
+      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0xc3ea3a80";
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
