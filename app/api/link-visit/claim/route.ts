@@ -124,7 +124,115 @@ async function logFailedTransaction(params: {
 
     console.log(`🗂️ Logging failed transaction: IP=${clientIP}, FID=${params.fid}, Error=${params.error_code}`);
 
-    // Your existing database insert code
+    // ANTI-SPAM: Check for existing failure records to prevent duplicate queue entries
+    const existingFailureChecks = [];
+
+    // Check 1: Same username + auction_id (if username provided)
+    if (params.username) {
+      existingFailureChecks.push(
+        supabase
+          .from('link_visit_claim_failures')
+          .select('id')
+          .eq('username', params.username)
+          .eq('auction_id', params.auction_id)
+          .limit(1)
+      );
+      
+      // ENHANCED: Also check for recent failures from same username (last 1 minute)
+      existingFailureChecks.push(
+        supabase
+          .from('link_visit_claim_failures')
+          .select('id')
+          .eq('username', params.username)
+          .gte('created_at', new Date(Date.now() - 60000).toISOString()) // Last 1 minute
+          .limit(1)
+      );
+    }
+
+    // Check 2: Same eth_address + auction_id
+    if (params.eth_address && params.eth_address !== 'unknown') {
+      existingFailureChecks.push(
+        supabase
+          .from('link_visit_claim_failures')
+          .select('id')
+          .eq('eth_address', params.eth_address)
+          .eq('auction_id', params.auction_id)
+          .limit(1)
+      );
+    }
+
+    // Check 3: Same fid + auction_id (for mini-app users)
+    if (typeof params.fid === 'number' && params.fid > 0) {
+      existingFailureChecks.push(
+        supabase
+          .from('link_visit_claim_failures')
+          .select('id')
+          .eq('fid', params.fid)
+          .eq('auction_id', params.auction_id)
+          .limit(1)
+      );
+    }
+
+    // Check 4: ENHANCED - Same IP + auction_id with recent timestamp (prevent IP spam)
+    if (params.client_ip && params.client_ip !== 'unknown') {
+      existingFailureChecks.push(
+        supabase
+          .from('link_visit_claim_failures')
+          .select('id')
+          .eq('client_ip', params.client_ip)
+          .eq('auction_id', params.auction_id)
+          .gte('created_at', new Date(Date.now() - 30000).toISOString()) // Last 30 seconds
+          .limit(1)
+      );
+    }
+
+    // Execute all checks in parallel
+    const existingFailureResults = await Promise.all(existingFailureChecks);
+    
+    // If any check found an existing failure, skip logging
+    const hasExistingFailure = existingFailureResults.some(result => 
+      result.data && result.data.length > 0
+    );
+
+    if (hasExistingFailure) {
+      // Determine which type of duplicate was found for better logging
+      let duplicateType = 'unknown';
+      let checkIndex = 0;
+      
+      if (params.username) {
+        if (existingFailureResults[checkIndex]?.data && existingFailureResults[checkIndex].data!.length > 0) {
+          duplicateType = 'username+auction';
+        } else if (existingFailureResults[checkIndex + 1]?.data && existingFailureResults[checkIndex + 1].data!.length > 0) {
+          duplicateType = 'username cooldown (1min)';
+        }
+        checkIndex += 2;
+      }
+      
+      if (duplicateType === 'unknown' && params.eth_address && params.eth_address !== 'unknown') {
+        if (existingFailureResults[checkIndex]?.data && existingFailureResults[checkIndex].data!.length > 0) {
+          duplicateType = 'address+auction';
+        }
+        checkIndex += 1;
+      }
+      
+      if (duplicateType === 'unknown' && typeof params.fid === 'number' && params.fid > 0) {
+        if (existingFailureResults[checkIndex]?.data && existingFailureResults[checkIndex].data!.length > 0) {
+          duplicateType = 'fid+auction';
+        }
+        checkIndex += 1;
+      }
+      
+      if (duplicateType === 'unknown' && params.client_ip && params.client_ip !== 'unknown') {
+        if (existingFailureResults[checkIndex]?.data && existingFailureResults[checkIndex].data!.length > 0) {
+          duplicateType = 'IP cooldown (30sec)';
+        }
+      }
+
+      console.log(`🚫 SKIPPING DUPLICATE FAILURE (${duplicateType}): FID=${params.fid}, username=${params.username}, address=${params.eth_address}, auction=${params.auction_id}, IP=${clientIP}`);
+      return; // Don't log duplicate failures
+    }
+
+    // No existing failure found - proceed with logging
     const { data, error } = await supabase
       .from('link_visit_claim_failures')
       .insert({
@@ -151,6 +259,8 @@ async function logFailedTransaction(params: {
       return;
     }
     
+    console.log(`✅ LOGGED NEW FAILURE: ID=${data.id}, FID=${params.fid}, Error=${params.error_code}`);
+    
     // Now also queue for retry (if eligible for retry)
     // Don't queue permanent validation failures that will never succeed
     const nonRetryableErrors = [
@@ -160,7 +270,9 @@ async function logFailedTransaction(params: {
       'INVALID_AUCTION_ID', 
       'INVALID_USER', 
       'VALIDATION_ERROR',
-      'ADDRESS_NOT_VERIFIED'
+      'ADDRESS_NOT_VERIFIED',
+      'IP_AUCTION_LIMIT_EXCEEDED', // Don't retry IP rate limits
+      'IP_DAILY_LIMIT_EXCEEDED'    // Don't retry IP rate limits
     ];
     
     if (!nonRetryableErrors.includes(params.error_code || '')) {
@@ -172,6 +284,9 @@ async function logFailedTransaction(params: {
         username: params.username as string | null,
         winning_url: params.winning_url as string | null,
       });
+      console.log(`📋 QUEUED FOR RETRY: Failure ID=${data.id}`);
+    } else {
+      console.log(`🚫 NOT QUEUING: Error code ${params.error_code} is non-retryable`);
     }
   } catch (logError) {
     console.error('Error while logging to failure table:', logError);
