@@ -520,16 +520,14 @@ export function LinkVisitClaimPopup({
       const shareText = encodeURIComponent(`literally free money. i’m officially $QR coded. @qrcoindotfun`);
       
       // TODO: Replace this with the actual tweet URL you want to quote
-      const tweetToQuote = "https://x.com/qrcoindotfun/status/1931368363684516160";
+      const tweetToQuote = "";
       
       const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote)}`;
       
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
       // Mini-app context: Warpcast share (existing logic)
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun
-        
-comment to earn on theclip.fun!`);
+      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
       const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
