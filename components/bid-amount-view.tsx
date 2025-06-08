@@ -23,7 +23,7 @@ import { MIN_QR_BID, MIN_USDC_BID } from "@/config/tokens";
 import { formatQRAmount, formatUsdValue } from "@/utils/formatters";
 import { UniswapModal } from "./ui/uniswap-modal";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useFetchBids } from "@/hooks/useFetchBids";
+import { useFetchBidsSubgraph } from "@/hooks/useFetchBidsSubgraph";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { Address, Chain } from "viem";
 import { useFundWallet } from "@privy-io/react-auth";
@@ -73,7 +73,7 @@ export function BidForm({
   const isBaseColors = useBaseColors();
   const { isConnected, address: eoaAddress } = useAccount();
   const { handleTypingStart } = useTypingStatus();
-  const { fetchHistoricalAuctions } = useFetchBids();
+  const { fetchHistoricalAuctions: bidHistoryFetcher } = useFetchBidsSubgraph(auctionDetail?.tokenId);
   const isFrame = useRef(false);
   
   // Add Privy hooks
@@ -655,7 +655,7 @@ export function BidForm({
           
           // Only proceed with auto-population if the field is empty
           if (!currentUrlValue) {
-            const bids = await fetchHistoricalAuctions();
+            const bids = await bidHistoryFetcher();
             if (bids && isMounted) {
               // Filter bids by current auction and user address
               const userBidsForThisAuction = bids.filter(

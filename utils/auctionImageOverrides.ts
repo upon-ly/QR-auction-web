@@ -10,14 +10,14 @@ const supabase = createClient<Database>(
 /**
  * Cache for auction image overrides to avoid repeated database calls
  */
-let imageOverridesCache: Map<string, { url: string; isVideo: boolean }> | null = null;
+let imageOverridesCache: Map<number, { url: string; isVideo: boolean }> | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Fetch all auction image overrides from database
  */
-async function fetchAuctionImageOverrides(): Promise<Map<string, { url: string; isVideo: boolean }>> {
+async function fetchAuctionImageOverrides(): Promise<Map<number, { url: string; isVideo: boolean }>> {
   const now = Date.now();
   
   // Return cached data if it's still fresh
@@ -38,7 +38,7 @@ async function fetchAuctionImageOverrides(): Promise<Map<string, { url: string; 
     }
 
     // Build cache map
-    const overridesMap = new Map<string, { url: string; isVideo: boolean }>();
+    const overridesMap = new Map<number, { url: string; isVideo: boolean }>();
     data.forEach(override => {
       overridesMap.set(override.auction_id, {
         url: override.image_url,
@@ -74,7 +74,7 @@ export function isVideoUrl(url: string): boolean {
  * Falls back to default image if no override exists
  */
 export async function getAuctionImage(auctionId: number | string, defaultImage?: string): Promise<string | null> {
-  const id = typeof auctionId === 'number' ? auctionId.toString() : auctionId;
+  const id = typeof auctionId === 'string' ? parseInt(auctionId, 10) : auctionId;
   
   try {
     const overrides = await fetchAuctionImageOverrides();
@@ -102,7 +102,7 @@ export async function getAuctionImage(auctionId: number | string, defaultImage?:
  * Helper function to check if an auction image is a video
  */
 export async function isAuctionImageVideo(auctionId: number | string): Promise<boolean> {
-  const id = typeof auctionId === 'number' ? auctionId.toString() : auctionId;
+  const id = typeof auctionId === 'string' ? parseInt(auctionId, 10) : auctionId;
   
   try {
     const overrides = await fetchAuctionImageOverrides();
@@ -123,7 +123,7 @@ export async function addAuctionImageOverride(
   imageUrl: string, 
   isVideo: boolean = false
 ): Promise<boolean> {
-  const id = typeof auctionId === 'number' ? auctionId.toString() : auctionId;
+  const id = typeof auctionId === 'string' ? parseInt(auctionId, 10) : auctionId;
   
   try {
     const { error } = await supabase
@@ -153,7 +153,7 @@ export async function addAuctionImageOverride(
  * Clear auction image override for a specific auction ID (sets image_url to empty string)
  */
 export async function removeAuctionImageOverride(auctionId: number | string): Promise<boolean> {
-  const id = typeof auctionId === 'number' ? auctionId.toString() : auctionId;
+  const id = typeof auctionId === 'string' ? parseInt(auctionId, 10) : auctionId;
   
   try {
     const { error } = await supabase

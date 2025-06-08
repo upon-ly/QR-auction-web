@@ -84,41 +84,28 @@ export function useFetchAuctions(tokenId?: bigint) {
     
     try {
       const provider = clientToProvider(client);
-      const contractAddress = getContractAddress();
-      const contract = new ethers.Contract(
-        contractAddress,
+      // For initial load, just fetch the current auction from V3 contract
+      // This avoids the expensive historical queries
+      const v3Contract = new ethers.Contract(
+        process.env.NEXT_PUBLIC_QRAuctionV3 as string,
         QRAuction.abi,
         provider
       );
-      const filter = contract.filters.AuctionCreated();
-      const historicalEvents = await contract.queryFilter(
-        filter,
-        0,
-        "latest"
-      );
+      const currentAuction = await v3Contract.auction();
 
-      const formatted: AuctionType[] = historicalEvents.map((event) => {
-        let tokenId: bigint = 0n;
-        let startTime: bigint = 0n;
-        let endTime: bigint = 0n;
-        if ("args" in event && event.args && event.args[0] !== undefined) {
-          tokenId = event.args[0];
-        }
-        if ("args" in event && event.args && event.args[1] !== undefined) {
-          startTime = event.args[1];
-        }
-        if ("args" in event && event.args && event.args[2] !== undefined) {
-          endTime = event.args[2];
-        }
-        return { tokenId, startTime, endTime };
-      });
+      // Format as auction event
+      const formatted: AuctionType[] = [{
+        tokenId: currentAuction[0],
+        startTime: currentAuction[3],
+        endTime: currentAuction[4],
+      }];
 
       // Dispatch initialization action
       dispatch({ type: "INITIALIZE", auctions: formatted });
     } catch (error) {
-      console.error("Error fetching historical auctions:", error);
+      console.error("Error fetching current auction:", error);
     }
-  }, [client, getContractAddress]);
+  }, [client]);
 
   // Fetch historical events and initialize state on mount
   useEffect(() => {

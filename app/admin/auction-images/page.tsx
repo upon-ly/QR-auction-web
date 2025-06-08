@@ -19,7 +19,7 @@ const supabase = createClient<Database>(
 
 interface AuctionImageOverride {
   id: number;
-  auction_id: string;
+  auction_id: number;
   image_url: string;
   is_video: boolean;
   created_at: string;
@@ -106,7 +106,7 @@ export default function AuctionImagesAdmin() {
     }
   };
 
-  const handleClear = async (auctionId: string) => {
+  const handleClear = async (auctionId: number) => {
     try {
       const success = await removeAuctionImageOverride(auctionId);
       

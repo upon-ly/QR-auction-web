@@ -11,9 +11,9 @@ import { BidHistoryDialog } from "./bid-history-dialog";
 import { formatEther, formatUnits } from "viem";
 import { HowItWorksDialog } from "./HowItWorksDialog";
 
-import { useFetchSettledAuc } from "@/hooks/useFetchSettledAuc";
-import { useFetchBids } from "@/hooks/useFetchBids";
-import { useFetchAuctionDetails } from "@/hooks/useFetchAuctionDetails";
+import { useFetchSettledAucSubgraph } from "@/hooks/useFetchSettledAucSubgraph";
+import { useFetchBidsSubgraph } from "@/hooks/useFetchBidsSubgraph";
+import { useFetchAuctionDetailsSubgraph } from "@/hooks/useFetchAuctionDetailsSubgraph";
 import { useFetchAuctionSettings } from "@/hooks/useFetchAuctionSettings";
 import { useWriteActions } from "@/hooks/useWriteActions";
 import { waitForTransactionReceipt } from "@wagmi/core";
@@ -89,9 +89,9 @@ export function AuctionDetails({
     pfpUrl: null
   });
 
-  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAuc(BigInt(id));
-  const { fetchHistoricalAuctions } = useFetchBids(BigInt(id));
-  const { refetch, forceRefetch, auctionDetail, contractReadError } = useFetchAuctionDetails(BigInt(id));
+  const { fetchHistoricalAuctions: auctionsSettled } = useFetchSettledAucSubgraph(BigInt(id));
+  const { fetchHistoricalAuctions } = useFetchBidsSubgraph(BigInt(id));
+  const { refetch, forceRefetch, auctionDetail, loading, error } = useFetchAuctionDetailsSubgraph(BigInt(id));
   const { refetchSettings, settingDetail, error: settingsError } = useFetchAuctionSettings(BigInt(id));
 
   const { settleTxn } = useWriteActions({ tokenId: BigInt(id) });
@@ -131,29 +131,50 @@ export function AuctionDetails({
 
   // Combine loading states to determine when to show skeleton
   // Include completionStatus to ensure settle button state is considered
-  const showSkeleton = isLoading || !dataReady || !completionStatusReady;
+  // Only show skeleton for current auction
+  // Check if we already have auction data to avoid showing skeleton on cached data
+  const hasAuctionData = auctionDetail && Number(auctionDetail.tokenId) === id;
+  const showSkeleton = !hasAuctionData && ((isLatest && (isLoading || !dataReady || !completionStatusReady)) || (!isLatest && loading));
 
   // Reset all data ready states whenever ID changes
   useEffect(() => {
-    setDataReady(false);
-    setCompletionStatusReady(false);
-    setIsLoading(true);
-  }, [id]);
+    // Check if we already have data for this ID (cached)
+    const hasCachedData = auctionDetail && Number(auctionDetail.tokenId) === id;
+    
+    if (hasCachedData) {
+      // We have cached data, don't show loading
+      setDataReady(true);
+      setCompletionStatusReady(true);
+      setIsLoading(false);
+    } else {
+      // No cached data, show loading
+      setDataReady(false);
+      setCompletionStatusReady(false);
+      setIsLoading(true);
+    }
+  }, [id, auctionDetail]);
 
   // Update the refetching mechanism when ID changes to ensure proper refresh after settlement
   useEffect(() => {
-    if (id) {
+    if (id && isLatest) {
       const refetchDetails = async () => {
-        console.log(`[Effect] Refetching details for auction #${id}`);
-        setIsLoading(true);
-        setDataReady(false);
-        setCompletionStatusReady(false);
-        setFetchError(null); // Clear previous errors
+        // Check if we already have data for this auction
+        const hasCachedData = auctionDetail && Number(auctionDetail.tokenId) === id;
+        
+        if (!hasCachedData) {
+          console.log(`[Effect] No cached data, fetching details for auction #${id}`);
+          setIsLoading(true);
+          setDataReady(false);
+          setCompletionStatusReady(false);
+          setFetchError(null); // Clear previous errors
+        } else {
+          console.log(`[Effect] Using cached data for auction #${id}`);
+        }
         
         try {
           // Fetch all data in parallel for better performance
           const [auctionResult, settingsResult, settledAuctions] = await Promise.all([
-            refetch(),
+            hasCachedData ? Promise.resolve(auctionDetail) : refetch(),
             refetchSettings(),
             auctionsSettled()
           ]);
@@ -189,8 +210,13 @@ export function AuctionDetails({
       };
       
       refetchDetails();
+    } else if (!isLatest) {
+      // For historical auctions, just set states to not loading
+      setIsLoading(false);
+      setDataReady(true);
+      setCompletionStatusReady(true);
     }
-  }, [id, refetch, refetchSettings, auctionsSettled]);
+  }, [id, isLatest, refetch, refetchSettings, auctionsSettled, auctionDetail]);
 
   // When countdown updates to "complete", make sure we show the settle button immediately
   useEffect(() => {
@@ -607,19 +633,29 @@ export function AuctionDetails({
       }
     },
     onAuctionSettled: (tokenId, winner, amount, urlString, name) => {
-      // Only update if this event is for the current auction
+      // Update if this event is for the current auction
       if (tokenId === BigInt(id)) {
         console.log(`Real-time update: Auction #${id} settled`);
-        // Use forceRefetch to bypass the cache for settlement as well
+        // Use forceRefetch to bypass the cache for settlement
         forceRefetch();
+        
+        // Also refetch the settled auctions list
+        auctionsSettled().then((settled) => {
+          if (settled) {
+            setSettledAcustions(settled);
+          }
+        });
       }
     },
     onAuctionCreated: (tokenId, startTime, endTime) => {
       console.log(`Real-time update: New auction #${tokenId} created`);
       
-      // If we're on the latest auction, refresh data for the newly created auction
+      // Don't handle navigation here - let the parent page handle it
+      // This prevents duplicate navigation
+      
+      // If we're on the latest auction, just refresh the data
       if (isLatest) {
-        console.log(`Refreshing data for new auction #${tokenId}`);
+        console.log(`Refreshing data for newly created auction`);
         refetch();
         refetchSettings();
       }
@@ -709,7 +745,7 @@ export function AuctionDetails({
           />
         </div>
         {showSkeleton && (
-          <div className="flex flex-col space-y-3">
+          <div className="flex flex-col space-y-3 animate-pulse">
             <Skeleton className="h-[125px] w-full rounded-xl" />
             <div className="space-y-2">
               <Skeleton className="h-4 w-[250px]" />
@@ -729,6 +765,13 @@ export function AuctionDetails({
             >
               Retry
             </Button>
+          </div>
+        )}
+
+        {!isLatest && !showSkeleton && !auctionDetail && !loading && (
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-md text-amber-700">
+            <p className="font-medium">Historical Auction Data</p>
+            <p className="text-sm">Historical auction data is temporarily unavailable. Only the current running auction can be viewed at this time.</p>
           </div>
         )}
 
@@ -853,7 +896,15 @@ export function AuctionDetails({
                       openDialog={openDialog}
                       openBids={openBid}
                     />
-                  ) : (
+                  ) : auctionDetail.settled ? (
+                    <WinDetailsView
+                      tokenId={BigInt(id)}
+                      winner={auctionDetail.highestBidder}
+                      amount={auctionDetail.highestBid}
+                      url={auctionDetail.qrMetadata?.urlString || ""}
+                      openDialog={openDialog}
+                      openBids={openBid}
+                    /> ) : (
                     <>
                       <div className="flex justify-between items-start">
                         <div>

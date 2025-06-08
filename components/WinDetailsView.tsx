@@ -20,7 +20,7 @@ import { getAuctionVersion } from "@/utils/auctionPriceData";
 import { useWinnerData } from "@/hooks/useWinnerData";
 import { frameSdk } from "@/lib/frame-sdk";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
-import { useFetchBids } from "@/hooks/useFetchBids";
+import { useFetchBidsSubgraph } from "@/hooks/useFetchBidsSubgraph";
 import { XLogo } from "./XLogo";
 
 
@@ -57,7 +57,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
   } = useWinnerData(winnerdata.tokenId);
   
   // Add bid history hook to fetch Twitter usernames
-  const { fetchHistoricalAuctions } = useFetchBids(winnerdata.tokenId);
+  const { fetchHistoricalAuctions } = useFetchBidsSubgraph(winnerdata.tokenId);
   
   // Fetch OG image for fallback
   useEffect(() => {

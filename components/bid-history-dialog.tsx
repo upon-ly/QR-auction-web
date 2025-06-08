@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { useFetchBids } from "@/hooks/useFetchBids";
+import { useFetchBidsSubgraph } from "@/hooks/useFetchBidsSubgraph";
 import { useEffect, useState } from "react";
 import { BidCellView } from "./BidCellView";
 
@@ -39,7 +39,7 @@ export function BidHistoryDialog({
   openDialog,
 }: BidHistoryDialogProps) {
   const [auctionBids, setAuctionBids] = useState<AuctionType[]>([]);
-  const { fetchHistoricalAuctions } = useFetchBids(BigInt(auctionId));
+  const { fetchHistoricalAuctions } = useFetchBidsSubgraph(BigInt(auctionId));
 
   useEffect(() => {
     const fetchData = async () => {

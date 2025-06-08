@@ -35,6 +35,7 @@ import { useLinkVisit } from "@/providers/LinkVisitProvider";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
 import { removeAuctionImageOverride } from "@/utils/auctionImageOverrides";
 import { CLICK_SOURCES } from "@/lib/click-tracking";
+import { clearAllAuctionCaches } from "@/hooks/useFetchAuctionDetailsSubgraph";
 
 // Key for storing auction cache data in localStorage
 const AUCTION_CACHE_KEY = 'qrcoin_auction_cache';
@@ -111,6 +112,7 @@ export default function AuctionPage() {
   const [latestAuctionId, setLatestAuctionId] = useState(0);
   const [latestV3AuctionId, setLatestV3AuctionId] = useState(0);
   const isFrame = useRef(false);
+  const isNavigating = useRef(false);
 
   const isBaseColors = useBaseColors();
   const { isOpen, pendingUrl, openDialog, closeDialog, handleContinue } = useSafetyDialog();
@@ -292,12 +294,17 @@ export default function AuctionPage() {
         console.error(`[AuctionSettled] Error clearing auction image override for auction #${tokenId}:`, error);
       }
       
+      // Clear all auction caches to ensure fresh data
+      clearAllAuctionCaches();
+      
       forceRefetchAuctions();
       if (Number(tokenId) === latestAuctionId && isLatestAuction) {
         fetchOgImage();
       }
     },
     onAuctionCreated: (tokenId) => {
+      console.log(`[AuctionCreated] New auction #${tokenId} created`);
+      
       forceRefetchAuctions().then(() => {
         const newLatestId = Number(tokenId);
         
@@ -314,15 +321,34 @@ export default function AuctionPage() {
         // Update the cached auction data
         safeLocalStorage.updateAuctionCache(newLatestId, updatedV3AuctionId);
         
-        if (isLatestAuction || currentAuctionId === newLatestId - 1) {
+        // Only navigate if we're currently viewing the latest auction or the previous auction
+        // This prevents navigation from happening on other pages
+        if ((isLatestAuction || currentAuctionId === newLatestId - 1) && !isNavigating.current) {
+          // Set flag to prevent duplicate navigation
+          isNavigating.current = true;
+          
+          // Clear cache for the new auction to ensure fresh data
+          const targetAuctionId = (isV3Auction || updatedV3AuctionId === 0) ? newLatestId : updatedV3AuctionId;
+          clearAllAuctionCaches();
+          
           // Only redirect to new auction if it's a V3 auction or we don't have V3 auctions yet
           if (isV3Auction || updatedV3AuctionId === 0) {
+            console.log(`[AuctionCreated] Navigating to new auction #${newLatestId}`);
             router.push(`/auction/${newLatestId}`);
           } else {
             // If not a V3 auction but we have V3 auctions, stay on latest V3
+            console.log(`[AuctionCreated] Navigating to latest V3 auction #${updatedV3AuctionId}`);
             router.push(`/auction/${updatedV3AuctionId}`);
           }
+          
+          // Reset navigation flag after a short delay
+          setTimeout(() => {
+            isNavigating.current = false;
+          }, 1000);
+        } else {
+          console.log(`[AuctionCreated] Not navigating - current auction is #${currentAuctionId}`);
         }
+        
         fetchOgImage();
       });
     },

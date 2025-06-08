@@ -62,7 +62,7 @@ export interface Database {
       auction_image_overrides: {
         Row: {
           id: number
-          auction_id: string
+          auction_id: number
           image_url: string
           is_video: boolean
           created_at: string
@@ -70,7 +70,7 @@ export interface Database {
         }
         Insert: {
           id?: number
-          auction_id: string
+          auction_id: number
           image_url: string
           is_video?: boolean
           created_at?: string
@@ -78,7 +78,7 @@ export interface Database {
         }
         Update: {
           id?: number
-          auction_id?: string
+          auction_id?: number
           image_url?: string
           is_video?: boolean
           created_at?: string
