@@ -536,7 +536,27 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({ success: false, error: 'Missing required parameters (fid, address, auction_id, or username)' }, { status: 400 });
       }
-      effectiveFid = fid; // Use actual fid for mini-app users
+      
+      // ENFORCE: Mini-app FIDs must be positive integers
+      if (fid <= 0) {
+        console.log(`🚫 MINI-APP FID ERROR: IP=${clientIP}, Invalid FID=${fid} - mini-app FIDs must be positive`);
+        
+        await logFailedTransaction({
+          fid: fid,
+          eth_address: address,
+          auction_id: auction_id,
+          username: username,
+          winning_url: null,
+          error_message: `Invalid FID for mini-app user: ${fid} (must be positive)`,
+          error_code: 'INVALID_MINIAPP_FID',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ success: false, error: 'Invalid FID - mini-app FIDs must be positive integers' }, { status: 400 });
+      }
+      
+      effectiveFid = fid; // Use actual fid for mini-app users (guaranteed positive)
       effectiveUsername = username; // Use actual username for mini-app users
     }
     
@@ -596,9 +616,11 @@ export async function POST(request: NextRequest) {
     
     // Validate Mini App user and verify wallet address in one call (skip for web users)
     if (claim_source !== 'web') {
+      console.log(`🔍 MINI-APP VALIDATION: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - validating via miniapp-validation.ts`);
+      
       const userValidation = await validateMiniAppUser(effectiveFid, effectiveUsername || undefined, address);
       if (!userValidation.isValid) {
-        console.log(`User validation failed for FID ${effectiveFid}: ${userValidation.error}`);
+        console.log(`🚫 MINI-APP VALIDATION FAILED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Error: ${userValidation.error}`);
         
         // Don't queue failed transactions for validation errors - just return error
         // These are user errors, not system failures that need retry
@@ -607,6 +629,8 @@ export async function POST(request: NextRequest) {
           error: userValidation.error || 'Invalid user or spoofed request' 
         }, { status: 400 });
       }
+      
+      console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
     // Check if user has already claimed tokens for this auction (check both FID and address)
