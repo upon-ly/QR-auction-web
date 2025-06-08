@@ -586,6 +586,59 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // EMERGENCY FIX: Check if this username has already claimed (regardless of source)
+    if (effectiveUsername) {
+      const { data: claimDataByUsername, error: selectErrorByUsername } = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('username', effectiveUsername)
+        .eq('auction_id', auction_id);
+      
+      if (selectErrorByUsername) {
+        console.error('Error checking username claim status:', selectErrorByUsername);
+        
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address,
+          auction_id,
+          username: effectiveUsername,
+          error_message: 'Database error when checking username claim status',
+          error_code: selectErrorByUsername?.code || 'DB_USERNAME_CHECK_ERROR',
+          request_data: requestData as Record<string, unknown>,
+          network_status: 'db_error',
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({
+          success: false,
+          error: 'Database error when checking username claim status'
+        }, { status: 500 });
+      }
+      
+      if (claimDataByUsername && claimDataByUsername.length > 0 && claimDataByUsername[0].claimed_at) {
+        if (claimDataByUsername[0].tx_hash) {
+          console.log(`Username ${effectiveUsername} has already claimed tokens for auction ${auction_id} at tx ${claimDataByUsername[0].tx_hash} (source: ${claimDataByUsername[0].claim_source})`);
+          
+          // Don't queue failed transactions for duplicate claims - these are user errors
+          return NextResponse.json({ 
+            success: false, 
+            error: 'This username has already claimed tokens for this auction',
+            tx_hash: claimDataByUsername[0].tx_hash
+          }, { status: 400 });
+        } else {
+          // Incomplete claim by username - delete and allow retry
+          console.log(`Found incomplete claim for username ${effectiveUsername}, auction ${auction_id} - allowing retry`);
+          await supabase
+            .from('link_visit_claims')
+            .delete()
+            .match({
+              username: effectiveUsername,
+              auction_id: auction_id
+            });
+        }
+      }
+    }
+    
     // Initialize ethers provider and wallet
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const adminWallet = new ethers.Wallet(getContractAddresses(claim_source).ADMIN_PRIVATE_KEY, provider);
