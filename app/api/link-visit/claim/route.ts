@@ -811,11 +811,11 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    // Define airdrop amount (1,000 QR tokens)
+    // Define airdrop amount (420 QR tokens)
     // Assuming 18 decimals for the QR token
-    const airdropAmount = ethers.parseUnits('1000', 18);
+    const airdropAmount = ethers.parseUnits('420', 18);
     
-    console.log(`Preparing airdrop of 1,000 QR tokens to ${address}`);
+    console.log(`Preparing airdrop of 420 QR tokens to ${address}`);
     
     // Create contract instances
     const airdropContract = new ethers.Contract(
@@ -1079,7 +1079,7 @@ export async function POST(request: NextRequest) {
           eth_address: address, 
           link_visited_at: new Date().toISOString(), // Ensure we mark it as visited
           claimed_at: new Date().toISOString(),
-          amount: 1000, // 1,000 QR tokens
+          amount: 420, // 420 QR tokens
           tx_hash: receipt.hash,
           success: true,
           username: effectiveUsername,
@@ -1096,7 +1096,7 @@ export async function POST(request: NextRequest) {
           .update({
             eth_address: address,
             claimed_at: new Date().toISOString(),
-            amount: 1000, // 1,000 QR tokens
+            amount: 420, // 420 QR tokens
             tx_hash: receipt.hash,
             success: true,
             username: effectiveUsername,

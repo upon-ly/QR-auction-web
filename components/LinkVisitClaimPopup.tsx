@@ -380,7 +380,7 @@ export function LinkVisitClaimPopup({
       // Clear the click state since they've successfully claimed
       clearClickedFromStorage();
       
-      toast.success('1,000 $QR has been sent to your wallet.', {
+      toast.success('420 $QR has been sent to your wallet.', {
         style: {
           background: 'var(--primary)',
           color: 'var(--primary-foreground)',
@@ -474,7 +474,7 @@ export function LinkVisitClaimPopup({
     setClaimState('connecting');
     
     // Show persistent toast with updated message
-    const toastId = toast.info('Sign in with X (Twitter) to claim 1,000 $QR', {
+    const toastId = toast.info('Sign in with X (Twitter) to claim 420 $QR', {
       duration: Infinity, // Persistent until manually dismissed
     });
     setPersistentToastId(toastId);
@@ -527,7 +527,7 @@ export function LinkVisitClaimPopup({
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
       // Mini-app context: Warpcast share (existing logic)
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`just got paid 420 $QR to check out today's winner @qrcoindotfun`);
       const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
@@ -670,7 +670,7 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                Click to claim 1,000 $QR!
+                Click to claim 420 $QR!
               </motion.h2>
             )}
             
@@ -691,7 +691,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  Connect your wallet or enter your email to claim 1,000 $QR
+                  Connect your wallet or enter your email to claim 420 $QR
                 </motion.p>
                 
                 <motion.div
@@ -716,7 +716,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.2 }}
                   className="text-xl font-bold text-foreground"
                 >
-                  Claim 1,000 $QR
+                  Claim 420 $QR
                 </motion.h2>
               </>
             )}
@@ -806,7 +806,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  1,000 $QR sent to your wallet.
+                  420 $QR sent to your wallet.
                 </motion.p>
                 
                 <motion.div
