@@ -14,6 +14,11 @@ export const useCountdown = (
   const calculateTimeLeft = () => targetTime - Date.now();
 
   useEffect(() => {
+    // Immediately calculate time left when targetTimestamp changes
+    if (targetTimestamp !== 0) {
+      setTimeLeft(calculateTimeLeft());
+    }
+    
     // Set an interval to update the time left every second.
     const intervalId = setInterval(() => {
       if (targetTimestamp !== 0) {
@@ -23,7 +28,7 @@ export const useCountdown = (
 
     // Cleanup interval on unmount.
     return () => clearInterval(intervalId);
-  }, [targetTime]);
+  }, [targetTime, targetTimestamp]);
 
   if (timeLeft === undefined) {
     const time = "00:00:00";

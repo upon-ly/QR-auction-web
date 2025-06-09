@@ -167,9 +167,70 @@ export function useFetchAuctionDetailsSubgraph(tokenId?: bigint) {
     setError(null);
 
     try {
+      // For V3 auctions, try RPC first to get the most up-to-date data
+      const isV3Auction = tokenId >= 62n;
+      
+      if (isV3Auction) {
+        try {
+          const publicClient = getPublicClient(wagmiConfig, { chainId: base.id });
+          const contractAddress = process.env.NEXT_PUBLIC_QRAuctionV3 as Address;
+          
+          // Check if this is the current auction
+          const currentAuction = await publicClient.readContract({
+            address: contractAddress,
+            abi: QRAuctionV3.abi,
+            functionName: 'auction',
+          }) as [string, string, string, string, string, boolean, { urlString: string }];
+          
+          if (currentAuction && BigInt(currentAuction[0]) === tokenId) {
+            console.log(`[RPC] Found current auction #${tokenId} via RPC`);
+            
+            // Build auction object from RPC data
+            const auction: Auction = {
+              tokenId: BigInt(currentAuction[0]),
+              highestBid: BigInt(currentAuction[1]),
+              highestBidder: currentAuction[2],
+              startTime: BigInt(currentAuction[3]),
+              endTime: BigInt(currentAuction[4]),
+              settled: currentAuction[5],
+              qrMetadata: {
+                validUntil: BigInt(currentAuction[4]),
+                urlString: currentAuction[6]?.urlString || "",
+              },
+            };
+            
+            // Get bidder name if needed
+            if (auction.highestBidder !== "0x0000000000000000000000000000000000000000") {
+              try {
+                const bidderName = await publicClient.readContract({
+                  address: contractAddress,
+                  abi: QRAuctionV3.abi,
+                  functionName: 'getBidderName',
+                  args: [auction.highestBidder],
+                }) as string;
+                
+                if (bidderName && bidderName.trim() !== "") {
+                  auction.highestBidderName = bidderName;
+                }
+              } catch (nameError) {
+                console.log(`[RPC] Could not fetch bidder name:`, nameError);
+              }
+            }
+            
+            setAuctiondetails(auction);
+            auctionCache.set(cacheKey, auction);
+            setLoading(false);
+            return; // Successfully got data from RPC
+          }
+        } catch (rpcError) {
+          console.log(`[RPC] Error or not current auction, falling back to subgraph:`, rpcError);
+          // Continue to subgraph fetch
+        }
+      }
+
+      // Fall back to subgraph
       const data = await fetchAuctionFromSubgraph(tokenId);
 
-      const isV3Auction = tokenId >= 62n;
       const settledKey = isV3Auction ? 'qrauctionV3AuctionSettleds' : 'auctionSettleds';
       const createdKey = isV3Auction ? 'qrauctionV3AuctionCreateds' : 'auctionCreateds';
       const bidKey = isV3Auction ? 'qrauctionV3AuctionBids' : 'auctionBids';
@@ -306,7 +367,67 @@ export function useFetchAuctionDetailsSubgraph(tokenId?: bigint) {
 
     const cacheKey = `${tokenId}-subgraph`;
     auctionCache.delete(cacheKey);
+    
+    // For V3 auctions, always try RPC first on force refetch
+    const isV3Auction = tokenId >= 62n;
+    
+    if (isV3Auction) {
+      try {
+        const publicClient = getPublicClient(wagmiConfig, { chainId: base.id });
+        const contractAddress = process.env.NEXT_PUBLIC_QRAuctionV3 as Address;
+        
+        // Get current auction data directly from contract
+        const currentAuction = await publicClient.readContract({
+          address: contractAddress,
+          abi: QRAuctionV3.abi,
+          functionName: 'auction',
+        }) as [string, string, string, string, string, boolean, { urlString: string }];
+        
+        if (currentAuction && BigInt(currentAuction[0]) === tokenId) {
+          console.log(`[ForceRefetch] Got auction #${tokenId} from RPC`);
+          
+          // Build auction object from RPC data
+          const auction: Auction = {
+            tokenId: BigInt(currentAuction[0]),
+            highestBid: BigInt(currentAuction[1]),
+            highestBidder: currentAuction[2],
+            startTime: BigInt(currentAuction[3]),
+            endTime: BigInt(currentAuction[4]),
+            settled: currentAuction[5],
+            qrMetadata: {
+              validUntil: BigInt(currentAuction[4]),
+              urlString: currentAuction[6]?.urlString || "",
+            },
+          };
+          
+          // Get bidder name if needed
+          if (auction.highestBidder !== "0x0000000000000000000000000000000000000000") {
+            try {
+              const bidderName = await publicClient.readContract({
+                address: contractAddress,
+                abi: QRAuctionV3.abi,
+                functionName: 'getBidderName',
+                args: [auction.highestBidder],
+              }) as string;
+              
+              if (bidderName && bidderName.trim() !== "") {
+                auction.highestBidderName = bidderName;
+              }
+            } catch (nameError) {
+              console.log(`[ForceRefetch] Could not fetch bidder name:`, nameError);
+            }
+          }
+          
+          setAuctiondetails(auction);
+          auctionCache.set(cacheKey, auction);
+          return; // Successfully got data from RPC
+        }
+      } catch (rpcError) {
+        console.log(`[ForceRefetch] RPC error, falling back to regular fetch:`, rpcError);
+      }
+    }
 
+    // Fall back to regular fetch (which will try RPC then subgraph)
     await fetchDetails();
   }, [tokenId, fetchDetails]);
 
