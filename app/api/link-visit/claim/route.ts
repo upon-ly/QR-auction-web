@@ -492,7 +492,8 @@ export async function POST(request: NextRequest) {
       
       const authToken = authHeader.substring(7); // Remove 'Bearer ' prefix
       
-      // Verify the Privy auth token
+      // Verify the Privy auth token and get user data
+      let authenticatedUser;
       try {
         // Verify the auth token with Privy's API
         const verifiedClaims = await privyClient.verifyAuthToken(authToken);
@@ -502,6 +503,13 @@ export async function POST(request: NextRequest) {
           throw new Error('No user ID in token claims');
         }
         
+        // Get the actual user data to verify Twitter account
+        authenticatedUser = await privyClient.getUser({idToken: authToken});
+        
+        if (!authenticatedUser) {
+          throw new Error('Could not fetch user data');
+        }
+        
         console.log(`✅ WEB AUTH: IP=${clientIP}, User verified: ${verifiedClaims.userId}`);
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
@@ -509,6 +517,27 @@ export async function POST(request: NextRequest) {
           success: false, 
           error: 'Invalid authentication. Please sign in again.' 
         }, { status: 401 });
+      }
+      
+      // Extract verified Twitter username from authenticated user
+      const twitterAccount = authenticatedUser.linkedAccounts?.find(account => account.type === 'twitter_oauth');
+      const verifiedTwitterUsername = twitterAccount?.subject;
+      
+      if (!verifiedTwitterUsername) {
+        console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, No Twitter account linked to authenticated user`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'No Twitter account found. Please link your Twitter account.' 
+        }, { status: 400 });
+      }
+      
+      // Validate that the username in request matches the authenticated user's Twitter username
+      if (username && username !== verifiedTwitterUsername) {
+        console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Username mismatch - requested: ${username}, verified: ${verifiedTwitterUsername}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Username does not match authenticated account.' 
+        }, { status: 400 });
       }
       
       // Web users need address and auction_id
@@ -523,7 +552,7 @@ export async function POST(request: NextRequest) {
           fid: effectiveFid, // Use -1 for web validation errors
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
-          username: username || null,
+          username: verifiedTwitterUsername || null, // Use verified username
           winning_url: null,
           error_message: 'Missing required parameters for web user (address or auction_id)',
           error_code: 'WEB_VALIDATION_ERROR',
@@ -537,7 +566,7 @@ export async function POST(request: NextRequest) {
       const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
       const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
       effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
-      effectiveUsername = username || null; // Use actual username from request or null
+      effectiveUsername = verifiedTwitterUsername; // Use verified Twitter username, not request username
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {
