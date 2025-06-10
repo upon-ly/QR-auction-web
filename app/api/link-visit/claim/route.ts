@@ -5,8 +5,13 @@ import AirdropABI from '@/abi/Airdrop.json';
 import { validateMiniAppUser } from '@/utils/miniapp-validation';
 import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
+import { PrivyClient } from '@privy-io/server-auth';
 
-
+// Initialize Privy client for server-side authentication
+const privyClient = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
+  process.env.PRIVY_APP_SECRET || ''
+);
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -97,7 +102,7 @@ interface LinkVisitRequestData {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
-import { queueFailedClaim } from '@/lib/queue/failedClaims';
+import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -338,6 +343,7 @@ async function executeWithRetry<T>(
 
 export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
+  let lockKey: string | undefined;
   
   // Get client IP for logging
   const clientIP = getClientIP(request, true); // Enable debug mode temporarily
@@ -449,9 +455,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    // Validate required parameters based on context
-    let effectiveFid: number;
-    let effectiveUsername: string | null = null;
+    // Create user-specific lock to prevent concurrent duplicate claims
+    lockKey = `claim-lock:${address?.toLowerCase()}:${auction_id}`;
+    
+    const lockAcquired = await redis.set(lockKey, Date.now().toString(), {
+      nx: true, // Only set if not exists
+      ex: 60    // Expire in 60 seconds (covers full processing time)
+    });
+    
+    if (!lockAcquired) {
+      console.log(`🔒 DUPLICATE BLOCKED: ${address} already processing claim for auction ${auction_id}`);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'A claim is already being processed for this address. Please wait a moment and try again.',
+        code: 'CLAIM_IN_PROGRESS'
+      }, { status: 429 });
+    }
+    
+    console.log(`🔓 ACQUIRED LOCK: ${address} for auction ${auction_id}`);
+    
+    try {
+      // Validate required parameters based on context
+      let effectiveFid: number;
+      let effectiveUsername: string | null = null;
     
     if (claim_source === 'web') {
       // Verify auth token for web users (Twitter authentication)
@@ -468,20 +494,15 @@ export async function POST(request: NextRequest) {
       
       // Verify the Privy auth token
       try {
-        // For now, just check that token exists and is not empty
-        // In production, you would verify this token with Privy's API
-        // Documentation: https://docs.privy.io/guide/server/authorization/verification
-        if (!authToken || authToken.length < 10) {
-          throw new Error('Invalid auth token format');
+        // Verify the auth token with Privy's API
+        const verifiedClaims = await privyClient.verifyAuthToken(authToken);
+        
+        // Check if the token is valid and user is authenticated
+        if (!verifiedClaims.userId) {
+          throw new Error('No user ID in token claims');
         }
         
-        // TODO: Add actual Privy token verification here
-        // const privyUser = await verifyPrivyToken(authToken);
-        // if (!privyUser || !privyUser.twitter) {
-        //   throw new Error('User not authenticated with Twitter');
-        // }
-        
-        console.log(`✅ WEB AUTH: IP=${clientIP}, Auth token present and valid format`);
+        console.log(`✅ WEB AUTH: IP=${clientIP}, User verified: ${verifiedClaims.userId}`);
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
         return NextResponse.json({ 
@@ -880,8 +901,57 @@ export async function POST(request: NextRequest) {
             setTimeout(() => reject(new Error('Approval transaction timeout after 100 seconds')), 100000)
           );
           
-          await Promise.race([approvalPromise, timeoutPromise]);
-          console.log('Approval confirmed');
+          try {
+            await Promise.race([approvalPromise, timeoutPromise]);
+            console.log('Approval confirmed');
+          } catch (raceError) {
+            // Handle the race error properly
+            const errorMessage = raceError instanceof Error 
+              ? raceError.message 
+              : 'Unknown approval error';
+              
+            const txHash = approveTx.hash;
+            
+            // If this was a timeout error and we have a tx hash, check if approval actually succeeded
+            if (errorMessage.includes('timeout') && txHash) {
+              console.log('Approval timed out, checking if it actually succeeded on-chain...');
+              try {
+                const currentAllowance = await qrTokenContract.allowance(adminWallet.address, getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS);
+                if (currentAllowance >= airdropAmount) {
+                  console.log('Approval actually succeeded on-chain despite timeout, continuing...');
+                  // Continue with the airdrop - don't return error
+                } else {
+                  console.log('Approval did not succeed on-chain, logging failure...');
+                  // Log the timeout error and queue for retry
+                  await logFailedTransaction({
+                    fid: effectiveFid,
+                    eth_address: address,
+                    auction_id,
+                    username: effectiveUsername,
+                    winning_url: winningUrl,
+                    error_message: `Token approval timed out: ${errorMessage}`,
+                    error_code: 'APPROVAL_TIMEOUT',
+                    request_data: requestData as Record<string, unknown>,
+                    tx_hash: txHash,
+                    network_status: 'approval_timeout',
+                    client_ip: clientIP
+                  });
+                  
+                  return NextResponse.json({ 
+                    success: false, 
+                    error: 'Token approval timed out. Your request has been queued for retry.' 
+                  }, { status: 500 });
+                }
+              } catch (recheckError) {
+                console.error('Error rechecking allowance after timeout:', recheckError);
+                // Fall through to normal error handling
+                throw raceError;
+              }
+            } else {
+              // Not a timeout error, throw it to be handled by outer catch
+              throw raceError;
+            }
+          }
         } catch (approveError: unknown) {
           console.error('Error approving tokens:', approveError);
           
@@ -891,44 +961,8 @@ export async function POST(request: NextRequest) {
             
           const txHash = (approveError as { hash?: string }).hash;
           
-          // If this was a timeout error and we have a tx hash, check if approval actually succeeded
-          if (errorMessage.includes('timeout') && txHash) {
-            console.log('Approval timed out, checking if it actually succeeded on-chain...');
-            try {
-              const currentAllowance = await qrTokenContract.allowance(adminWallet.address, getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS);
-              if (currentAllowance >= airdropAmount) {
-                console.log('Approval actually succeeded on-chain despite timeout, continuing...');
-                // Continue with the airdrop - don't return error
-              } else {
-                console.log('Approval did not succeed on-chain, logging failure...');
-                // Log the timeout error and queue for retry
-                await logFailedTransaction({
-                  fid: effectiveFid,
-                  eth_address: address,
-                  auction_id,
-                  username: effectiveUsername,
-                  winning_url: winningUrl,
-                  error_message: `Token approval timed out: ${errorMessage}`,
-                  error_code: 'APPROVAL_TIMEOUT',
-                  request_data: requestData as Record<string, unknown>,
-                  tx_hash: txHash,
-                  network_status: 'approval_timeout',
-                  client_ip: clientIP
-                });
-                
-                return NextResponse.json({ 
-                  success: false, 
-                  error: 'Token approval timed out. Your request has been queued for retry.' 
-                }, { status: 500 });
-              }
-            } catch (recheckError) {
-              console.error('Error rechecking allowance after timeout:', recheckError);
-              // Fall through to normal error handling
-            }
-          }
-          
-          // Normal error handling for non-timeout errors or when recheck fails
-          if (!errorMessage.includes('timeout') || !txHash) {
+          // Normal error handling for non-timeout errors
+          if (!errorMessage.includes('timeout')) {
             // Log token approval error
             await logFailedTransaction({
               fid: effectiveFid,
@@ -1025,7 +1059,7 @@ export async function POST(request: NextRequest) {
             setTimeout(() => reject(new Error('Airdrop transaction timeout after 100 seconds')), 100000)
           );
           
-          const receipt = await Promise.race([airdropPromise, timeoutPromise]);
+          const receipt = await Promise.race([airdropPromise, timeoutPromise]) as Awaited<ReturnType<typeof airdropContract.airdropERC20>>;
           console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
           
           return receipt;
@@ -1182,6 +1216,10 @@ export async function POST(request: NextRequest) {
         error: errorMessage
       }, { status: 500 });
     }
+    } catch (innerError) {
+      // This catch block handles any errors that occur within the inner try block
+      throw innerError; // Re-throw to be handled by outer catch
+    }
   } catch (error: unknown) {
     console.error('Token claim unexpected error:', error);
     
@@ -1234,5 +1272,11 @@ export async function POST(request: NextRequest) {
       success: false, 
       error: errorMessage
     }, { status: 500 });
+  } finally {
+    // Always release the lock when done (for both success and error cases)
+    if (lockKey) {
+      await redis.del(lockKey);
+      console.log(`🔓 RELEASED LOCK: ${requestData.address} for auction ${requestData.auction_id}`);
+    }
   }
-} 
+}
