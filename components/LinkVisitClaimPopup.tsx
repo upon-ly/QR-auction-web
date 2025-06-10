@@ -520,7 +520,7 @@ export function LinkVisitClaimPopup({
       const shareText = encodeURIComponent(`just got paid 420 $QR to check out today's winner @qrcoindotfun`);
       
       // TODO: Replace this with the actual tweet URL you want to quote
-      const tweetToQuote = "https://x.com/qrcoindotfun/status/1932098858160410676";
+      const tweetToQuote = "";
       
       const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote)}`;
       
@@ -532,7 +532,7 @@ export function LinkVisitClaimPopup({
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0xc3d4c2ed";
+      const quoteCastUrl = "";
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
