@@ -898,7 +898,7 @@ export async function POST(request: NextRequest) {
           // Add timeout wrapper around the wait to prevent Vercel timeouts
           const approvalPromise = approveTx.wait();
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Approval transaction timeout after 100 seconds')), 100000)
+            setTimeout(() => reject(new Error('Approval transaction timeout after 299 seconds')), 299000)
           );
           
           try {
@@ -1056,7 +1056,7 @@ export async function POST(request: NextRequest) {
           // Add timeout wrapper around the wait to prevent Vercel timeouts
           const airdropPromise = tx.wait();
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Airdrop transaction timeout after 100 seconds')), 100000)
+            setTimeout(() => reject(new Error('Airdrop transaction timeout after 299 seconds')), 299000)
           );
           
           const receipt = await Promise.race([airdropPromise, timeoutPromise]) as Awaited<ReturnType<typeof airdropContract.airdropERC20>>;
