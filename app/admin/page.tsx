@@ -1,7 +1,7 @@
 /* eslint-disable */
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -403,6 +403,351 @@ function useRedirectClickAnalytics() {
   return data;
 }
 
+// Farcaster Notifications Component
+function FarcasterNotifications() {
+  const { address } = useAccount();
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState({
+    title: '',
+    body: '',
+    target_url: '',
+    uuid: ''
+  });
+  const [targeting, setTargeting] = useState({
+    target_fids: '',
+    exclude_fids: '',
+    following_fid: '',
+    minimum_user_score: 0.5,
+  });
+  const [response, setResponse] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Generate a new UUID for the notification
+  const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  // Fetch latest winner data
+  const fetchLatestWinner = useCallback(async () => {
+    try {
+      const response = await fetch('/api/latest-winner', {
+        headers: {
+          'Authorization': `Bearer ${address}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const winnerName = data.twitterUsername || data.farcasterUsername || 'Winner';
+        const auctionId = data.auctionId;
+        
+        // Create title with character limit consideration
+        const baseTitle = `${winnerName} won Auction #${auctionId}!`;
+        const title = baseTitle.length > 32 ? `${winnerName} won #${auctionId}!` : baseTitle;
+        
+        setNotification(prev => ({
+          ...prev,
+          title: title,
+          body: 'Click here to check out the winning link and claim 420 $QR',
+          target_url: 'https://qrcoin.fun'
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching latest winner:', error);
+      // Fallback to default values
+      setNotification(prev => ({
+        ...prev,
+        title: 'New Winner Announced!',
+        body: 'Click here to check out the winning link and claim 420 $QR',
+        target_url: 'https://qrcoin.fun'
+      }));
+    }
+  }, [address]);
+
+  // Initialize with a UUID and fetch winner data
+  useEffect(() => {
+    setNotification(prev => ({
+      ...prev,
+      uuid: generateUUID()
+    }));
+    if (address) {
+      fetchLatestWinner();
+    }
+  }, [address, fetchLatestWinner]);
+
+  const handleSendNotification = async () => {
+    if (!notification.title || !notification.body) {
+      setError('Title and body are required');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    setResponse(null);
+
+    try {
+      // Parse target FIDs
+      const targetFids = (targeting.target_fids || '')
+        .split(',')
+        .map(fid => parseInt(fid.trim()))
+        .filter(fid => !isNaN(fid));
+
+      const excludeFids = (targeting.exclude_fids || '')
+        .split(',')
+        .map(fid => parseInt(fid.trim()))
+        .filter(fid => !isNaN(fid));
+
+      // Build filters object conditionally
+      const filters: any = {};
+      if (excludeFids.length > 0) filters.exclude_fids = excludeFids;
+      if (targeting.following_fid) filters.following_fid = parseInt(targeting.following_fid);
+      if (targeting.minimum_user_score !== 0.5) filters.minimum_user_score = targeting.minimum_user_score;
+
+      const payload = {
+        target_fids: targetFids,
+        ...(Object.keys(filters).length > 0 && { filters }),
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          target_url: notification.target_url || undefined,
+          uuid: notification.uuid
+        }
+      };
+
+      // Debug: Log the payload being sent
+      const response = await fetch('/api/farcaster/send-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send notification');
+      }
+
+      setResponse(data);
+      
+      // Generate new UUID for next notification
+      setNotification(prev => ({
+        ...prev,
+        uuid: generateUUID()
+      }));
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+        <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">
+          Farcaster Mini App Notifications
+        </h3>
+        <p className="text-purple-700 dark:text-purple-400">
+          Send push notifications to users who have interacted with the QRCoin mini app. Uses Neynar API.
+        </p>
+        <div className="text-xs text-purple-600 dark:text-purple-500 mt-2">
+          Official Farcaster limits: Title max 32 chars, Body max 128 chars, Target URL max 1024 chars.
+        </div>
+      </div>
+
+      {/* Notification Composer */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Compose Notification</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Title *</label>
+            <input
+              type="text"
+              value={notification.title}
+              onChange={(e) => setNotification(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="Auction Update"
+              maxLength={32}
+            />
+            <div className="text-xs text-gray-500 mt-1">{notification.title.length}/32 characters</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Body *</label>
+            <textarea
+              value={notification.body}
+              onChange={(e) => setNotification(prev => ({ ...prev, body: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="Check out the latest auction results!"
+              rows={3}
+              maxLength={128}
+            />
+            <div className="text-xs text-gray-500 mt-1">{notification.body.length}/128 characters</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Target URL (optional)</label>
+            <input
+              type="url"
+              value={notification.target_url}
+              onChange={(e) => setNotification(prev => ({ ...prev, target_url: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="https://qrcoin.fun"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">UUID</label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={notification.uuid}
+                onChange={(e) => setNotification(prev => ({ ...prev, uuid: e.target.value }))}
+                className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 font-mono text-sm"
+              />
+              <button
+                onClick={() => setNotification(prev => ({ ...prev, uuid: generateUUID() }))}
+                className="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Targeting Options */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Targeting & Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Target FIDs (comma-separated)</label>
+            <input
+              type="text"
+              value={targeting.target_fids}
+              onChange={(e) => setTargeting(prev => ({ ...prev, target_fids: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="1, 2, 3"
+            />
+            <div className="text-xs text-gray-500 mt-1">Leave empty to send to all mini app users</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Exclude FIDs (comma-separated)</label>
+            <input
+              type="text"
+              value={targeting.exclude_fids}
+              onChange={(e) => setTargeting(prev => ({ ...prev, exclude_fids: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="1, 2, 3"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Following FID</label>
+            <input
+              type="text"
+              value={targeting.following_fid}
+              onChange={(e) => setTargeting(prev => ({ ...prev, following_fid: e.target.value }))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+              placeholder="3"
+            />
+            <div className="text-xs text-gray-500 mt-1">Only send to users following this FID</div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Minimum User Score: {targeting.minimum_user_score}</label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={targeting.minimum_user_score}
+              onChange={(e) => setTargeting(prev => ({ ...prev, minimum_user_score: parseFloat(e.target.value) }))}
+              className="w-full"
+            />
+            <div className="text-xs text-gray-500 mt-1">Filter by user reputation score (0-1)</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Send Button */}
+      <div className="flex justify-center">
+        <button
+          onClick={handleSendNotification}
+          disabled={isLoading || !notification.title || !notification.body}
+          className="px-8 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+        >
+          {isLoading && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          )}
+          <span>{isLoading ? 'Sending...' : 'Send Notification'}</span>
+        </button>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <h4 className="text-red-800 dark:text-red-300 font-medium">Error</h4>
+          <p className="text-red-700 dark:text-red-400 mt-1">{error}</p>
+        </div>
+      )}
+
+      {/* Response Display */}
+      {response && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg text-green-600">Notification Sent Successfully</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-medium mb-2">Delivery Status:</h4>
+                {response.notification_deliveries?.length > 0 ? (
+                  <div className="space-y-2">
+                    {response.notification_deliveries.map((delivery: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span>FID: {delivery.fid}</span>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          delivery.status === 'success' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                        }`}>
+                          {delivery.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No delivery information available</p>
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Raw Response:</h4>
+                <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-auto">
+                  {JSON.stringify(response, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // Clicks Analytics Component - focuses on redirect click data
 function ClicksAnalytics() {
   const redirectData = useRedirectClickAnalytics();
@@ -765,6 +1110,7 @@ function ClicksAnalytics() {
     </div>
   );
 }
+
 // Claims Analytics Component (uses cost per click data but changes terminology to "claims")
 function ClaimsAnalytics() {
   const { address } = useAccount();
@@ -1299,12 +1645,7 @@ export default function AdminDashboard() {
 
             {/* Farcaster Analytics Dashboard */}
             <TabsContent value="farcaster">
-              <div className="p-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg mb-6">
-                <h3 className="text-lg font-medium text-purple-800 dark:text-purple-300 mb-2">Farcaster Analytics (TBU)</h3>
-                <p className="text-purple-700 dark:text-purple-400">
-                  This section will contain Farcaster-specific analytics. Implementation coming soon.
-                </p>
-              </div>
+              <FarcasterNotifications />
             </TabsContent>
 
             {/* Clanker Fees Dashboard */}
