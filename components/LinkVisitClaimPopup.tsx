@@ -550,11 +550,6 @@ export function LinkVisitClaimPopup({
     onClose();
   };
 
-  // Disable popup for web context
-  if (isWebContext) {
-    return null;
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       // Only prevent closing during active wallet connection process

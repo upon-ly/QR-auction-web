@@ -19,6 +19,7 @@ export async function queueFailedClaim(failureRecord: {
   eth_address: string;
   auction_id?: string | number;
   username?: string | null;
+  user_id?: string | null;
   winning_url?: string | null;
   option_type?: string;
   signer_uuid?: string;

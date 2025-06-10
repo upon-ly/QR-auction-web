@@ -144,11 +144,18 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             }
           }
           
+          // For web users, we need to get their Privy userId for more secure checking
+          let privyUserId: string | null = null;
+          if (authenticated && user?.id) {
+            privyUserId = user.id; // This is the Privy DID
+          }
+          
           // Check for ANY claims by this wallet address (regardless of claim_source)
           let allClaims: Array<{
             id: string;
             eth_address?: string;
             username?: string;
+            user_id?: string;
             claimed_at?: string;
             link_visited_at?: string;
             auction_id: number;
@@ -165,10 +172,24 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             }
           }
           
-          // Also check for claims by usernames if we found any
-          let usernameClaims: typeof allClaims = [];
-          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
+          // Also check for claims by user identifier (userId for web, username for Farcaster)
+          let userClaims: typeof allClaims = [];
           
+          // For web users, check by Privy userId (more secure)
+          if (privyUserId) {
+            const { data: userIdClaimsData, error: userIdError } = await supabase
+              .from('link_visit_claims')
+              .select('*')
+              .eq('user_id', privyUserId)
+              .eq('auction_id', auctionId);
+            
+            if (!userIdError && userIdClaimsData) {
+              userClaims = [...userClaims, ...userIdClaimsData];
+            }
+          }
+          
+          // Also check by usernames (for cross-context compatibility and Farcaster users)
+          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
           if (usernamesToCheck.length > 0) {
             for (const username of usernamesToCheck) {
               const { data: usernameClaimsData, error: usernameError } = await supabase
@@ -178,13 +199,13 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
                 .eq('auction_id', auctionId);
               
               if (!usernameError && usernameClaimsData) {
-                usernameClaims = [...usernameClaims, ...usernameClaimsData];
+                userClaims = [...userClaims, ...usernameClaimsData];
               }
             }
           }
           
           // Combine both sets of claims and deduplicate by id
-          const allClaimsArray = [...(allClaims || []), ...usernameClaims];
+          const allClaimsArray = [...(allClaims || []), ...userClaims];
           const combinedClaims = allClaimsArray.filter((claim, index, self) => 
             index === self.findIndex(c => c.id === claim.id)
           );
@@ -269,6 +290,10 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
         const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
         const effectiveFid = -(hashNumber % 1000000000);
         
+        // Get Twitter username and Privy userId for web context
+        const twitterUsername = getTwitterUsername();
+        const privyUserId = authenticated && user?.id ? user.id : null;
+        
         const { error } = await supabase
           .from('link_visit_claims')
           .upsert({
@@ -280,7 +305,8 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             tx_hash: txHash,
             success: !!txHash,
             claim_source: 'web',
-            username: getTwitterUsername() || null
+            username: twitterUsername || null, // Display username from Twitter
+            user_id: privyUserId // Verified Privy userId
           }, {
             onConflict: 'eth_address,auction_id'
           });
@@ -349,6 +375,10 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
         const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
         const effectiveFid = -(hashNumber % 1000000000);
         
+        // Get Twitter username and Privy userId for web context
+        const twitterUsername = getTwitterUsername();
+        const privyUserId = authenticated && user?.id ? user.id : null;
+        
         // Record in database
         const { error } = await supabase
           .from('link_visit_claims')
@@ -358,7 +388,8 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             link_visited_at: new Date().toISOString(),
             eth_address: effectiveWalletAddress,
             claim_source: 'web',
-            username: getTwitterUsername() || null
+            username: twitterUsername || null, // Display username from Twitter
+            user_id: privyUserId // Verified Privy userId
           }, {
             onConflict: 'eth_address,auction_id'
           });
@@ -434,11 +465,18 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             }
           }
           
+          // For web users, we need to get their Privy userId for more secure checking
+          let privyUserId: string | null = null;
+          if (authenticated && user?.id) {
+            privyUserId = user.id; // This is the Privy DID
+          }
+          
           // Check for ANY claims by this wallet address (regardless of claim_source)
           let allClaims: Array<{
             id: string;
             eth_address?: string;
             username?: string;
+            user_id?: string;
             claimed_at?: string;
             link_visited_at?: string;
             auction_id: number;
@@ -455,10 +493,24 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             }
           }
           
-          // Also check for claims by usernames if we found any
-          let usernameClaims: typeof allClaims = [];
-          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
+          // Also check for claims by user identifier (userId for web, username for Farcaster)
+          let userClaims: typeof allClaims = [];
           
+          // For web users, check by Privy userId (more secure)
+          if (privyUserId) {
+            const { data: userIdClaimsData, error: userIdError } = await supabase
+              .from('link_visit_claims')
+              .select('*')
+              .eq('user_id', privyUserId)
+              .eq('auction_id', auctionId);
+            
+            if (!userIdError && userIdClaimsData) {
+              userClaims = [...userClaims, ...userIdClaimsData];
+            }
+          }
+          
+          // Also check by usernames (for cross-context compatibility and Farcaster users)
+          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
           if (usernamesToCheck.length > 0) {
             for (const username of usernamesToCheck) {
               const { data: usernameClaimsData, error: usernameError } = await supabase
@@ -468,13 +520,13 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
                 .eq('auction_id', auctionId);
               
               if (!usernameError && usernameClaimsData) {
-                usernameClaims = [...usernameClaims, ...usernameClaimsData];
+                userClaims = [...userClaims, ...usernameClaimsData];
               }
             }
           }
           
           // Combine both sets of claims and deduplicate by id
-          const allClaimsArray = [...(allClaims || []), ...usernameClaims];
+          const allClaimsArray = [...(allClaims || []), ...userClaims];
           const combinedClaims = allClaimsArray.filter((claim, index, self) => 
             index === self.findIndex(c => c.id === claim.id)
           );

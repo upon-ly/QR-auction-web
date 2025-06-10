@@ -391,6 +391,7 @@ export async function POST(req: NextRequest) {
           tx_hash: txReceipt.hash,
           success: true,
           username: failure.username || null,
+          user_id: failure.user_id || null,
           winning_url: failure.winning_url || `https://qrcoin.fun/auction/${failure.auction_id}`,
           claim_source: failure.claim_source || 'mini_app',
           client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
@@ -408,6 +409,8 @@ export async function POST(req: NextRequest) {
             amount: 420,
             tx_hash: txReceipt.hash,
             success: true,
+            username: failure.username || null,
+            user_id: failure.user_id || null,
             claim_source: failure.claim_source || 'mini_app',
             client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
           })

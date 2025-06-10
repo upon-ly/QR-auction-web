@@ -91,7 +91,7 @@ interface LinkVisitRequestData {
   fid?: number; // Optional for web users
   address: string;
   auction_id: string;
-  username?: string;
+  username?: string; // Optional - ignored for web users (uses verified Privy userId instead)
   winning_url?: string;
   claim_source?: string;
   captcha_token?: string; // Add captcha token
@@ -110,6 +110,7 @@ async function logFailedTransaction(params: {
   eth_address: string;
   auction_id: string;
   username?: string | null;
+  user_id?: string | null; // Add user_id parameter
   winning_url?: string | null;
   error_message: string;
   error_code?: string;
@@ -122,12 +123,35 @@ async function logFailedTransaction(params: {
   client_ip?: string;
 }) {
   try {
+    // Check if this error is retryable BEFORE logging to database
+    const nonRetryableErrors = [
+      'DUPLICATE_CLAIM', 
+      'DUPLICATE_CLAIM_FID', 
+      'DUPLICATE_CLAIM_ADDRESS', 
+      'INVALID_AUCTION_ID', 
+      'INVALID_USER', 
+      'VALIDATION_ERROR',
+      'ADDRESS_NOT_VERIFIED',
+      'IP_AUCTION_LIMIT_EXCEEDED', // Legitimate claims blocked by IP limits (web users)
+      'IP_DAILY_LIMIT_EXCEEDED',   // Legitimate claims blocked by IP limits (web users)
+      'WEB_VALIDATION_ERROR',      // Missing parameters for web users
+      'MINIAPP_VALIDATION_ERROR',  // Missing parameters for mini-app users
+      'INVALID_MINIAPP_FID',       // Invalid FID values
+      'WEB_AUTH_ERROR'             // Invalid Privy authentication tokens
+    ];
+    
+    // Only log to database if this will be queued for retry
+    if (nonRetryableErrors.includes(params.error_code || '')) {
+      console.log(`🚫 NOT LOGGING: Error code ${params.error_code} is non-retryable - skipping failure table`);
+      return; // Don't log non-retryable errors
+    }
+    
     // Use the provided client IP directly, with fallback extraction from request_data
     const clientIP = params.client_ip || 
       (params.request_data?.clientIP as string) || 
       'unknown';
 
-    console.log(`🗂️ Logging failed transaction: IP=${clientIP}, FID=${params.fid}, Error=${params.error_code}`);
+    console.log(`🗂️ Logging failed transaction: IP=${clientIP}, FID=${params.fid}, Error=${params.error_code} (WILL BE QUEUED)`);
 
     // ANTI-SPAM: Check for existing failure records to prevent duplicate queue entries
     const existingFailureChecks = [];
@@ -245,6 +269,7 @@ async function logFailedTransaction(params: {
         eth_address: params.eth_address,
         auction_id: params.auction_id,
         username: params.username || null,
+        user_id: params.user_id || null,
         winning_url: params.winning_url || null,
         error_message: params.error_message,
         error_code: params.error_code || null,
@@ -266,33 +291,17 @@ async function logFailedTransaction(params: {
     
     console.log(`✅ LOGGED NEW FAILURE: ID=${data.id}, FID=${params.fid}, Error=${params.error_code}`);
     
-    // Now also queue for retry (if eligible for retry)
-    // Don't queue permanent validation failures that will never succeed
-    const nonRetryableErrors = [
-      'DUPLICATE_CLAIM', 
-      'DUPLICATE_CLAIM_FID', 
-      'DUPLICATE_CLAIM_ADDRESS', 
-      'INVALID_AUCTION_ID', 
-      'INVALID_USER', 
-      'VALIDATION_ERROR',
-      'ADDRESS_NOT_VERIFIED',
-      'IP_AUCTION_LIMIT_EXCEEDED', // Don't retry IP rate limits
-      'IP_DAILY_LIMIT_EXCEEDED'    // Don't retry IP rate limits
-    ];
-    
-    if (!nonRetryableErrors.includes(params.error_code || '')) {
-      await queueFailedClaim({
-        id: data.id,
-        fid: typeof params.fid === 'number' ? params.fid : 0, // Use 0 for string FIDs (web users)
-        eth_address: params.eth_address,
-        auction_id: params.auction_id,
-        username: params.username as string | null,
-        winning_url: params.winning_url as string | null,
-      });
-      console.log(`📋 QUEUED FOR RETRY: Failure ID=${data.id}`);
-    } else {
-      console.log(`🚫 NOT QUEUING: Error code ${params.error_code} is non-retryable`);
-    }
+    // Now queue for retry since we only log retryable errors
+    await queueFailedClaim({
+      id: data.id,
+      fid: typeof params.fid === 'number' ? params.fid : 0, // Use 0 for string FIDs (web users)
+      eth_address: params.eth_address,
+      auction_id: params.auction_id,
+      username: params.username as string | null,
+      user_id: params.user_id as string | null,
+      winning_url: params.winning_url as string | null,
+    });
+    console.log(`📋 QUEUED FOR RETRY: Failure ID=${data.id}`);
   } catch (logError) {
     console.error('Error while logging to failure table:', logError);
   }
@@ -364,15 +373,6 @@ export async function POST(request: NextRequest) {
     requestData = await request.json() as LinkVisitRequestData;
     const { fid, address, auction_id, username, winning_url, claim_source } = requestData;
     
-    // Reject web claims - temporarily disabled
-    if (claim_source === 'web') {
-      console.log(`🚫 WEB CLAIMS DISABLED: IP=${clientIP}, rejecting web claim request`);
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Web claims are temporarily disabled. Please use the Farcaster mini-app.' 
-      }, { status: 503 });
-    }
-    
     // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
     const isWebClaim = claim_source === 'web';
     const rateLimit = isWebClaim ? 2 : 3;
@@ -406,6 +406,7 @@ export async function POST(request: NextRequest) {
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
           username: username || null,
+          user_id: null, // IP limit failures don't have user context
           winning_url: winning_url || null,
           error_message: `IP ${clientIP} exceeded per-auction limit: ${ipClaimsThisAuction.length}/3 claims`,
           error_code: 'IP_AUCTION_LIMIT_EXCEEDED',
@@ -442,6 +443,7 @@ export async function POST(request: NextRequest) {
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
           username: username || null,
+          user_id: null, // IP limit failures don't have user context
           winning_url: winning_url || null,
           error_message: `IP ${clientIP} exceeded daily limit (${ipClaimsDaily.length}/5 claims in 24h)`,
           error_code: 'IP_DAILY_LIMIT_EXCEEDED',
@@ -487,6 +489,7 @@ export async function POST(request: NextRequest) {
       // Validate required parameters based on context
       let effectiveFid: number;
       let effectiveUsername: string | null = null;
+      let effectiveUserId: string | null = null; // For verified Privy userId (web users only)
     
     if (claim_source === 'web') {
       // Verify auth token for web users (Twitter authentication)
@@ -501,7 +504,8 @@ export async function POST(request: NextRequest) {
       
       const authToken = authHeader.substring(7); // Remove 'Bearer ' prefix
       
-      // Verify the Privy auth token
+      // Verify the Privy auth token and extract userId
+      let privyUserId: string;
       try {
         // Verify the auth token with Privy's API
         const verifiedClaims = await privyClient.verifyAuthToken(authToken);
@@ -511,7 +515,9 @@ export async function POST(request: NextRequest) {
           throw new Error('No user ID in token claims');
         }
         
-        console.log(`✅ WEB AUTH: IP=${clientIP}, User verified: ${verifiedClaims.userId}`);
+        // Use the verified Privy userId instead of untrusted username input
+        privyUserId = verifiedClaims.userId;
+        console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}`);
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
         return NextResponse.json({ 
@@ -529,10 +535,11 @@ export async function POST(request: NextRequest) {
         effectiveFid = -(hashNumber % 1000000000);
         
         await logFailedTransaction({
-          fid: effectiveFid, // Use -1 for web validation errors
+          fid: effectiveFid,
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
-          username: username || null,
+          username: privyUserId, // Use verified Privy userId
+          user_id: privyUserId, // For web claims, store the verified userId
           winning_url: null,
           error_message: 'Missing required parameters for web user (address or auction_id)',
           error_code: 'WEB_VALIDATION_ERROR',
@@ -546,7 +553,10 @@ export async function POST(request: NextRequest) {
       const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
       const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
       effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
-      effectiveUsername = username || null; // Use actual username from request or null
+      effectiveUsername = username || null; // Keep original username from request for display/logging
+      effectiveUserId = privyUserId; // 🔒 SECURITY: Use verified Privy userId for validation
+      
+      console.log(`🔐 SECURE WEB CLAIM: IP=${clientIP}, Verified userId=${privyUserId}, Display username=${username || 'none'}`);
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {
@@ -557,6 +567,7 @@ export async function POST(request: NextRequest) {
           eth_address: address || 'unknown',
           auction_id: auction_id || 'unknown',
           username: username || undefined,
+          user_id: null, // Mini-app users don't have Privy userId
           winning_url: null,
           error_message: 'Missing required parameters for mini-app user (fid, address, auction_id, or username)',
           error_code: 'MINIAPP_VALIDATION_ERROR',
@@ -576,6 +587,7 @@ export async function POST(request: NextRequest) {
           eth_address: address,
           auction_id: auction_id,
           username: username,
+          user_id: null, // Mini-app users don't have Privy userId
           winning_url: null,
           error_message: `Invalid FID for mini-app user: ${fid} (must be positive)`,
           error_code: 'INVALID_MINIAPP_FID',
@@ -588,6 +600,7 @@ export async function POST(request: NextRequest) {
       
       effectiveFid = fid; // Use actual fid for mini-app users (guaranteed positive)
       effectiveUsername = username; // Use actual username for mini-app users
+      effectiveUserId = null; // Mini-app users don't have Privy userId
     }
     
     // Validate that this is the latest settled auction
@@ -663,11 +676,11 @@ export async function POST(request: NextRequest) {
       console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
-    // Check if user has already claimed tokens for this auction (check both FID and address)
+    // Check if user has already claimed tokens for this auction (check userId, FID, and address)
     let claimDataByFid = null;
     let selectErrorByFid = null;
     
-    // Only check FID for mini-app users (skip for web users since they all use FID -1)
+    // Only check FID for mini-app users (skip for web users since they all use negative FIDs)
     if (claim_source !== 'web') {
       const fidCheck = await supabase
         .from('link_visit_claims')
@@ -694,6 +707,7 @@ export async function POST(request: NextRequest) {
         eth_address: address,
         auction_id,
         username: effectiveUsername,
+        user_id: effectiveUserId,
         error_message: 'Database error when checking claim status',
         error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
         request_data: requestData as Record<string, unknown>,
@@ -755,24 +769,28 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // EMERGENCY FIX: Check if this username has already claimed (regardless of source)
-    if (effectiveUsername) {
-      const { data: claimDataByUsername, error: selectErrorByUsername } = await supabase
+    // Check if this userId (web) or username (mini-app) has already claimed
+    if (effectiveUserId || effectiveUsername) {
+      const checkField = effectiveUserId ? 'user_id' : 'username';
+      const checkValue = effectiveUserId || effectiveUsername;
+      
+      const { data: claimDataByUser, error: selectErrorByUser } = await supabase
         .from('link_visit_claims')
         .select('*')
-        .eq('username', effectiveUsername)
+        .eq(checkField, checkValue)
         .eq('auction_id', auction_id);
       
-      if (selectErrorByUsername) {
-        console.error('Error checking username claim status:', selectErrorByUsername);
+      if (selectErrorByUser) {
+        console.error(`Error checking ${checkField} claim status:`, selectErrorByUser);
         
         await logFailedTransaction({
           fid: effectiveFid,
           eth_address: address,
           auction_id,
           username: effectiveUsername,
-          error_message: 'Database error when checking username claim status',
-          error_code: selectErrorByUsername?.code || 'DB_USERNAME_CHECK_ERROR',
+          user_id: effectiveUserId,
+          error_message: `Database error when checking ${checkField} claim status`,
+          error_code: selectErrorByUser?.code || 'DB_USER_CHECK_ERROR',
           request_data: requestData as Record<string, unknown>,
           network_status: 'db_error',
           client_ip: clientIP
@@ -780,28 +798,30 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({
           success: false,
-          error: 'Database error when checking username claim status'
+          error: `Database error when checking ${checkField} claim status`
         }, { status: 500 });
       }
       
-      if (claimDataByUsername && claimDataByUsername.length > 0 && claimDataByUsername[0].claimed_at) {
-        if (claimDataByUsername[0].tx_hash) {
-          console.log(`Username ${effectiveUsername} has already claimed tokens for auction ${auction_id} at tx ${claimDataByUsername[0].tx_hash} (source: ${claimDataByUsername[0].claim_source})`);
+      if (claimDataByUser && claimDataByUser.length > 0 && claimDataByUser[0].claimed_at) {
+        if (claimDataByUser[0].tx_hash) {
+          const userIdentifier = effectiveUserId ? `User ID ${effectiveUserId}` : `Username ${effectiveUsername}`;
+          console.log(`${userIdentifier} has already claimed tokens for auction ${auction_id} at tx ${claimDataByUser[0].tx_hash} (source: ${claimDataByUser[0].claim_source})`);
           
           // Don't queue failed transactions for duplicate claims - these are user errors
           return NextResponse.json({ 
             success: false, 
-            error: 'This username has already claimed tokens for this auction',
-            tx_hash: claimDataByUsername[0].tx_hash
+            error: 'This user has already claimed tokens for this auction',
+            tx_hash: claimDataByUser[0].tx_hash
           }, { status: 400 });
         } else {
-          // Incomplete claim by username - delete and allow retry
-          console.log(`Found incomplete claim for username ${effectiveUsername}, auction ${auction_id} - allowing retry`);
+          // Incomplete claim by user - delete and allow retry
+          const userIdentifier = effectiveUserId ? `user ID ${effectiveUserId}` : `username ${effectiveUsername}`;
+          console.log(`Found incomplete claim for ${userIdentifier}, auction ${auction_id} - allowing retry`);
           await supabase
             .from('link_visit_claims')
             .delete()
             .match({
-              username: effectiveUsername,
+              [checkField]: checkValue,
               auction_id: auction_id
             });
         }
@@ -826,6 +846,7 @@ export async function POST(request: NextRequest) {
         eth_address: address,
         auction_id,
         username: effectiveUsername,
+        user_id: effectiveUserId,
         winning_url: winningUrl,
         error_message: errorMessage,
         error_code: 'INSUFFICIENT_GAS',
@@ -875,6 +896,7 @@ export async function POST(request: NextRequest) {
           eth_address: address,
           auction_id,
           username: effectiveUsername,
+          user_id: effectiveUserId,
           winning_url: winningUrl,
           error_message: errorMessage,
           error_code: 'INSUFFICIENT_TOKENS',
@@ -937,6 +959,7 @@ export async function POST(request: NextRequest) {
                     eth_address: address,
                     auction_id,
                     username: effectiveUsername,
+                    user_id: effectiveUserId,
                     winning_url: winningUrl,
                     error_message: `Token approval timed out: ${errorMessage}`,
                     error_code: 'APPROVAL_TIMEOUT',
@@ -978,6 +1001,7 @@ export async function POST(request: NextRequest) {
               eth_address: address,
               auction_id,
               username: effectiveUsername,
+              user_id: effectiveUserId,
               winning_url: winningUrl,
               error_message: `Token approval failed: ${errorMessage}`,
               error_code: 'APPROVAL_FAILED',
@@ -1011,6 +1035,7 @@ export async function POST(request: NextRequest) {
         eth_address: address,
         auction_id,
         username: effectiveUsername,
+        user_id: effectiveUserId,
         winning_url: winningUrl,
         error_message: `Failed to check token balance: ${errorMessage}`,
         error_code: errorCode || 'TOKEN_CHECK_FAILED',
@@ -1096,6 +1121,7 @@ export async function POST(request: NextRequest) {
               eth_address: address,
               auction_id,
               username: effectiveUsername,
+              user_id: effectiveUserId,
               winning_url: winningUrl,
               error_message: `Transaction failed: ${txErrorMessage}`,
               error_code: errorCode || 'TX_ERROR',
@@ -1125,7 +1151,8 @@ export async function POST(request: NextRequest) {
           amount: 420, // 420 QR tokens
           tx_hash: receipt.hash,
           success: true,
-          username: effectiveUsername,
+          username: effectiveUsername, // Display username (from request for mini-app, null for web)
+          user_id: effectiveUserId, // Verified Privy userId (for web users only, null for mini-app)
           winning_url: winningUrl,
           claim_source: claim_source || 'mini_app',
           client_ip: clientIP // Track IP for successful claims
@@ -1142,7 +1169,8 @@ export async function POST(request: NextRequest) {
             amount: 420, // 420 QR tokens
             tx_hash: receipt.hash,
             success: true,
-            username: effectiveUsername,
+            username: effectiveUsername, // Display username (from request for mini-app, null for web)
+            user_id: effectiveUserId, // Verified Privy userId (for web users only, null for mini-app)
             winning_url: winningUrl,
             claim_source: claim_source || 'mini_app',
             client_ip: clientIP // Track IP for successful claims
@@ -1161,6 +1189,7 @@ export async function POST(request: NextRequest) {
             eth_address: address,
             auction_id,
             username: effectiveUsername,
+            user_id: effectiveUserId,
             winning_url: winningUrl,
             error_message: `Failed to record successful claim: ${updateError.message}`,
             error_code: updateError.code || 'DB_INSERT_ERROR',
@@ -1212,6 +1241,7 @@ export async function POST(request: NextRequest) {
         eth_address: address,
         auction_id,
         username: effectiveUsername,
+        user_id: effectiveUserId,
         winning_url: winningUrl,
         error_message: errorMessage,
         error_code: errorCode,
@@ -1266,6 +1296,7 @@ export async function POST(request: NextRequest) {
         eth_address: addressForLog,
         auction_id: auctionIdForLog,
         username: usernameForLog || null,
+        user_id: null, // IP limit failures don't have user context
         winning_url: winningUrlForLog || null,
         error_message: errorMessage,
         error_code: errorCode,
