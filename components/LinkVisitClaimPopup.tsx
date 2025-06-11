@@ -14,6 +14,7 @@ import { useAuctionImage } from '@/hooks/useAuctionImage';
 import { CLICK_SOURCES } from '@/lib/click-tracking';
 import { usePrivy, useLogin, useConnectWallet } from "@privy-io/react-auth";
 import { Turnstile } from '@marsidev/react-turnstile';
+import { useXPixel } from "@/hooks/useXPixel";
 
 interface LinkVisitClaimPopupProps {
   isOpen: boolean;
@@ -172,6 +173,20 @@ export function LinkVisitClaimPopup({
   
   // Check if the winning image is a video - use auction data if available, otherwise assume false
   const isVideo = auctionImageData?.isVideo || false;
+  
+  // Add X Pixel tracking
+  const { trackEvent } = useXPixel();
+  
+  // Track popup view when it opens
+  useEffect(() => {
+    if (isOpen && auctionId) {
+      trackEvent('ViewContent', {
+        content_name: `Link Visit Claim Popup - Auction ${auctionId}`,
+        content_category: 'Token Claim Popup',
+        auction_id: auctionId
+      });
+    }
+  }, [isOpen, auctionId, trackEvent]);
   
   // Reset state when dialog opens based on hasClicked and context
   useEffect(() => {
@@ -379,6 +394,16 @@ export function LinkVisitClaimPopup({
       
       // Clear the click state since they've successfully claimed
       clearClickedFromStorage();
+      
+      // Track successful token claim with X Pixel
+      trackEvent('Lead', {
+        value: 420,
+        currency: 'QR',
+        content_name: `Token Claim - Auction ${auctionId}`,
+        content_category: 'QR Token Claim',
+        auction_id: auctionId,
+        token_type: 'QR'
+      });
       
       toast.success('420 $QR has been sent to your wallet.', {
         style: {
