@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ auct
     })
 
     const logs = await publicClient.getContractEvents({
-        address: '0x014b2d8f01b7fdc6ad9d90f01cb70a7b0046af72',
+        address: '0x9C9Be0f58B092daf6E2eC4Bb7883eDD7Fc60613D',
 		// if we want to use `parseAbi`
 		// viem needs a json that is an array
 		// not an array inside an `abi` object
