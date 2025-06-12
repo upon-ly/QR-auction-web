@@ -595,29 +595,25 @@ export default function WinnersPage() {
           </button>
         </div>
         <div className="flex items-center justify-center gap-4 mt-2">
-          <a
-            href="https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nRe8jHbF5msolLPSKCBNaJ7k9bVYwUFfhTZAX"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/terms-of-use"
             className={clsx(
               "text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono",
               isBaseColors ? "text-foreground hover:text-primary/90" : ""
             )}
           >
             Terms of Service
-          </a>
+          </Link>
           <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px]">•</span>
-          <a
-            href="https://gwum763zx9.ufs.sh/f/xTE4HUVGCg4nmHYUKmIQge4f70laHNbzVWGx3n8oAwZ9jhkr"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/privacy-policy"
             className={clsx(
               "text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono",
               isBaseColors ? "text-foreground hover:text-primary/90" : ""
             )}
           >
             Privacy Policy
-          </a>
+          </Link>
         </div>
         {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" &&
           process.env.NODE_ENV === "development") ||
