@@ -735,7 +735,7 @@ export default function AuctionPage() {
             )}
           </button>
         </div>
-        <div className="flex items-center justify-center gap-4 mt-2">
+        <div className="flex items-center justify-center gap-4 mt-2 md:mr-5.5 mr-[20px]">
           <Link
             href="/terms-of-use"
             className={clsx(

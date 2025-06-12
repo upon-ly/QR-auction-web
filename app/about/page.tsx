@@ -152,7 +152,7 @@ export default function AboutPage() {
             )}
           </button>
         </div>
-        <div className="flex items-center justify-center gap-4 mt-2 mr-5">
+        <div className="flex items-center justify-center gap-4 mt-2 md:mr-5.5 mr-[20px]">
           <Link
             href="/terms-of-use"
             className={clsx(
@@ -162,7 +162,7 @@ export default function AboutPage() {
           >
             Terms of Service
           </Link>
-          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px]">•</span>
+          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px] flex items-center h-8">•</span>
           <Link
             href="/privacy-policy"
             className={clsx(
