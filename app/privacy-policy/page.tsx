@@ -278,7 +278,7 @@ export default function PrivacyPolicyPage() {
           >
             Terms of Service
           </Link>
-          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px]">•</span>
+          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px] flex items-center h-8">•</span>
           <Link
             href="/privacy-policy"
             className={clsx(
@@ -287,6 +287,16 @@ export default function PrivacyPolicyPage() {
             )}
           >
             Privacy Policy
+          </Link>
+          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px] flex items-center h-8">•</span>
+          <Link
+            href="/support"
+            className={clsx(
+              "text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono",
+              isBaseColors ? "text-foreground hover:text-primary/90" : ""
+            )}
+          >
+            Support
           </Link>
         </div>
       </footer>

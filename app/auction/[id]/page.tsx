@@ -755,6 +755,16 @@ export default function AuctionPage() {
           >
             Privacy Policy
           </Link>
+          <span className="text-gray-600 dark:text-[#696969] text-[12px] md:text-[15px] flex items-center h-8">•</span>
+          <Link
+            href="/support"
+            className={clsx(
+              "text-gray-600 dark:text-[#696969] hover:text-gray-900 transition-colors text-[12px] md:text-[15px] font-mono",
+              isBaseColors ? "text-foreground hover:text-primary/90" : ""
+            )}
+          >
+            Support
+          </Link>
         </div>
         {(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true" &&
           process.env.NODE_ENV === "development") ||

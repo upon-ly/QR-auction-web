@@ -9,10 +9,21 @@ import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
-export default function AboutPage() {
+export default function SupportPage() {
   const isBaseColors = useBaseColors();
   const [copied, setCopied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: ""
+  });
 
   const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
   const copyToClipboard = (e: React.MouseEvent) => {
@@ -24,63 +35,125 @@ export default function AboutPage() {
     toast.info("CA copied!");
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        toast.success("Message sent successfully!");
+        setFormData({ name: "", email: "", phone: "", message: "" });
+      } else {
+        toast.error("Failed to send message. Please try again.");
+      }
+    } catch {
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   return (
     <main className="min-h-screen p-4 md:px-8 md:pb-8">
       <div className="max-w-3xl mx-auto">
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold mb-2">What is this?</h2>
-            <p className="mb-2"><Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link> is a website with a daily auction.</p>
+            <h2 className="text-xl font-bold mb-2">Contact us</h2>
+            <p className="mb-6">Please feel free to contact us with any questions or feedback or let us know how else we can support you. Thank you!</p>
           </div>
           
-          <div>
-            <h2 className="text-xl font-bold mb-2">What&apos;s the auction for?</h2>
-            <p>The winner of the daily auction decides where the QR points for a day.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">Why would people want to do that?</h2>
-            <p>Winning our daily auction is a great way to bring attention to any website for a day.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How does winning bring attention to the website?</h2>
-            <p className="mb-3">Long-term: the goal is to have our QR widely distributed in both the physical and digital worlds. Since the QR never changes, we can continue to compound its distribution over time to bring an increasing amount of attention to our auction winners.</p>
-            <p>Near-term: most of the attention will be driven through our daily winner announcements on X, notifications sent to farcaster users, and other mostly digital drivers of attention. Our daily winner announcements have each received thousands or tens of thousands of views and our daily distribution should only get larger with time. So far, we have helped tokens increase market cap, projects add new users, and charities raise money, among many other use cases.</p>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className={clsx(
+                  "mt-1",
+                  isBaseColors ? "bg-background border-primary" : ""
+                )}
+              />
+            </div>
 
-          <div>
-            <h2 className="text-xl font-bold mb-2">Why is it called qrcoin.fun?</h2>
-            <p>There is a cryptocurrency connected to the project called QR coin ($QR).</p>
-            <p className="font-mono text-sm mt-2">The contract address is: 0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How do I bid on the auction?</h2>
-            <p>Go to <Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link>, sign up with your email address, and pay with Apple Pay or credit card in a few clicks. If you’re into crypto, you can optionally connect your wallet to pay with USDC.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">What happens if I am outbid?</h2>
-            <p>If and when you are outbid, you get your money back immediately.</p>
-          </div>
-          
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How is the coin connected to the project?</h2>
-            <p>We have used and plan to continue to use a portion of the revenues from our daily auctions to buy $QR. This auction-driven demand for the coin should theoretically allow people who believe in the project to bet on its success by buying and holding $QR. If and as the project becomes more popular over time, the price of the coin could increase accordingly. This relationship between the project&apos;s success and the QR coin&apos;s price should incentivize $QR holders from around the world to help promote the project.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How can $QR holders help to promote the project?</h2>
-            <ol className="list-decimal pl-6 space-y-2">
-              <li>Bid on our daily auctions</li>
-              <li>Boost our daily winner announcements on X (like or RT)</li>
-              <li>Spread the QR code in the digital world (i.e. add it to your website, profile, etc.)</li>
-              <li>Spread the QR code in the physical world (i.e. post stickers, flyers, billboards, etc.)</li>
-              <li>Share the project with friends</li>
-            </ol>
-          </div>
+            <div>
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className={clsx(
+                  "mt-1",
+                  isBaseColors ? "bg-background border-primary" : ""
+                )}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="phone">Phone number</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                className={clsx(
+                  "mt-1",
+                  isBaseColors ? "bg-background border-primary" : ""
+                )}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="message">Comment</Label>
+              <Textarea
+                id="message"
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                required
+                rows={5}
+                className={clsx(
+                  "mt-1",
+                  isBaseColors ? "bg-background border-primary" : ""
+                )}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={clsx(
+                "w-full md:w-auto",
+                isBaseColors
+                  ? "bg-primary text-foreground hover:bg-primary/90"
+                  : "bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+              )}
+            >
+              {isSubmitting ? "Sending..." : "Send"}
+            </Button>
+          </form>
         </div>
       </div>
 
