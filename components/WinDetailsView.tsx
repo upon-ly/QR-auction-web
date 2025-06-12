@@ -365,7 +365,7 @@ export function WinDetailsView(winnerdata: AuctionType) {
             {ogImage && isVideo ? (
               <video
                 src={ogImage}
-                poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
+                poster={Number(winnerdata.tokenId) === 77 ? "https://i.postimg.cc/85DwR5m5/74winner.jpg" : undefined}
                 controls
                 autoPlay
                 

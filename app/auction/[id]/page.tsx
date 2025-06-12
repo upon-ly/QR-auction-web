@@ -458,7 +458,7 @@ export default function AuctionPage() {
                         {isVideo ? (
                           <video
                             src={currentWinningImage}
-                            poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
+                            poster={currentAuctionId === 77 ? "https://i.postimg.cc/85DwR5m5/74winner.jpg" : undefined}
                             controls
                             playsInline
                             className="object-cover w-full h-full cursor-pointer"
@@ -524,7 +524,7 @@ export default function AuctionPage() {
                       {isVideo ? (
                         <video
                           src={currentWinningImage}
-                          poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
+                          poster={currentAuctionId === 77 ? "https://i.postimg.cc/85DwR5m5/74winner.jpg" : undefined}
                           controls
                           playsInline
                           className="object-cover w-full h-full cursor-pointer"
