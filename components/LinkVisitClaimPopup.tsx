@@ -668,12 +668,10 @@ export function LinkVisitClaimPopup({
                   {isVideo ? (
                     <video
                       src={winningImage}
-                      poster="https://i.postimg.cc/85DwR5m5/74winner.jpg"
-                      loop
-                      autoPlay
+                      poster={auctionId === 77 ? "https://i.postimg.cc/85DwR5m5/74winner.jpg" : undefined}
+                      controls
                       playsInline
                       className="object-cover w-full h-full"
-                      onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
                     <img 
