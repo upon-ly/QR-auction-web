@@ -6,6 +6,7 @@ import { validateMiniAppUser } from '@/utils/miniapp-validation';
 import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 import { PrivyClient } from '@privy-io/server-auth';
+import { getWalletPool } from '@/lib/wallet-pool';
 
 // Initialize Privy client for server-side authentication
 const privyClient = new PrivyClient(
@@ -353,6 +354,8 @@ async function executeWithRetry<T>(
 export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
   let lockKey: string | undefined;
+  let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
+  let walletPool: ReturnType<typeof getWalletPool> | null = null;
   
   // Get client IP for logging
   const clientIP = getClientIP(request, true); // Enable debug mode temporarily
@@ -828,39 +831,86 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Initialize ethers provider and wallet
+    // Initialize ethers provider and get wallet from pool
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const adminWallet = new ethers.Wallet(getContractAddresses(claim_source).ADMIN_PRIVATE_KEY, provider);
+    walletPool = getWalletPool(provider);
     
-    // Check wallet balance before proceeding
-    const balance = await provider.getBalance(adminWallet.address);
-    console.log(`Admin wallet balance: ${ethers.formatEther(balance)} ETH`);
+    let adminWallet: ethers.Wallet;
+    let DYNAMIC_AIRDROP_CONTRACT: string;
     
-    if (balance < ethers.parseEther("0.001")) {
-      const errorMessage = 'Admin wallet has insufficient ETH for gas. Please contact support.';
-      console.error("Admin wallet has insufficient ETH for gas");
-      
-      // Log insufficient funds error
-      await logFailedTransaction({
-        fid: effectiveFid,
-        eth_address: address,
-        auction_id,
-        username: effectiveUsername,
-        user_id: effectiveUserId,
-        winning_url: winningUrl,
-        error_message: errorMessage,
-        error_code: 'INSUFFICIENT_GAS',
-        request_data: requestData as Record<string, unknown>,
-        gas_price: ethers.formatEther(balance),
-        network_status: 'low_funds',
-        client_ip: clientIP
-      });
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: errorMessage
-      }, { status: 500 });
+    // Determine the purpose based on claim source
+    const walletPurpose = claim_source === 'web' ? 'link-web' : 'link-miniapp';
+    
+    // Check if we should use direct wallet (pool disabled for this purpose)
+    const directWallet = walletPool.getDirectWallet(walletPurpose);
+    
+    if (directWallet) {
+      // Use direct wallet without pool logic
+      console.log(`Using direct wallet ${directWallet.wallet.address} (pool disabled for ${walletPurpose})`);
+      adminWallet = directWallet.wallet;
+      DYNAMIC_AIRDROP_CONTRACT = directWallet.airdropContract;
+    } else {
+      // Use wallet pool
+      try {
+        walletConfig = await walletPool.getAvailableWallet(walletPurpose);
+        console.log(`Using wallet ${walletConfig.wallet.address} with contract ${walletConfig.airdropContract} for ${claim_source}`);
+        adminWallet = walletConfig.wallet;
+        DYNAMIC_AIRDROP_CONTRACT = walletConfig.airdropContract;
+      } catch (poolError) {
+        const errorMessage = 'All wallets are currently busy. Please try again in a moment.';
+        console.error('Failed to get wallet from pool:', poolError);
+        
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address,
+          auction_id,
+          username: effectiveUsername,
+          user_id: effectiveUserId,
+          winning_url: winningUrl,
+          error_message: errorMessage,
+          error_code: 'WALLET_POOL_BUSY',
+          request_data: requestData as Record<string, unknown>,
+          network_status: 'pool_busy',
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: errorMessage
+        }, { status: 503 });
+      }
     }
+    
+    try {
+      // Check wallet balance before proceeding
+      const balance = await provider.getBalance(adminWallet.address);
+      console.log(`Wallet ${adminWallet.address} balance: ${ethers.formatEther(balance)} ETH`);
+      
+      if (balance < ethers.parseEther("0.001")) {
+        const errorMessage = 'Admin wallet has insufficient ETH for gas. Please contact support.';
+        console.error(`Wallet ${adminWallet.address} has insufficient ETH for gas`);
+        
+        // Log insufficient funds error
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address,
+          auction_id,
+          username: effectiveUsername,
+          user_id: effectiveUserId,
+          winning_url: winningUrl,
+          error_message: errorMessage,
+          error_code: 'INSUFFICIENT_GAS',
+          request_data: requestData as Record<string, unknown>,
+          gas_price: ethers.formatEther(balance),
+          network_status: 'low_funds',
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: errorMessage
+        }, { status: 500 });
+      }
     
     // Define airdrop amount (420 QR tokens)
     // Assuming 18 decimals for the QR token
@@ -868,18 +918,18 @@ export async function POST(request: NextRequest) {
     
     console.log(`Preparing airdrop of 420 QR tokens to ${address}`);
     
-    // Create contract instances
-    const airdropContract = new ethers.Contract(
-      getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS,
-      AirdropABI.abi,
-      adminWallet
-    );
-    
-    const qrTokenContract = new ethers.Contract(
-      QR_TOKEN_ADDRESS,
-      ERC20_ABI,
-      adminWallet
-    );
+      // Create contract instances using the dynamic contract from wallet pool
+      const airdropContract = new ethers.Contract(
+        DYNAMIC_AIRDROP_CONTRACT,
+        AirdropABI.abi,
+        adminWallet
+      );
+      
+      const qrTokenContract = new ethers.Contract(
+        QR_TOKEN_ADDRESS,
+        ERC20_ABI,
+        adminWallet
+      );
     
     // Check token balance and allowance
     try {
@@ -911,7 +961,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
       
-      const allowance = await qrTokenContract.allowance(adminWallet.address, getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS);
+      const allowance = await qrTokenContract.allowance(adminWallet.address, DYNAMIC_AIRDROP_CONTRACT);
       console.log(`Current allowance: ${ethers.formatUnits(allowance, 18)}`);
       
       if (allowance < airdropAmount) {
@@ -920,7 +970,7 @@ export async function POST(request: NextRequest) {
         try {
           // Approve the airdrop contract to spend the tokens
           const approveTx = await qrTokenContract.approve(
-            getContractAddresses(claim_source).AIRDROP_CONTRACT_ADDRESS,
+            DYNAMIC_AIRDROP_CONTRACT,
             airdropAmount
           );
           
@@ -929,7 +979,7 @@ export async function POST(request: NextRequest) {
           // Add timeout wrapper around the wait to prevent Vercel timeouts
           const approvalPromise = approveTx.wait();
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Approval transaction timeout after 299 seconds')), 299000)
+            setTimeout(() => reject(new Error('Approval transaction timeout after 55 seconds')), 55000)
           );
           
           try {
@@ -1090,7 +1140,7 @@ export async function POST(request: NextRequest) {
           // Add timeout wrapper around the wait to prevent Vercel timeouts
           const airdropPromise = tx.wait();
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Airdrop transaction timeout after 299 seconds')), 299000)
+            setTimeout(() => reject(new Error('Airdrop transaction timeout after 55 seconds')), 55000)
           );
           
           const receipt = await Promise.race([airdropPromise, timeoutPromise]) as Awaited<ReturnType<typeof airdropContract.airdropERC20>>;
@@ -1254,9 +1304,44 @@ export async function POST(request: NextRequest) {
         success: false, 
         error: errorMessage
       }, { status: 500 });
+    } finally {
+      // Release the wallet lock if using pool
+      if (walletConfig && walletConfig.lockKey && walletPool) {
+        await walletPool.releaseWallet(walletConfig.lockKey);
+        console.log(`Released wallet lock for ${walletConfig.wallet.address}`);
+      }
     }
-    } catch (innerError) {
-      // This catch block handles any errors that occur within the inner try block
+    
+    } catch (walletError: unknown) {
+      console.error('Wallet operation error:', walletError);
+      
+      const errorMessage = walletError instanceof Error 
+        ? walletError.message 
+        : 'Unknown wallet operation error';
+      
+      // Log wallet operation error
+      await logFailedTransaction({
+        fid: effectiveFid,
+        eth_address: address,
+        auction_id,
+        username: effectiveUsername,
+        user_id: effectiveUserId,
+        winning_url: winningUrl,
+        error_message: `Wallet operation failed: ${errorMessage}`,
+        error_code: 'WALLET_OPERATION_ERROR',
+        request_data: requestData as Record<string, unknown>,
+        network_status: 'wallet_error',
+        client_ip: clientIP
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Wallet operation failed. Please try again later.' 
+      }, { status: 500 });
+    }
+    
+    } catch (innerError: unknown) {
+      console.error('Inner try block error:', innerError);
       throw innerError; // Re-throw to be handled by outer catch
     }
   } catch (error: unknown) {
@@ -1313,10 +1398,14 @@ export async function POST(request: NextRequest) {
       error: errorMessage
     }, { status: 500 });
   } finally {
-    // Always release the lock when done (for both success and error cases)
+    // Always release the lock if it was acquired
     if (lockKey) {
-      await redis.del(lockKey);
-      console.log(`🔓 RELEASED LOCK: ${requestData.address} for auction ${requestData.auction_id}`);
+      try {
+        await redis.del(lockKey);
+        console.log(`🔓 RELEASED LOCK: ${lockKey}`);
+      } catch (lockError) {
+        console.error('Error releasing lock:', lockError);
+      }
     }
   }
 }

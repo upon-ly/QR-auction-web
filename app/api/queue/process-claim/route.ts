@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import AirdropABI from '@/abi/Airdrop.json';
 import { updateRetryStatus, redis } from '@/lib/queue/failedClaims';
 import { Receiver } from '@upstash/qstash';
+import { getWalletPool } from '@/lib/wallet-pool';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -126,32 +127,50 @@ export async function POST(req: NextRequest) {
     
     // Get claim source from the failure record to determine which contracts to use
     const claimSource = failure.claim_source || 'mini_app';
-    const contractAddresses = getContractAddresses(claimSource);
     
-    console.log(`Processing queued claim with source: ${claimSource}, using contract: ${contractAddresses.AIRDROP_CONTRACT_ADDRESS}`);
+    console.log(`Processing queued claim with source: ${claimSource}`);
     
-    // Set up lock to prevent concurrent transactions
-    const adminWalletAddress = new ethers.Wallet(contractAddresses.ADMIN_PRIVATE_KEY).address.toLowerCase();
-    const lockKey = `admin-wallet-lock:${adminWalletAddress}`;
+    // Initialize provider
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const walletPool = getWalletPool(provider);
     
-    // Try to get a lock
-    const gotLock = await redis.set(lockKey, 'locked', {
-      nx: true,
-      ex: 30 // Lock expires in 30 seconds - much shorter for faster throughput
-    });
+    // Determine the purpose based on claim source
+    const walletPurpose = claimSource === 'web' ? 'link-web' : 'link-miniapp';
     
-    if (!gotLock) {
-      console.log('Another process is already using the admin wallet, will retry later');
-      
-      // Calculate a delay between 5-15 seconds for faster retry
-      const delaySeconds = 5 + Math.floor(Math.random() * 10);
-      
-      return NextResponse.json({
-        success: false, 
-        status: 'retry_scheduled',
-        error: 'Wallet busy with another transaction',
-        retryAfter: delaySeconds
-      });
+    // Check if we should use direct wallet (pool disabled for this purpose)
+    const directWallet = walletPool.getDirectWallet(walletPurpose);
+    
+    let adminWallet: ethers.Wallet;
+    let DYNAMIC_AIRDROP_CONTRACT: string;
+    let lockKey: string | null = null;
+    let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
+    
+    if (directWallet) {
+      // Use direct wallet without pool logic
+      console.log(`Using direct wallet ${directWallet.wallet.address} (pool disabled for ${walletPurpose})`);
+      adminWallet = directWallet.wallet;
+      DYNAMIC_AIRDROP_CONTRACT = directWallet.airdropContract;
+    } else {
+      // Use wallet pool
+      try {
+        walletConfig = await walletPool.getAvailableWallet(walletPurpose);
+        console.log(`Using wallet ${walletConfig.wallet.address} with contract ${walletConfig.airdropContract} for ${claimSource}`);
+        adminWallet = walletConfig.wallet;
+        DYNAMIC_AIRDROP_CONTRACT = walletConfig.airdropContract;
+        lockKey = walletConfig.lockKey;
+      } catch (poolError) {
+        console.log('All wallets are currently busy, will retry later');
+        
+        // Calculate a delay between 5-15 seconds for faster retry
+        const delaySeconds = 5 + Math.floor(Math.random() * 10);
+        
+        return NextResponse.json({
+          success: false, 
+          status: 'retry_scheduled',
+          error: 'All wallets busy',
+          retryAfter: delaySeconds
+        });
+      }
     }
     
     try {
@@ -192,10 +211,6 @@ export async function POST(req: NextRequest) {
         });
       }
       
-      // Initialize provider and wallet
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const adminWallet = new ethers.Wallet(contractAddresses.ADMIN_PRIVATE_KEY, provider);
-      
       // Check wallet balances
       const ethBalance = await provider.getBalance(adminWallet.address);
       if (ethBalance < ethers.parseEther("0.001")) {
@@ -220,7 +235,7 @@ export async function POST(req: NextRequest) {
       );
       
       const airdropContract = new ethers.Contract(
-        contractAddresses.AIRDROP_CONTRACT_ADDRESS,
+        DYNAMIC_AIRDROP_CONTRACT,
         AirdropABI.abi,
         adminWallet
       );
@@ -242,7 +257,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Check allowance
-      const allowance = await qrTokenContract.allowance(adminWallet.address, contractAddresses.AIRDROP_CONTRACT_ADDRESS);
+      const allowance = await qrTokenContract.allowance(adminWallet.address, DYNAMIC_AIRDROP_CONTRACT);
       if (allowance < ethers.parseUnits('420', 18)) {
         console.log('Approving tokens for airdrop contract...');
         
@@ -252,7 +267,7 @@ export async function POST(req: NextRequest) {
         
         // Approve a large amount
         const approveTx = await qrTokenContract.approve(
-          contractAddresses.AIRDROP_CONTRACT_ADDRESS,
+          DYNAMIC_AIRDROP_CONTRACT,
           ethers.parseUnits('1000000', 18),
           { gasPrice }
         );
@@ -451,9 +466,11 @@ export async function POST(req: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     } finally {
-      // Always release the lock when done
-      await redis.del(lockKey);
-      console.log(`Released lock: ${lockKey}`);
+      // Release the wallet lock if using pool
+      if (lockKey && walletConfig) {
+        await walletPool.releaseWallet(lockKey);
+        console.log(`Released wallet lock for ${adminWallet.address}`);
+      }
     }
   } catch (error) {
     console.error('Error processing retried claim:', error);

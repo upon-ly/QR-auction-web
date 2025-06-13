@@ -5,6 +5,7 @@ import AirdropABI from '@/abi/Airdrop.json';
 import { queueFailedClaim } from '@/lib/queue/failedClaims';
 import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
+import { getWalletPool } from '@/lib/wallet-pool';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -21,8 +22,8 @@ if (!supabaseServiceKey) {
 
 // Contract details
 const QR_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_QR_COIN || '';
-const AIRDROP_CONTRACT_ADDRESS = process.env.AIRDROP_CONTRACT_ADDRESS3 || '';
-const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY3 || '';
+// const AIRDROP_CONTRACT_ADDRESS = process.env.AIRDROP_CONTRACT_ADDRESS3 || '';
+// const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY3 || '';
 
 // Alchemy RPC URL for Base
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -391,66 +392,124 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // Initialize ethers provider and wallet for airdrop
+    // Initialize ethers provider and get wallet from pool
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
+    const walletPool = getWalletPool(provider);
     
-    // Check wallet balance
-    const balance = await provider.getBalance(adminWallet.address);
-    console.log(`Admin wallet balance: ${ethers.formatEther(balance)} ETH`);
+    // Check if we should use direct wallet (pool disabled for this purpose)
+    const directWallet = walletPool.getDirectWallet('likes-recasts');
     
-    if (balance < ethers.parseEther("0.001")) {
-      console.error("Admin wallet has insufficient ETH for gas");
-      
-      // Log insufficient gas error
+    let adminWallet: ethers.Wallet;
+    let DYNAMIC_AIRDROP_CONTRACT: string;
+    let lockKey: string | null = null;
+    let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
+    
+    if (directWallet) {
+      // Use direct wallet without pool logic
+      console.log(`Using direct wallet ${directWallet.wallet.address} (pool disabled for likes-recasts)`);
+      adminWallet = directWallet.wallet;
+      DYNAMIC_AIRDROP_CONTRACT = directWallet.airdropContract;
+    } else {
+      // Use wallet pool
       try {
-        await logFailedTransaction({
-          fid: fid,
-          eth_address: address,
-          username: username || null,
-          option_type: option_type,
-          error_message: 'Admin wallet has insufficient ETH for gas',
-          error_code: 'INSUFFICIENT_GAS',
-          signer_uuid: signer_uuid,
-          request_data: {
-            fid,
-            address,
-            username,
-            signer_uuid,
-            amount,
-            option_type
-          },
-          gas_price: ethers.formatEther(balance),
-          network_status: 'low_funds',
-          retry_count: 0,
-        });
-      } catch (logError) {
-        console.error('Failed to log insufficient gas error:', logError);
+        walletConfig = await walletPool.getAvailableWallet('likes-recasts');
+        console.log(`Using wallet ${walletConfig.wallet.address} with contract ${walletConfig.airdropContract}`);
+        adminWallet = walletConfig.wallet;
+        DYNAMIC_AIRDROP_CONTRACT = walletConfig.airdropContract;
+        lockKey = walletConfig.lockKey;
+      } catch (poolError) {
+        const errorMessage = 'All wallets are currently busy. Please try again in a moment.';
+        console.error('Failed to get wallet from pool:', poolError);
+        
+        // Log wallet pool busy error
+        try {
+          await logFailedTransaction({
+            fid: fid,
+            eth_address: address,
+            username: username || null,
+            option_type: option_type,
+            error_message: errorMessage,
+            error_code: 'WALLET_POOL_BUSY',
+            signer_uuid: signer_uuid,
+            request_data: {
+              fid,
+              address,
+              username,
+              signer_uuid,
+              amount,
+              option_type
+            },
+            network_status: 'pool_busy',
+            retry_count: 0,
+          });
+        } catch (logError) {
+          console.error('Failed to log wallet pool error:', logError);
+        }
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: errorMessage
+        }, { status: 503 });
       }
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Admin wallet has insufficient ETH for gas'
-      }, { status: 500 });
     }
+    
+    try {
+      // Check wallet balance
+      const balance = await provider.getBalance(adminWallet.address);
+      console.log(`Wallet ${adminWallet.address} balance: ${ethers.formatEther(balance)} ETH`);
+      
+      if (balance < ethers.parseEther("0.001")) {
+        console.error(`Wallet ${adminWallet.address} has insufficient ETH for gas`);
+        
+        // Log insufficient gas error
+        try {
+          await logFailedTransaction({
+            fid: fid,
+            eth_address: address,
+            username: username || null,
+            option_type: option_type,
+            error_message: 'Admin wallet has insufficient ETH for gas',
+            error_code: 'INSUFFICIENT_GAS',
+            signer_uuid: signer_uuid,
+            request_data: {
+              fid,
+              address,
+              username,
+              signer_uuid,
+              amount,
+              option_type
+            },
+            gas_price: ethers.formatEther(balance),
+            network_status: 'low_funds',
+            retry_count: 0,
+          });
+        } catch (logError) {
+          console.error('Failed to log insufficient gas error:', logError);
+        }
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Admin wallet has insufficient ETH for gas'
+        }, { status: 500 });
+      }
     
     // Define airdrop amount in wei
     const airdropAmountWei = ethers.parseUnits(amount.toString(), 18);
     
     console.log(`Preparing airdrop of ${amount} QR tokens to ${address}`);
     
-    // Create contract instances
-    const airdropContract = new ethers.Contract(
-      AIRDROP_CONTRACT_ADDRESS,
-      AirdropABI.abi,
-      adminWallet
-    );
-    
-    const qrTokenContract = new ethers.Contract(
-      QR_TOKEN_ADDRESS,
-      ERC20_ABI,
-      adminWallet
-    );
+      // Create contract instances using the dynamic contract from wallet pool
+      const airdropContract = new ethers.Contract(
+        DYNAMIC_AIRDROP_CONTRACT,
+        AirdropABI.abi,
+        adminWallet
+      );
+      
+      const qrTokenContract = new ethers.Contract(
+        QR_TOKEN_ADDRESS,
+        ERC20_ABI,
+        adminWallet
+      );
     
     // Check token balance and allowance
     try {
@@ -491,19 +550,35 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
       
-      const allowance = await qrTokenContract.allowance(adminWallet.address, AIRDROP_CONTRACT_ADDRESS);
+      const allowance = await qrTokenContract.allowance(adminWallet.address, DYNAMIC_AIRDROP_CONTRACT);
       console.log(`Current allowance: ${ethers.formatUnits(allowance, 18)}`);
       
       if (allowance < airdropAmountWei) {
         console.log('Approving tokens for transfer...');
         const approveTx = await qrTokenContract.approve(
-          AIRDROP_CONTRACT_ADDRESS,
+          DYNAMIC_AIRDROP_CONTRACT,
           ethers.parseUnits('1000000', 18) // Approve a large amount
         );
         
         console.log(`Approval tx submitted: ${approveTx.hash}`);
-        await approveTx.wait();
-        console.log('Approval confirmed');
+        
+        // Add timeout wrapper to prevent Vercel timeout (55 seconds to be safe)
+        const approvalPromise = approveTx.wait();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Approval transaction timeout after 55 seconds')), 55000)
+        );
+        
+        try {
+          await Promise.race([approvalPromise, timeoutPromise]);
+          console.log('Approval confirmed');
+        } catch (raceError) {
+          if (raceError instanceof Error && raceError.message.includes('timeout')) {
+            console.log('Approval timed out, will be queued for retry');
+            // Don't throw - let the airdrop attempt proceed
+          } else {
+            throw raceError;
+          }
+        }
       }
     } catch (error) {
       console.error('Error checking token balance or approving:', error);
@@ -558,7 +633,14 @@ export async function POST(request: NextRequest) {
       );
       
       console.log(`Airdrop tx submitted: ${tx.hash}`);
-      const receipt = await tx.wait();
+      
+      // Add timeout wrapper to prevent Vercel timeout (55 seconds to be safe)
+      const airdropPromise = tx.wait();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Airdrop transaction timeout after 55 seconds')), 55000)
+      );
+      
+      const receipt = await Promise.race([airdropPromise, timeoutPromise]) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
       console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
       
       // Record the claim in the database
@@ -628,6 +710,13 @@ export async function POST(request: NextRequest) {
         success: false, 
         error: errorMessage
       }, { status: 500 });
+    }
+    } finally {
+      // Release the wallet lock if using pool
+      if (lockKey && walletConfig) {
+        await walletPool.releaseWallet(lockKey);
+        console.log(`Released wallet lock for ${adminWallet.address}`);
+      }
     }
     
   } catch (error: unknown) {
