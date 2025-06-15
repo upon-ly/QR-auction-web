@@ -28,6 +28,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { useRedirectCostPerClick } from "@/hooks/useRedirectCostPerClick";
+import { WalletBalancesSection } from "@/components/admin/WalletBalancesSection";
 
 // List of authorized admin addresses (lowercase for easy comparison)
 const ADMIN_ADDRESSES = [
@@ -1283,6 +1284,11 @@ function ClaimsAnalytics() {
 
   return (
     <div>
+      {/* Wallet Balances Section */}
+      <div className="mb-8">
+        <WalletBalancesSection />
+      </div>
+
       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
         <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Cost Per Claim Analysis</h3>
         <p className="text-blue-700 dark:text-blue-400">
