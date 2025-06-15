@@ -294,6 +294,99 @@ export default function AuctionPage() {
         console.error(`[AuctionSettled] Error clearing auction image override for auction #${tokenId}:`, error);
       }
       
+      // Automatically insert winner into database
+      try {
+        console.log(`[AuctionSettled] Adding winner to database for auction #${tokenId}`);
+        
+        // Determine auction version and calculate USD value
+        const isV3Auction = Number(tokenId) >= 62;
+        const isV2Auction = Number(tokenId) >= 23 && Number(tokenId) <= 61;
+        const isV1Auction = Number(tokenId) <= 22;
+        
+        let usdValue = null;
+        if (isV3Auction) {
+          // V3 uses USDC, so amount is already in USD (divide by 1e6 for decimals)
+          usdValue = Number(amount) / 1e6;
+        } else if (isV2Auction || isV1Auction) {
+          // For V1/V2, we'd need to fetch ETH/QR price to convert to USD
+          // For now, we'll leave USD value as null for these older auctions
+          usdValue = null;
+        }
+        
+        // Resolve usernames and identity data
+        let twitterUsername = null;
+        let farcasterUsername = null;
+        let displayName = null;
+        
+        try {
+          // Check if we're in a frame context to determine likely source
+          const frameContext = await frameSdk.getContext();
+          const isFrameContext = !!frameContext?.user;
+          console.log(`[AuctionSettled] Context detected: ${isFrameContext ? 'Frame/Miniapp' : 'Website'}`);
+          
+          // Always try to resolve Farcaster data from winner address
+          const { getFarcasterUser } = await import('@/utils/farcaster');
+          const farcasterUser = await getFarcasterUser(winner);
+          
+          if (farcasterUser) {
+            farcasterUsername = farcasterUser.username;
+            displayName = farcasterUser.displayName || null;
+            console.log(`[AuctionSettled] Resolved Farcaster data - username: ${farcasterUsername}, displayName: ${displayName}`);
+          }
+          
+          // For website context, the name field is the Twitter username
+          if (!isFrameContext && name) {
+            twitterUsername = name;
+            console.log(`[AuctionSettled] Twitter username from bid: ${twitterUsername}`);
+          }
+          
+        } catch (contextError) {
+          console.log(`[AuctionSettled] Error resolving user data:`, contextError);
+          
+          // Fallback: if we have a name from the bid, use it as twitter username
+          if (name) {
+            twitterUsername = name;
+          }
+        }
+        
+        // Prepare winner data with all available fields
+        const winnerData = {
+          tokenId: tokenId.toString(),
+          winnerAddress: winner,
+          amount: amount.toString(),
+          url: urlString || null,
+          displayName: displayName,
+          farcasterUsername: farcasterUsername,
+          twitterUsername: twitterUsername ? twitterUsername.substring(0, 50) : null,
+          usdValue: usdValue,
+          isV1Auction: isV1Auction,
+          // These fields would need additional resolution:
+          // basename: null, // Would need ENS/Basename lookup
+          // ensName: null,  // Would need ENS lookup
+        };
+        
+        console.log(`[AuctionSettled] Sending winner data:`, winnerData);
+        
+        // Add winner to database
+        const winnerResponse = await fetch('/api/winners', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(winnerData)
+        });
+        
+        if (winnerResponse.ok) {
+          const result = await winnerResponse.json();
+          console.log(`[AuctionSettled] Successfully added winner to database:`, result);
+        } else {
+          const errorText = await winnerResponse.text();
+          console.error(`[AuctionSettled] Failed to add winner to database:`, errorText);
+        }
+      } catch (error) {
+        console.error(`[AuctionSettled] Error adding winner to database:`, error);
+      }
+      
       // Clear all auction caches to ensure fresh data
       clearAllAuctionCaches();
       

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyAdminAuth } from '@/lib/auth';
 import type { Database } from '@/types/database';
 
 // Use service role key for admin operations
@@ -14,14 +15,6 @@ const supabaseAdmin = createClient<Database>(
   }
 );
 
-// Admin addresses for authorization
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
-
 export async function GET() {
   try {
     // Get recent winners for debugging
@@ -32,97 +25,91 @@ export async function GET() {
       .limit(10);
 
     if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      console.error('Error fetching winners:', error);
+      return NextResponse.json({ error: 'Failed to fetch winners' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      data: data || [] 
-    });
-
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error('Error in GET /api/winners:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      adminAddress,
-      token_id,
-      winner_address,
-      amount,
-      url,
-      display_name,
-      farcaster_username,
-      twitter_username,
-      basename,
-      usd_value,
-      is_v1_auction,
-      ens_name,
-      pfp_url
-    } = body;
-
-    // Verify admin authorization
-    if (!adminAddress || !ADMIN_ADDRESSES.includes(adminAddress.toLowerCase())) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Check if this is an automated blockchain event call (no auth header)
+    // or an admin manual call (requires auth)
+    const authHeader = req.headers.get('authorization');
+    
+    if (authHeader) {
+      // If auth header is present, verify admin authentication using Privy JWT
+      const authResult = await verifyAdminAuth(authHeader);
+      
+      if (!authResult.isValid) {
+        return NextResponse.json({ 
+          error: authResult.error || 'Authentication required' 
+        }, { status: 401 });
+      }
     }
-
+    // If no auth header, allow automated blockchain calls to proceed
+    
+    const winnerData = await req.json();
+    
     // Validate required fields
-    if (!token_id || !winner_address || !amount) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: token_id, winner_address, amount' },
-        { status: 400 }
-      );
+    if (!winnerData.tokenId || !winnerData.winnerAddress || !winnerData.amount) {
+      return NextResponse.json({ 
+        error: 'Missing required fields: tokenId, winnerAddress, amount' 
+      }, { status: 400 });
     }
 
-    // Insert into Supabase winners table using service role
+    // Convert tokenId to number for consistency
+    const tokenId = parseInt(winnerData.tokenId);
+    
+    // Check if winner already exists for this auction
+    const { data: existingWinner } = await supabaseAdmin
+      .from('winners')
+      .select('token_id')
+      .eq('token_id', tokenId)
+      .single();
+
+    if (existingWinner) {
+      console.log(`Winner already exists for auction ${tokenId}, skipping insertion`);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Winner already exists',
+        data: existingWinner 
+      });
+    }
+
+    // Insert new winner
     const { data, error } = await supabaseAdmin
       .from('winners')
-      .upsert({
-        token_id: token_id.toString(),
-        winner_address: winner_address.toLowerCase(), // Normalize address
-        amount: amount.toString(),
-        url: url || null,
-        display_name: display_name || null,
-        farcaster_username: farcaster_username || null,
-        twitter_username: twitter_username || null,
-        basename: basename || null,
-        usd_value: usd_value || null,
-        is_v1_auction: is_v1_auction || false, // Default to false instead of null
-        ens_name: ens_name || null,
-        pfp_url: pfp_url || null
-      }, { 
-        onConflict: 'token_id' 
+      .insert({
+        token_id: tokenId,
+        winner_address: winnerData.winnerAddress,
+        amount: winnerData.amount,
+        url: winnerData.url || null,
+        display_name: winnerData.displayName || null,
+        farcaster_username: winnerData.farcasterUsername || null,
+        twitter_username: winnerData.twitterUsername || null,
+        basename: winnerData.basename || null,
+        usd_value: winnerData.usdValue || null,
+        is_v1_auction: winnerData.isV1Auction || false,
+        ens_name: winnerData.ensName || null
       })
-      .select();
+      .select()
+      .single();
 
     if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      console.error('Error inserting winner:', error);
+      return NextResponse.json({ error: 'Failed to insert winner' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      data: data?.[0] 
-    });
-
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.log(`Successfully inserted winner for auction ${tokenId}:`, data);
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error('Error in POST /api/winners:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

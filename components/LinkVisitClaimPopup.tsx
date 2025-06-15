@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useAuctionImage } from '@/hooks/useAuctionImage';
+import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { CLICK_SOURCES } from '@/lib/click-tracking';
 import { usePrivy, useLogin, useConnectWallet } from "@privy-io/react-auth";
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -170,6 +171,9 @@ export function LinkVisitClaimPopup({
   
   // Use the auction image hook to check if it's a video with URL fallback
   const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
+  
+  // Load social links from database
+  const { socialLinks } = useSocialLinks();
   
   // Check if the winning image is a video - use auction data if available, otherwise assume false
   const isVideo = auctionImageData?.isVideo || false;
@@ -544,10 +548,10 @@ export function LinkVisitClaimPopup({
       // Web context: Twitter/X share with quote tweet
       const shareText = encodeURIComponent(`just got paid 420 $QR to check out today's winner @qrcoindotfun`);
       
-      // TODO: Replace this with the actual tweet URL you want to quote
-      const tweetToQuote = "https://x.com/qrcoindotfun/status/1933907139153801337";
+      // Use dynamic quote tweet URL from database
+      const tweetToQuote = socialLinks.quoteTweetUrl;
       
-      const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote)}`;
+      const shareUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(tweetToQuote || '')}`;
       
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
@@ -557,7 +561,8 @@ export function LinkVisitClaimPopup({
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
-      const quoteCastUrl = "https://farcaster.xyz/qrcoindotfun/0x0aed768a";
+      // Use dynamic quote cast URL from database
+      const quoteCastUrl = socialLinks.quoteCastUrl;
       if (quoteCastUrl) {
         shareUrl += `&embeds[]=${encodeURIComponent(quoteCastUrl)}`;
       }
