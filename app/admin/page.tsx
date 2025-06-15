@@ -1623,8 +1623,8 @@ export default function AdminDashboard() {
             <TabsTrigger value="claims" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Claims</TabsTrigger>
               <TabsTrigger value="clicks" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clicks</TabsTrigger>
               <TabsTrigger value="auctions" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Auctions (TBU)</TabsTrigger>
-              <TabsTrigger value="farcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Farcaster (TBU)</TabsTrigger>
               <TabsTrigger value="clanker" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clanker (TBU)</TabsTrigger>
+              <TabsTrigger value="farcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">FC notifs</TabsTrigger>
               <TabsTrigger value="testimonials" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Testimonials</TabsTrigger>
               <TabsTrigger value="post-auction-checklist" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700 w-full">Post-Auction Checklist</TabsTrigger>
               <TabsTrigger value="boostcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Boostcaster</TabsTrigger>
@@ -1675,21 +1675,6 @@ export default function AdminDashboard() {
               <PostAuctionChecklist />
             </TabsContent>
           </Tabs>
-        </div>
-
-        {/* Additional metrics placeholders */}
-        <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg mt-8">
-          <h3 className="text-lg font-medium mb-2">Additional Metrics (Placeholder)</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            These metrics would require additional data sources:
-          </p>
-          <ul className="list-disc list-inside space-y-2 text-gray-600 dark:text-gray-400">
-            <li>Percentage of bids with Farcaster names</li>
-            <li>Referrer analytics (Twitter, Warpcast, Google Search)</li>
-            <li>Wallet type breakdown (Mobile vs Web)</li>
-            <li>Total page views (Mobile vs Web)</li>
-            <li>Unique page views (Mobile vs Web)</li>
-          </ul>
         </div>
       </div>
     </main>
