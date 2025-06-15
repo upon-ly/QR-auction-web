@@ -446,7 +446,7 @@ function FarcasterNotifications() {
         const auctionId = data.auctionId;
         
         // Create title with character limit consideration
-        const baseTitle = `${winnerName} won Auction #${auctionId}!`;
+        const baseTitle = `${winnerName} won auction #${auctionId}!`;
         const title = baseTitle.length > 32 ? `${winnerName} won #${auctionId}!` : baseTitle;
         
         setNotification(prev => ({
