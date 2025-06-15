@@ -284,6 +284,29 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         };
         
         const tx = await smartWalletClient.writeContract(settleTxData);
+        
+        // Trigger retry webhook for the settled auction after successful settlement
+        try {
+          const webhookResponse = await fetch('/api/webhook/auction-settled', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              settledAuctionId: tokenId.toString(),
+              newAuctionId: (tokenId + 1n).toString()
+            })
+          });
+          
+          if (webhookResponse.ok) {
+            console.log(`Retry webhook triggered for settled auction ${tokenId} (smart wallet)`);
+          } else {
+            console.error('Failed to trigger retry webhook (smart wallet):', await webhookResponse.text());
+          }
+        } catch (webhookError) {
+          console.error('Error triggering retry webhook (smart wallet):', webhookError);
+        }
+        
         return tx;
       } else if (isFrame.current && await frameSdk.isWalletConnected()) {
         // Use Farcaster SDK for settlement in frames
@@ -334,6 +357,29 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
           });
           
           console.log("Farcaster settlement transaction sent:", txHash);
+          
+          // Trigger retry webhook for the settled auction after successful settlement
+          try {
+                      const webhookResponse = await fetch('/api/webhook/auction-settled', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              settledAuctionId: tokenId.toString(),
+              newAuctionId: (tokenId + 1n).toString()
+            })
+          });
+            
+            if (webhookResponse.ok) {
+              console.log(`Retry webhook triggered for settled auction ${tokenId} (frame)`);
+            } else {
+              console.error('Failed to trigger retry webhook (frame):', await webhookResponse.text());
+            }
+          } catch (webhookError) {
+            console.error('Error triggering retry webhook (frame):', webhookError);
+          }
+          
           return txHash;
         } catch (farcasterError) {
           console.error("Farcaster settlement error:", farcasterError);
@@ -355,6 +401,31 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         });
         
         console.log("Transaction successful:", tx);
+        
+        // Trigger retry webhook for the settled auction after successful settlement
+        try {
+          // Call webhook to process failed claims for the settled auction
+                      const webhookResponse = await fetch('/api/webhook/auction-settled', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                settledAuctionId: tokenId.toString(),
+                newAuctionId: (tokenId + 1n).toString()
+              })
+            });
+          
+          if (webhookResponse.ok) {
+            console.log(`Retry webhook triggered for settled auction ${tokenId}`);
+          } else {
+            console.error('Failed to trigger retry webhook:', await webhookResponse.text());
+          }
+        } catch (webhookError) {
+          console.error('Error triggering retry webhook:', webhookError);
+          // Don't throw - settlement was successful even if webhook failed
+        }
+        
         return tx;
       } catch (error: any) {
         console.error("Settlement transaction error:", error);
