@@ -20,7 +20,7 @@ interface RouteParams {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: RouteParams }
+  { params }: { params: Promise<RouteParams> }
 ) {
   try {
     // Optional API key validation (if you want to secure this endpoint)
@@ -33,7 +33,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { address } = params;
+    const { address } = await params;
     
     if (!address) {
       return NextResponse.json({ 
