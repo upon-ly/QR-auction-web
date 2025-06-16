@@ -10,6 +10,7 @@ import { ThemeDialog } from '@/components/ThemeDialog';
 import { QRContextMenu } from '@/components/QRContextMenu';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions';
+import { frameSdk } from '@/lib/frame-sdk';
 
 export function Header() {
   const router = useRouter();
@@ -17,12 +18,27 @@ export function Header() {
   const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [latestV3Id, setLatestV3Id] = useState(0);
+  const [isInFrame, setIsInFrame] = useState(false);
   
   // Check if we're on the Base Colors UI page
   const isBaseColorsUI = pathname === '/ui';
   
   // Call useFetchAuctions without a tokenId parameter to get auctions from all contracts
   const { auctions } = useFetchAuctions();
+  
+  // Check if we're in a frame context
+  useEffect(() => {
+    const checkFrameContext = async () => {
+      try {
+        await frameSdk.getContext();
+        setIsInFrame(true);
+      } catch {
+        setIsInFrame(false);
+      }
+    };
+    
+    checkFrameContext();
+  }, []);
   
   // Fetch the latest V3 auction ID when auctions data updates
   useEffect(() => {
@@ -40,6 +56,20 @@ export function Header() {
     } else {
       // Fallback to the root path if no V3 auctions found
       router.push('/'); 
+    }
+  };
+
+  // Handle map link click
+  const handleMapClick = async (e: React.MouseEvent) => {
+    if (isInFrame) {
+      e.preventDefault();
+      try {
+        await frameSdk.redirectToUrl("https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map");
+      } catch (error) {
+        console.error("Failed to open URL in frame:", error);
+        // Fallback to regular link
+        window.open("https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map", "_blank");
+      }
     }
   };
 
@@ -108,6 +138,39 @@ export function Header() {
             </div>
           </Button>
         </Link>
+
+        {isInFrame ? (
+          <Button
+            variant="outline"
+            size="icon"
+            className={
+              isBaseColors
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
+                : "h-8 w-8 md:h-10 md:w-10"
+            }
+            onClick={handleMapClick}
+          >
+            <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+              🌎
+            </div>
+          </Button>
+        ) : (
+          <Link href="https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map" target="_blank">
+            <Button
+              variant="outline"
+              size="icon"
+              className={
+                isBaseColors
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
+                  : "h-8 w-8 md:h-10 md:w-10"
+              }
+            >
+              <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+                🌎
+              </div>
+            </Button>
+          </Link>
+        )}
 
         <Button
           variant="outline"
