@@ -11,7 +11,7 @@ const redis = new Redis({
 export interface WalletConfig {
   wallet: ethers.Wallet;
   airdropContract: string;
-  purpose?: 'main-airdrop' | 'link-miniapp' | 'likes-recasts' | 'link-web' | 'general'; // Purpose of this wallet
+  purpose?: 'main-airdrop' | 'link-miniapp' | 'likes-recasts' | 'link-web' | 'mobile-add' | 'mobile-link-visit' | 'general'; // Purpose of this wallet
 }
 
 // Wallet pool configuration
@@ -63,6 +63,24 @@ export class WalletPool {
       });
     }
     
+    // Wallet 5: Mobile add/welcome claims (ADMIN_PRIVATE_KEY5 + AIRDROP_CONTRACT_ADDRESS5)
+    if (process.env.ADMIN_PRIVATE_KEY5 && process.env.AIRDROP_CONTRACT_ADDRESS5) {
+      this.walletConfigs.push({
+        wallet: new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY5, this.provider),
+        airdropContract: process.env.AIRDROP_CONTRACT_ADDRESS5,
+        purpose: 'mobile-add'
+      });
+    }
+    
+    // Wallet 6: Mobile link visit (ADMIN_PRIVATE_KEY6 + AIRDROP_CONTRACT_ADDRESS6)
+    if (process.env.ADMIN_PRIVATE_KEY6 && process.env.AIRDROP_CONTRACT_ADDRESS6) {
+      this.walletConfigs.push({
+        wallet: new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY6, this.provider),
+        airdropContract: process.env.AIRDROP_CONTRACT_ADDRESS6,
+        purpose: 'mobile-link-visit'
+      });
+    }
+    
     // Additional wallet configurations using new naming convention
     // These new wallets are 'general' purpose and can be used by any endpoint
     for (let i = 1; i <= 10; i++) {
@@ -85,7 +103,7 @@ export class WalletPool {
   }
   
   // Method to get direct wallet without pool logic (for disabling pool temporarily)
-  getDirectWallet(purpose: 'main-airdrop' | 'likes-recasts' | 'link-web' | 'link-miniapp'): { wallet: ethers.Wallet; airdropContract: string } | null {
+  getDirectWallet(purpose: 'main-airdrop' | 'likes-recasts' | 'link-web' | 'link-miniapp' | 'mobile-add' | 'mobile-link-visit'): { wallet: ethers.Wallet; airdropContract: string } | null {
     // Check if wallet pool is disabled for this purpose
     const disabledPurposes = process.env.WALLET_POOL_DISABLED_PURPOSES?.split(',') || [];
     if (!disabledPurposes.includes(purpose)) {
@@ -126,12 +144,28 @@ export class WalletPool {
           };
         }
         break;
+      case 'mobile-add':
+        if (process.env.ADMIN_PRIVATE_KEY5 && process.env.AIRDROP_CONTRACT_ADDRESS5) {
+          return {
+            wallet: new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY5, this.provider),
+            airdropContract: process.env.AIRDROP_CONTRACT_ADDRESS5
+          };
+        }
+        break;
+      case 'mobile-link-visit':
+        if (process.env.ADMIN_PRIVATE_KEY6 && process.env.AIRDROP_CONTRACT_ADDRESS6) {
+          return {
+            wallet: new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY6, this.provider),
+            airdropContract: process.env.AIRDROP_CONTRACT_ADDRESS6
+          };
+        }
+        break;
     }
     
     return null;
   }
   
-  async getAvailableWallet(purpose?: 'main-airdrop' | 'link-miniapp' | 'likes-recasts' | 'link-web'): Promise<{ wallet: ethers.Wallet; airdropContract: string; lockKey: string }> {
+  async getAvailableWallet(purpose?: 'main-airdrop' | 'link-miniapp' | 'likes-recasts' | 'link-web' | 'mobile-add' | 'mobile-link-visit'): Promise<{ wallet: ethers.Wallet; airdropContract: string; lockKey: string }> {
     const maxRetries = 3;
     let lastError: Error | null = null;
     

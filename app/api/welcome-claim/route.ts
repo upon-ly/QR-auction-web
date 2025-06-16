@@ -103,6 +103,7 @@ async function executeWithRetry<T>(
 
 export async function POST(request: NextRequest) {
     let lockKey: string | undefined;
+    let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
 
     try {
         const body = await request.json()
@@ -180,55 +181,83 @@ export async function POST(request: NextRequest) {
 
         console.log(`🔓 ACQUIRED WELCOME CLAIM LOCK: ${privyId}`);
 
-        // Check eligibility before processing claim
-        try {
-            const checkUrl = new URL(`${request.url.split('/api/')[0]}/api/check/0/${address}`);
-            checkUrl.searchParams.set('privy_id', privyId);
-            
-            const checkResponse = await fetch(checkUrl.toString(), {
-                headers: {
-                    'x-api-key': request.headers.get('x-api-key') || '',
-                }
-            });
-            
-            if (!checkResponse.ok) {
-                console.error('Eligibility check failed:', await checkResponse.text());
-                return NextResponse.json({ 
-                    error: 'Failed to verify eligibility' 
-                }, { status: 500 });
-            }
-            
-            const eligibility = await checkResponse.json();
-            
-            if (!eligibility.eligible) {
-                console.log(`🚫 INELIGIBLE CLAIM ATTEMPT: ${privyId} - ${eligibility.matchReason || 'already claimed'}`);
-                return NextResponse.json({ 
-                    error: 'ALREADY_CLAIMED',
-                    reason: eligibility.matchReason,
-                    details: eligibility.claimDetails
-                }, { status: 400 });
-            }
-            
-            console.log(`✅ ELIGIBILITY CONFIRMED: ${privyId} can claim`);
-        } catch (error) {
-            console.error('Error checking eligibility:', error);
+        // Check eligibility directly against welcome_claims table
+        console.log(`🔍 CHECKING WELCOME CLAIM ELIGIBILITY: privyId=${privyId}, address=${address}`);
+
+        // Check if this privyId or address has already claimed welcome tokens
+        const { data: existingClaims, error: checkError } = await supabase
+            .from('welcome_claims')
+            .select('*')
+            .or(`privy_id.eq.${privyId},eth_address.eq.${address}`);
+
+        if (checkError) {
+            console.error('Error checking welcome claim eligibility:', checkError);
             return NextResponse.json({ 
-                error: 'Failed to verify eligibility' 
+                error: 'Database error checking eligibility' 
             }, { status: 500 });
         }
 
-        // Get wallet and contract for welcome claims (use dedicated wallet 5)
-        const WELCOME_ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY5;
-        const WELCOME_AIRDROP_CONTRACT = process.env.AIRDROP_CONTRACT_ADDRESS5;
-        
-        if (!WELCOME_ADMIN_PRIVATE_KEY || !WELCOME_AIRDROP_CONTRACT) {
-            throw new Error('Welcome claim wallet configuration missing');
+        if (existingClaims && existingClaims.length > 0) {
+            const claim = existingClaims[0];
+            let errorCode: string;
+            let errorMessage: string;
+
+            if (claim.privy_id === privyId && claim.eth_address === address) {
+                errorCode = 'ALREADY_CLAIMED_SAME_USER';
+                errorMessage = 'This user and address have already claimed welcome tokens';
+            } else if (claim.privy_id === privyId) {
+                errorCode = 'ALREADY_CLAIMED_SAME_USER';
+                errorMessage = 'This user has already claimed welcome tokens with a different address';
+            } else if (claim.eth_address === address) {
+                errorCode = 'ALREADY_CLAIMED_SAME_ADDRESS';
+                errorMessage = 'This address has already been used to claim welcome tokens';
+            } else {
+                errorCode = 'ALREADY_CLAIMED';
+                errorMessage = 'Welcome tokens have already been claimed';
+            }
+
+            console.log(`🚫 INELIGIBLE WELCOME CLAIM: ${privyId} - ${errorCode}`);
+            return NextResponse.json({ 
+                error: errorCode,
+                message: errorMessage,
+                tx_hash: claim.tx_hash
+            }, { status: 400 });
         }
 
+        console.log(`✅ WELCOME CLAIM ELIGIBILITY CONFIRMED: ${privyId} can claim`);
+
+        // Initialize ethers provider and get wallet from pool for mobile-add purpose
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const adminWallet = new ethers.Wallet(WELCOME_ADMIN_PRIVATE_KEY, provider);
+        const { getWalletPool } = await import('@/lib/wallet-pool');
+        const walletPool = getWalletPool(provider);
         
-        console.log(`Using wallet ${adminWallet.address} for welcome claim`);
+        // Check if we should use direct wallet (pool disabled for mobile-add)
+        const directWallet = walletPool.getDirectWallet('mobile-add');
+        
+        let adminWallet: ethers.Wallet;
+        let WELCOME_AIRDROP_CONTRACT: string;
+        
+        if (directWallet) {
+            // Use direct wallet without pool logic
+            console.log(`Using direct wallet ${directWallet.wallet.address} for welcome claim (pool disabled for mobile-add)`);
+            adminWallet = directWallet.wallet;
+            WELCOME_AIRDROP_CONTRACT = directWallet.airdropContract;
+        } else {
+            // Use wallet pool
+            try {
+                walletConfig = await walletPool.getAvailableWallet('mobile-add');
+                console.log(`Using wallet ${walletConfig.wallet.address} with contract ${walletConfig.airdropContract} for welcome claim (mobile-add)`);
+                adminWallet = walletConfig.wallet;
+                WELCOME_AIRDROP_CONTRACT = walletConfig.airdropContract;
+            } catch (poolError) {
+                const errorMessage = 'All wallets are currently busy for welcome claims. Please try again in a moment.';
+                console.error('Failed to get wallet from pool for welcome claim:', poolError);
+                
+                return NextResponse.json({ 
+                    error: errorMessage
+                }, { status: 503 });
+            }
+        }
 
         // Check wallet balance before proceeding
         const balance = await provider.getBalance(adminWallet.address);
@@ -430,6 +459,19 @@ export async function POST(request: NextRequest) {
             error: errorMessage
         }, { status: 500 });
     } finally {
+        // Release the wallet lock if using pool
+        if (walletConfig && walletConfig.lockKey) {
+            try {
+                const { getWalletPool } = await import('@/lib/wallet-pool');
+                const provider = new ethers.JsonRpcProvider(RPC_URL);
+                const walletPool = getWalletPool(provider);
+                await walletPool.releaseWallet(walletConfig.lockKey);
+                console.log(`🔓 RELEASED WALLET LOCK: ${walletConfig.lockKey}`);
+            } catch (lockError) {
+                console.error('Error releasing wallet lock:', lockError);
+            }
+        }
+        
         // Release the claim lock
         if (lockKey) {
             try {
