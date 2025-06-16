@@ -10,7 +10,7 @@ import { ThemeDialog } from '@/components/ThemeDialog';
 import { QRContextMenu } from '@/components/QRContextMenu';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions';
-import { frameSdk } from '@/lib/frame-sdk';
+import { sdk } from '@farcaster/frame-sdk';
 
 export function Header() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export function Header() {
   const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [latestV3Id, setLatestV3Id] = useState(0);
-  const [isInFrame, setIsInFrame] = useState(false);
+  const [isMiniApp, setIsMiniApp] = useState(false);
   
   // Check if we're on the Base Colors UI page
   const isBaseColorsUI = pathname === '/ui';
@@ -26,18 +26,18 @@ export function Header() {
   // Call useFetchAuctions without a tokenId parameter to get auctions from all contracts
   const { auctions } = useFetchAuctions();
   
-  // Check if we're in a frame context
+  // Check if we're in a Mini App context once on mount
   useEffect(() => {
-    const checkFrameContext = async () => {
+    const checkMiniApp = async () => {
       try {
-        await frameSdk.getContext();
-        setIsInFrame(true);
+        const isInMiniApp = await sdk.isInMiniApp();
+        setIsMiniApp(isInMiniApp);
       } catch {
-        setIsInFrame(false);
+        setIsMiniApp(false);
       }
     };
     
-    checkFrameContext();
+    checkMiniApp();
   }, []);
   
   // Fetch the latest V3 auction ID when auctions data updates
@@ -56,20 +56,6 @@ export function Header() {
     } else {
       // Fallback to the root path if no V3 auctions found
       router.push('/'); 
-    }
-  };
-
-  // Handle map link click
-  const handleMapClick = async (e: React.MouseEvent) => {
-    if (isInFrame) {
-      e.preventDefault();
-      try {
-        await frameSdk.redirectToUrl("https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map");
-      } catch (error) {
-        console.error("Failed to open URL in frame:", error);
-        // Fallback to regular link
-        window.open("https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map", "_blank");
-      }
     }
   };
 
@@ -139,23 +125,19 @@ export function Header() {
           </Button>
         </Link>
 
-        {isInFrame ? (
-          <Button
-            variant="outline"
-            size="icon"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                : "h-8 w-8 md:h-10 md:w-10"
-            }
-            onClick={handleMapClick}
+        
+          <Link 
+            href="https://map.qrcoin.fun" 
+            target="_blank"
+            onClick={async (e) => {
+              // Use cached mini app status
+              if (isMiniApp) {
+                e.preventDefault();
+                await sdk.actions.openUrl("https://farcaster.xyz/miniapps/vTuDnU8a1PCz/qr-map");
+              }
+              // Otherwise, not in mini app, let Link handle normally
+            }}
           >
-            <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
-              🌎
-            </div>
-          </Button>
-        ) : (
-          <Link href="https://farcaster.xyz/miniapps/TrUF1v7ul3hA/qr-map" target="_blank">
             <Button
               variant="outline"
               size="icon"
@@ -170,7 +152,6 @@ export function Header() {
               </div>
             </Button>
           </Link>
-        )}
 
         <Button
           variant="outline"
