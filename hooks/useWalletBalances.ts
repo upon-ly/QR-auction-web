@@ -53,6 +53,14 @@ export const TRACKED_WALLETS = [
   {
     name: 'Mini App Claim Fail Retries',
     address: '0xcc6bBF8693B63388eB64F10281dE74DeFfC4D1E0'
+  },
+  {
+    name: 'QR iOS App Adds',
+    address: '0xe79E636fa40fcbACc27478aA8f03D2C2BB03c6AB'
+  },
+  {
+    name: 'QR iOS App Claims',
+    address: '0xEBbC71022a8407Bda9C28255F38970A05D52D1F1'
   }
 ] as const;
 
