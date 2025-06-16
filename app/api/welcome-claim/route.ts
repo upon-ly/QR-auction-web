@@ -180,30 +180,41 @@ export async function POST(request: NextRequest) {
 
         console.log(`🔓 ACQUIRED WELCOME CLAIM LOCK: ${privyId}`);
 
-        // search supabase `welcome_claims` table for privyId or address
-        const { data, error } = await supabase
-            .from('welcome_claims')
-            .select('*')
-            .or(`privy_id.eq.${privyId},eth_address.eq.${address}`)
-        if (error) {
-            // RLS or other errors
-            return NextResponse.json({ error: 'SUPABASE_ERROR', details: error.message }, { status: 500 })
-        }
-
-        // if a record is found, return {error: 'ALREADY_CLAIMED'}
-        if (data.length > 0) {
-            const existingClaim = data[0];
-            let reason = 'ALREADY_CLAIMED';
+        // Check eligibility before processing claim
+        try {
+            const checkUrl = new URL(`${request.url.split('/api/')[0]}/api/check/0/${address}`);
+            checkUrl.searchParams.set('privy_id', privyId);
             
-            if (existingClaim.privy_id === privyId && existingClaim.eth_address === address) {
-                reason = 'ALREADY_CLAIMED_SAME_USER_AND_ADDRESS';
-            } else if (existingClaim.privy_id === privyId) {
-                reason = 'ALREADY_CLAIMED_SAME_USER';
-            } else if (existingClaim.eth_address === address) {
-                reason = 'ALREADY_CLAIMED_SAME_ADDRESS';
+            const checkResponse = await fetch(checkUrl.toString(), {
+                headers: {
+                    'x-api-key': request.headers.get('x-api-key') || '',
+                }
+            });
+            
+            if (!checkResponse.ok) {
+                console.error('Eligibility check failed:', await checkResponse.text());
+                return NextResponse.json({ 
+                    error: 'Failed to verify eligibility' 
+                }, { status: 500 });
             }
             
-            return NextResponse.json({ error: reason }, { status: 400 })
+            const eligibility = await checkResponse.json();
+            
+            if (!eligibility.eligible) {
+                console.log(`🚫 INELIGIBLE CLAIM ATTEMPT: ${privyId} - ${eligibility.matchReason || 'already claimed'}`);
+                return NextResponse.json({ 
+                    error: 'ALREADY_CLAIMED',
+                    reason: eligibility.matchReason,
+                    details: eligibility.claimDetails
+                }, { status: 400 });
+            }
+            
+            console.log(`✅ ELIGIBILITY CONFIRMED: ${privyId} can claim`);
+        } catch (error) {
+            console.error('Error checking eligibility:', error);
+            return NextResponse.json({ 
+                error: 'Failed to verify eligibility' 
+            }, { status: 500 });
         }
 
         // Get wallet and contract for welcome claims (use dedicated wallet 5)
@@ -376,6 +387,14 @@ export async function POST(request: NextRequest) {
             })
         if (newError) {
             console.error('Error recording welcome claim:', newError);
+            
+            // Check if it's a duplicate key error (user already claimed)
+            if (newError.message?.includes('duplicate') || newError.code === '23505') {
+                return NextResponse.json({ 
+                    error: 'ALREADY_CLAIMED',
+                    message: 'This user or address has already claimed welcome tokens'
+                }, { status: 400 });
+            }
             
             return NextResponse.json({ 
                 success: true, 

@@ -35,6 +35,10 @@ export async function GET(
 
     const { address } = await params;
     
+    // Get privy_id from query parameters
+    const { searchParams } = new URL(request.url);
+    const privyId = searchParams.get('privy_id');
+    
     if (!address) {
       return NextResponse.json({ 
         error: 'Invalid address' 
@@ -48,13 +52,22 @@ export async function GET(
       }, { status: 400 });
     }
 
-    console.log(`🔍 CHECKING WELCOME CLAIM ELIGIBILITY: address=${address}`);
+    console.log(`🔍 CHECKING WELCOME CLAIM ELIGIBILITY: address=${address}, privyId=${privyId || 'not provided'}`);
 
-    // Check if this address has already claimed welcome tokens
-    const { data: welcomeClaims, error: welcomeError } = await supabase
+    // Check if this address or privy_id has already claimed welcome tokens
+    let query = supabase
       .from('welcome_claims')
-      .select('*')
-      .eq('eth_address', address);
+      .select('*');
+    
+    if (privyId) {
+      // Check both eth_address and privy_id
+      query = query.or(`eth_address.eq.${address},privy_id.eq.${privyId}`);
+    } else {
+      // Only check eth_address
+      query = query.eq('eth_address', address);
+    }
+    
+    const { data: welcomeClaims, error: welcomeError } = await query;
     
     if (welcomeError) {
       console.error('Error checking welcome claims:', welcomeError);
@@ -67,14 +80,30 @@ export async function GET(
     const hasClaimed = welcomeClaims && welcomeClaims.length > 0;
     const canClaim = !hasClaimed;
 
+    // Determine what type of match was found
+    let matchReason = null;
+    if (hasClaimed && welcomeClaims[0]) {
+      const claim = welcomeClaims[0];
+      if (privyId && claim.privy_id === privyId && claim.eth_address === address) {
+        matchReason = 'SAME_USER_AND_ADDRESS';
+      } else if (privyId && claim.privy_id === privyId) {
+        matchReason = 'SAME_USER_DIFFERENT_ADDRESS';
+      } else if (claim.eth_address === address) {
+        matchReason = 'SAME_ADDRESS';
+      }
+    }
+
     const result = {
       eligible: canClaim,
       hasClaimed,
       address,
+      privyId: privyId || null,
+      matchReason,
       claimDetails: hasClaimed ? {
         claimedAt: welcomeClaims[0].created_at,
         txHash: welcomeClaims[0].tx_hash,
-        privyId: welcomeClaims[0].privy_id
+        privyId: welcomeClaims[0].privy_id,
+        ethAddress: welcomeClaims[0].eth_address
       } : null
     };
 
