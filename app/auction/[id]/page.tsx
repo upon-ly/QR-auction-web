@@ -387,6 +387,27 @@ export default function AuctionPage() {
         console.error(`[AuctionSettled] Error adding winner to database:`, error);
       }
       
+      // Clear social links for settled auction
+      try {
+        console.log(`[AuctionSettled] Clearing social links for auction #${tokenId}`);
+        
+        const socialLinksResponse = await fetch('/api/social-links', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (socialLinksResponse.ok) {
+          console.log(`[AuctionSettled] Successfully cleared social links`);
+        } else {
+          const errorText = await socialLinksResponse.text();
+          console.error(`[AuctionSettled] Failed to clear social links:`, errorText);
+        }
+      } catch (error) {
+        console.error(`[AuctionSettled] Error clearing social links:`, error);
+      }
+      
       // Clear all auction caches to ensure fresh data
       clearAllAuctionCaches();
       

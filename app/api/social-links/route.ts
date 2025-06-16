@@ -88,4 +88,38 @@ export async function POST(request: NextRequest) {
     console.error('Social links POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// DELETE - Clear social links (called during auction settlement)
+export async function DELETE() {
+  try {
+    // Clear both quote tweet and cast URLs
+    const { data, error } = await supabaseAdmin
+      .from('current_campaign_social_links')
+      .upsert({
+        id: 1, // Single row for global config
+        quote_tweet_url: null,
+        quote_cast_url: null,
+        updated_at: new Date().toISOString(),
+        updated_by: 'auction_settlement'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error clearing social links:', error);
+      return NextResponse.json({ error: 'Failed to clear social links' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      message: 'Social links cleared successfully',
+      quoteTweetUrl: null,
+      quoteCastUrl: null,
+      updatedAt: data?.updated_at || null,
+      updatedBy: data?.updated_by || null
+    });
+  } catch (error) {
+    console.error('Social links DELETE error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 
