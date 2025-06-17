@@ -243,31 +243,49 @@ export function useAuctionEvents({
             // Only show toast if we haven't shown it in the last 5 seconds
             if (!shownToastsRef.current[eventId] || now - shownToastsRef.current[eventId] > 5000) {
               // Get identity information and then show toast
-              getBidderIdentity(bidder).then(displayName => {
-                // Check if it's a legacy auction (1-22), v2 auction (23-35), or v3 auction (36+)
-                const isLegacyAuction = tokenId <= 22n;
-                const isV2Auction = tokenId >= 23n && tokenId <= 61n;
-                const isV3Auction = tokenId >= 62n;
-                const amount_num = isV3Auction ? Number(amount) / 1e6 : Number(amount) / 1e18;
+              // Check if it's a legacy auction (1-22), v2 auction (23-35), or v3 auction (36+)
+              const isLegacyAuction = tokenId <= 22n;
+              const isV2Auction = tokenId >= 23n && tokenId <= 61n;
+              const isV3Auction = tokenId >= 62n;
+              const amount_num = isV3Auction ? Number(amount) / 1e6 : Number(amount) / 1e18;
+              
+              // For V3 auctions, use the Twitter username from the name field if available
+              if (isV3Auction && name && name.trim() !== "" && !name.includes('.')) {
+                // Use Twitter username directly for V3 auctions
+                const twitterUsername = `@${name.trim()}`;
                 
-                let bidText = '';
-                if (isLegacyAuction) {
-                  bidText = `${amount_num.toFixed(3)} ETH`;
-                } else if (isV2Auction) {
-                  bidText = `${formatQRAmount(amount_num)} $QR`;
-                } else if (isV3Auction) {
-                  bidText = `$${amount_num.toFixed(2)}`;
-                }
+                const bidText = `$${amount_num.toFixed(2)}`;
                 
-                toast(`New bid: ${bidText} by ${displayName}`, { 
+                toast(`New bid: ${bidText} by ${twitterUsername}`, { 
                   id: eventId,
-                  duration: 5000, // Longer display time on mobile
+                  duration: 5000,
                   icon: "🔔"
                 });
                 
                 // Record that we've shown this toast
                 shownToastsRef.current[eventId] = now;
-              });
+              } else {
+                // For non-V3 auctions or when no Twitter username, use identity resolution
+                getBidderIdentity(bidder).then(displayName => {
+                  let bidText = '';
+                  if (isLegacyAuction) {
+                    bidText = `${amount_num.toFixed(3)} ETH`;
+                  } else if (isV2Auction) {
+                    bidText = `${formatQRAmount(amount_num)} $QR`;
+                  } else if (isV3Auction) {
+                    bidText = `$${amount_num.toFixed(2)}`;
+                  }
+                  
+                  toast(`New bid: ${bidText} by ${displayName}`, { 
+                    id: eventId,
+                    duration: 5000,
+                    icon: "🔔"
+                  });
+                  
+                  // Record that we've shown this toast
+                  shownToastsRef.current[eventId] = now;
+                });
+              }
             }
           }
           
