@@ -11,6 +11,7 @@ interface TypingUserInfo {
   address: string;
   displayName: string;
   farcasterUsername: string | null;
+  twitterUsername: string | null;
 }
 
 export const TypingIndicator = () => {
@@ -20,32 +21,42 @@ export const TypingIndicator = () => {
   const isBaseColors = useBaseColors();
   const { address } = useAccount();
   
-  // Fetch Farcaster username when the typing user changes
+  // Fetch Farcaster username when the typing user changes (only if no Twitter username)
   useEffect(() => {
     if (!typingUser || typingUser.startsWith('anonymous-')) {
       setTypingUserInfo(null);
       return;
     }
     
-    // Set initial display info while we fetch Farcaster data
-    setTypingUserInfo({
-      address: typingUser,
-      displayName: formatAddressOrName(typingUser),
-      farcasterUsername: null
-    });
+    // Check if we already have Twitter username from the typing event
+    if (typingUserInfo?.twitterUsername) {
+      // Skip Farcaster fetch if Twitter username is already available
+      return;
+    }
     
-    // Only attempt to fetch Farcaster data for Ethereum addresses
-    if (typingUser.startsWith('0x') && typingUser.length === 42) {
+    // Set initial display info while we fetch Farcaster data
+    if (!typingUserInfo) {
+      setTypingUserInfo({
+        address: typingUser,
+        displayName: formatAddressOrName(typingUser),
+        farcasterUsername: null,
+        twitterUsername: null
+      });
+    }
+    
+    // Only attempt to fetch Farcaster data for Ethereum addresses when no Twitter username
+    if (typingUser.startsWith('0x') && typingUser.length === 42 && !typingUserInfo?.twitterUsername) {
       const fetchFarcasterInfo = async () => {
         try {
           const farcasterInfo = await getFarcasterUser(typingUser);
           
           if (farcasterInfo) {
-            setTypingUserInfo({
+            setTypingUserInfo(prev => ({
+              ...prev!,
               address: typingUser,
-              displayName: `@${farcasterInfo.username}`,
+              displayName: prev?.twitterUsername ? `@${prev.twitterUsername}` : `@${farcasterInfo.username}`,
               farcasterUsername: farcasterInfo.username
-            });
+            }));
           }
         } catch (error) {
           console.error('Error fetching Farcaster info:', error);
@@ -54,13 +65,11 @@ export const TypingIndicator = () => {
       
       fetchFarcasterInfo();
     }
-  }, [typingUser]);
+  }, [typingUser, typingUserInfo?.twitterUsername]);
   
   useEffect(() => {
     // Subscribe to typing events
-    const unsubscribe = onTyping((user, action, source) => {
-      console.log('Typing event received:', { user, action, source, currentUser: address });
-      
+    const unsubscribe = onTyping((user, action, source, username) => {
       if (action === 'started-typing') {
         // Don't show our own typing events if we're connected
         if (address && user === address) {
@@ -71,6 +80,16 @@ export const TypingIndicator = () => {
         console.log('Showing typing indicator for', user);
         setIsTyping(true);
         setTypingUser(user);
+        
+        // If username is provided from Privy auth (Twitter or Farcaster), store it
+        if (username) {
+          setTypingUserInfo({
+            address: user,
+            displayName: `@${username}`,
+            farcasterUsername: null,
+            twitterUsername: username // This will be Twitter username due to priority in useTypingStatus
+          });
+        }
       } else if (action === 'stopped-typing') {
         if (user === typingUser) {
           console.log('Hiding typing indicator for', user);

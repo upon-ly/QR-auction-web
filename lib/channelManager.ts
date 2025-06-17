@@ -16,6 +16,7 @@ export interface TypingEvent {
   user: string;
   action: TypingAction;
   source: string;
+  username?: string; // Twitter or Farcaster username
 }
 
 export interface ConnectionEvent {
@@ -30,7 +31,7 @@ export interface PresenceEvent {
   online_at: string;
 }
 
-export type TypingCallback = (user: string, action: TypingAction, source: string) => void;
+export type TypingCallback = (user: string, action: TypingAction, source: string, username?: string) => void;
 export type ConnectionCallback = (user: string, action: ConnectionAction, source: string) => void;
 export type PresenceCallback = (user: string, source: string, online?: boolean) => void;
 
@@ -215,7 +216,7 @@ export const initializeChannels = (user: string, browserInstanceId: string = 'un
       
       // Notify all listeners
       typingListeners.forEach(listener => {
-        listener(typingEvent.user, typingEvent.action, typingEvent.source);
+        listener(typingEvent.user, typingEvent.action, typingEvent.source, typingEvent.username);
       });
     })
     .on('broadcast', { event: 'connection' }, (payload) => {
@@ -469,21 +470,21 @@ export const broadcastJoin = (user: string, browserInstanceId: string = 'unknown
 /**
  * Broadcast typing event to the channel
  */
-export const broadcastTyping = (user: string, action: TypingAction, browserInstanceId: string = 'unknown') => {
+export const broadcastTyping = (user: string, action: TypingAction, browserInstanceId: string = 'unknown', username?: string) => {
   if (!auctionChannel) {
     console.warn('Auction channel not initialized');
     return;
   }
 
   if (DEBUG) {
-    console.log('Broadcasting typing event:', { user, action, source: browserInstanceId });
+    console.log('Broadcasting typing event:', { user, action, source: browserInstanceId, username });
   }
   
   // Include browser instance ID to identify the source
   auctionChannel.send({
     type: 'broadcast',
     event: 'typing',
-    payload: { user, action, source: browserInstanceId },
+    payload: { user, action, source: browserInstanceId, username },
   })
   .then(() => {
     if (DEBUG) {

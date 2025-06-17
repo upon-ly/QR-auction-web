@@ -1,16 +1,27 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAccount } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
 import { initializeChannels, broadcastTyping } from '@/lib/channelManager';
 import { v4 as uuidv4 } from 'uuid';
 
 export const useTypingStatus = () => {
   const { address, isConnected } = useAccount();
+  const { user } = usePrivy();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialized = useRef(false);
   
   // Generate a unique browser instance ID to track this session
   const browserInstanceIdRef = useRef<string>('');
   const anonymousIdRef = useRef<string>('');
+  
+  // Get Twitter username from Privy user
+  const twitterUsername = useMemo(() => {
+    if (user?.linkedAccounts) {
+      const twitterAccount = user.linkedAccounts.find((account: { type: string; username?: string }) => account.type === 'twitter_oauth');
+      return twitterAccount?.username || null;
+    }
+    return null;
+  }, [user?.linkedAccounts]);
   
   // Initialize channels when hook is first used
   useEffect(() => {
@@ -49,14 +60,14 @@ export const useTypingStatus = () => {
     
     console.log('Broadcasting typing event for user', userId);
     
-    // Use centralized broadcast with browser instance ID
-    broadcastTyping(userId, 'started-typing', browserInstanceIdRef.current);
+    // Use centralized broadcast with browser instance ID and Twitter username if available
+    broadcastTyping(userId, 'started-typing', browserInstanceIdRef.current, twitterUsername || undefined);
     
     // Set timeout to clear typing status after inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      broadcastTyping(userId, 'stopped-typing', browserInstanceIdRef.current);
+      broadcastTyping(userId, 'stopped-typing', browserInstanceIdRef.current, twitterUsername || undefined);
     }, 5000); // 5 seconds inactivity clears typing status
-  }, [address, isConnected, anonymousIdRef]);
+  }, [address, isConnected, twitterUsername]);
   
   // Clean up on unmount
   useEffect(() => {
