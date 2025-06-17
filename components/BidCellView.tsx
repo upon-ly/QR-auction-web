@@ -170,15 +170,15 @@ export function BidCellView({
             <p className="font-medium truncate">{nameInfo.displayName}</p>
             {nameInfo.twitterUsername ? (
               <XLogo 
-                size="sm" 
+                size="md" 
                 username={nameInfo.twitterUsername} 
-                className="ml-0.5 opacity-80 hover:opacity-100"
+                className="ml-0.5 opacity-80 hover:opacity-100 max-w-[16px]"
               />
             ) : nameInfo.farcasterUsername && (
               <WarpcastLogo 
                 size="md" 
                 username={nameInfo.farcasterUsername} 
-                className="ml-0.5 opacity-80 hover:opacity-100"
+                className="ml-0.5 opacity-80 hover:opacity-100 mt-[-1]"
               />
             )}
           </div>

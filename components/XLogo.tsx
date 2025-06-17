@@ -1,8 +1,9 @@
 import React from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface XLogoProps {
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   username?: string;
   className?: string;
   type?: "default" | "footer";
@@ -14,10 +15,11 @@ export function XLogo({
   className,
   type = "default",
 }: XLogoProps) {
-  const sizeClasses = {
-    sm: "h-3 w-3",
-    md: "h-4 w-4",
-    lg: "h-5 w-5",
+  const sizes = {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 20,
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -51,17 +53,23 @@ export function XLogo({
       title={username ? `@${username} on X` : "X (Twitter)"}
     >
       {/* Light mode X logo (black) */}
-      <img
+      <Image
         src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/X_logo.jpg/1200px-X_logo.jpg"
         alt="X"
-        className={cn(sizeClasses[size], "block dark:hidden")}
+        width={sizes[size]}
+        height={sizes[size]}
+        className="block dark:hidden"
+        unoptimized
       />
 
       {/* Dark mode X logo (white) */}
-      <img
+      <Image
         src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/X_logo.jpg/1200px-X_logo.jpg"
         alt="X"
-        className={cn(sizeClasses[size], "hidden dark:block")}
+        width={sizes[size]}
+        height={sizes[size]}
+        className="hidden dark:block"
+        unoptimized
       />
     </div>
   );

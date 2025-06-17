@@ -476,7 +476,7 @@ export default function WinnersPage() {
                               {getDisplayName(winner)}
                             </span>
                             {winner.twitter_username ? (
-                              <div className="hidden md:block flex-shrink-0 mt-1">
+                              <div className="hidden md:block flex-shrink-0 mt-1 mb-1">
                                 <XLogo 
                                   size="md" 
                                   username={winner.twitter_username} 
@@ -484,9 +484,9 @@ export default function WinnersPage() {
                                 />
                               </div>
                             ) : winner.farcaster_username && (
-                              <div className="hidden md:block flex-shrink-0 mt-1">
+                              <div className="hidden md:block flex-shrink-0 mt-1 mb-1">
                                 <WarpcastLogo 
-                                  size="sm" 
+                                  size="md" 
                                   username={winner.farcaster_username} 
                                   className="ml-1 opacity-80 hover:opacity-100"
                                 />
