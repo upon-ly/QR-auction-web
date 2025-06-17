@@ -3,7 +3,7 @@ import { Dialog, DialogPortal } from './ui/dialog';
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from './ui/button';
 import { motion } from 'framer-motion';
-import { Check, X as XIcon, Wallet } from 'lucide-react';
+import { Check, X as XIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import confetti from 'canvas-confetti';
 import { frameSdk } from '@/lib/frame-sdk';
@@ -503,7 +503,7 @@ export function LinkVisitClaimPopup({
     setClaimState('connecting');
     
     // Show persistent toast with updated message
-    const toastId = toast.info('Sign in with X (Twitter) to claim 420 $QR', {
+    const toastId = toast.info('Sign in with X (Twitter) to claim 420 $QR!', {
       duration: Infinity, // Persistent until manually dismissed
     });
     setPersistentToastId(toastId);
@@ -635,15 +635,6 @@ export function LinkVisitClaimPopup({
                 className="w-28 h-28"
               />
             </motion.div>
-          ) : claimState === 'connecting' ? (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", duration: 0.5 }}
-              className="w-28 h-28 rounded-full flex items-center justify-center bg-secondary mt-6"
-            >
-              <Wallet className="h-16 w-16 text-primary" />
-            </motion.div>
           ) : claimState === 'captcha' ? (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -700,40 +691,6 @@ export function LinkVisitClaimPopup({
               >
                 Click to claim 420 $QR!
               </motion.h2>
-            )}
-            
-            {claimState === 'connecting' && (
-              <>
-                <motion.h2 
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-xl font-bold text-foreground"
-                >
-                  Connect Your Wallet
-                </motion.h2>
-                
-                <motion.p
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-muted-foreground mb-5"
-                >
-                  Connect your wallet or enter your email to claim 420 $QR
-                </motion.p>
-                
-                <motion.div
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="w-full flex justify-center mt-2"
-                >
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    <span className="text-sm">Connecting...</span>
-                  </div>
-                </motion.div>
-              </>
             )}
             
             {claimState === 'claim' && (
