@@ -92,22 +92,6 @@ export function Header() {
       )}
       
       <div className="flex items-center gap-1 md:gap-3">
-        <Link href="/about">
-          <Button
-            variant="outline"
-            size="icon"
-            className={
-              isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                : "h-8 w-8 md:h-10 md:w-10"
-            }
-          >
-            <div className="h-5 w-5 md:h-10 md:w-10 flex items-center justify-center">
-              <span className="md:hidden text-lg">?</span>
-              <span className="hidden md:inline text-lg mx-0.5">?</span>
-            </div>
-          </Button>
-        </Link>
         
         <Link href="/winners">
           <Button
@@ -124,6 +108,33 @@ export function Header() {
             </div>
           </Button>
         </Link>
+
+        <Link 
+            href="https://shop.qrcoin.fun" 
+            target="_blank"
+            onClick={async (e) => {
+              // Use cached mini app status
+              if (isMiniApp) {
+                e.preventDefault();
+                await sdk.actions.openUrl("https://shop.qrcoin.fun");
+              }
+              // Otherwise, not in mini app, let Link handle normally
+            }}
+          >
+            <Button
+              variant="outline"
+              size="icon"
+              className={
+                isBaseColors
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
+                  : "h-8 w-8 md:h-10 md:w-10"
+              }
+            >
+              <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+                🔥
+              </div>
+            </Button>
+          </Link>
 
         
           <Link 
@@ -152,6 +163,22 @@ export function Header() {
               </div>
             </Button>
           </Link>
+
+          <Link href="/about">
+          <Button
+            variant="outline"
+            size="icon"
+            className={
+              isBaseColors
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
+                : "h-8 w-8 md:h-10 md:w-10"
+            }
+          >
+            <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+              ℹ️
+            </div>
+          </Button>
+        </Link>
 
         <Button
           variant="outline"
