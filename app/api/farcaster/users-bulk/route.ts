@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       console.error("Missing Neynar API key");
       return NextResponse.json(
-        { error: 'API key not configured' },
-        { status: 500 }
+        { error: 'Service temporarily unavailable' },
+        { status: 503 }
       );
     }
 
@@ -63,7 +63,24 @@ export async function POST(request: NextRequest) {
       );
 
       if (!response.ok) {
-        throw new Error(`Neynar API request failed with status ${response.status}`);
+        // Handle different API error responses appropriately
+        if (response.status === 404) {
+          // No users found - set all addresses in chunk to null
+          chunk.forEach(addr => {
+            results[addr] = null;
+          });
+          return;
+        } else if (response.status === 401 || response.status === 403 ||
+                   response.status === 429 || response.status >= 500) {
+          // API authentication, rate limit, or server errors - throw to be caught by outer catch
+          throw new Error(`Neynar API unavailable: ${response.status}`);
+        } else {
+          // Other client errors - set all addresses in chunk to null
+          chunk.forEach(addr => {
+            results[addr] = null;
+          });
+          return;
+        }
       }
 
       const data = await response.json();
@@ -88,10 +105,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ users: results });
     
   } catch (error) {
-    console.error('Error fetching Farcaster users in bulk:', error);
+    console.error('Error in users-bulk:', error);
+    // API errors or network issues - return 503 for temporary unavailability
     return NextResponse.json(
-      { error: 'Failed to fetch user data' },
-      { status: 500 }
+      { error: 'Service temporarily unavailable' },
+      { status: 503 }
     );
   }
 } 
