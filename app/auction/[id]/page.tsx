@@ -282,21 +282,31 @@ export default function AuctionPage() {
     onAuctionSettled: async (tokenId, winner, amount, urlString, name) => {
       console.log(`[AuctionSettled] Auction #${tokenId} settled, winner: ${winner}`);
       
-      // Clear the auction image override for the settled auction (cleanup)
-      try {
-        const cleared = await removeAuctionImageOverride(Number(tokenId));
-        if (cleared) {
-          console.log(`[AuctionSettled] Successfully cleared auction image override for auction #${tokenId}`);
-        } else {
-          console.log(`[AuctionSettled] No auction image override to clear for auction #${tokenId}`);
-        }
-      } catch (error) {
-        console.error(`[AuctionSettled] Error clearing auction image override for auction #${tokenId}:`, error);
+      // Check if we're using test subgraph
+      const useTestSubgraph = process.env.NEXT_PUBLIC_USE_TEST_SUBGRAPH === 'true';
+      
+      if (useTestSubgraph) {
+        console.log(`[AuctionSettled] Using test subgraph - skipping image override clearing and winner database insertion`);
       }
       
-      // Automatically insert winner into database
-      try {
-        console.log(`[AuctionSettled] Adding winner to database for auction #${tokenId}`);
+      // Clear the auction image override for the settled auction (cleanup) - skip if using test subgraph
+      if (!useTestSubgraph) {
+        try {
+          const cleared = await removeAuctionImageOverride(Number(tokenId));
+          if (cleared) {
+            console.log(`[AuctionSettled] Successfully cleared auction image override for auction #${tokenId}`);
+          } else {
+            console.log(`[AuctionSettled] No auction image override to clear for auction #${tokenId}`);
+          }
+        } catch (error) {
+          console.error(`[AuctionSettled] Error clearing auction image override for auction #${tokenId}:`, error);
+        }
+      }
+      
+      // Automatically insert winner into database - skip if using test subgraph
+      if (!useTestSubgraph) {
+        try {
+          console.log(`[AuctionSettled] Adding winner to database for auction #${tokenId}`);
         
         // Determine auction version and calculate USD value
         const isV3Auction = Number(tokenId) >= 62;
@@ -383,29 +393,32 @@ export default function AuctionPage() {
           const errorText = await winnerResponse.text();
           console.error(`[AuctionSettled] Failed to add winner to database:`, errorText);
         }
-      } catch (error) {
-        console.error(`[AuctionSettled] Error adding winner to database:`, error);
+        } catch (error) {
+          console.error(`[AuctionSettled] Error adding winner to database:`, error);
+        }
       }
       
-      // Clear social links for settled auction
-      try {
-        console.log(`[AuctionSettled] Clearing social links for auction #${tokenId}`);
-        
-        const socialLinksResponse = await fetch('/api/social-links', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
+      // Clear social links for settled auction - skip if using test subgraph
+      if (!useTestSubgraph) {
+        try {
+          console.log(`[AuctionSettled] Clearing social links for auction #${tokenId}`);
+          
+          const socialLinksResponse = await fetch('/api/social-links', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (socialLinksResponse.ok) {
+            console.log(`[AuctionSettled] Successfully cleared social links`);
+          } else {
+            const errorText = await socialLinksResponse.text();
+            console.error(`[AuctionSettled] Failed to clear social links:`, errorText);
           }
-        });
-        
-        if (socialLinksResponse.ok) {
-          console.log(`[AuctionSettled] Successfully cleared social links`);
-        } else {
-          const errorText = await socialLinksResponse.text();
-          console.error(`[AuctionSettled] Failed to clear social links:`, errorText);
+        } catch (error) {
+          console.error(`[AuctionSettled] Error clearing social links:`, error);
         }
-      } catch (error) {
-        console.error(`[AuctionSettled] Error clearing social links:`, error);
       }
       
       // Clear all auction caches to ensure fresh data
