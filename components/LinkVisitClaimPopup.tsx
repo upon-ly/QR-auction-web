@@ -10,7 +10,6 @@ import { frameSdk } from '@/lib/frame-sdk';
 import { toast } from "sonner";
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
-import { useLinkVisitLock } from '@/hooks/useLinkVisitLock';
 import { useAuctionImage } from '@/hooks/useAuctionImage';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { CLICK_SOURCES } from '@/lib/click-tracking';
@@ -168,10 +167,7 @@ export function LinkVisitClaimPopup({
   
   // Use the claim hook and eligibility hook
   const { isClaimLoading } = useLinkVisitClaim(auctionId, isWebContext);
-  const { hasClaimed, isLoading: isEligibilityLoading, walletAddress } = useLinkVisitEligibility(auctionId, isWebContext);
-  
-  // Check for active lock
-  const { hasLock } = useLinkVisitLock(walletAddress, auctionId);
+  const { hasClaimed, isLoading: isEligibilityLoading } = useLinkVisitEligibility(auctionId, isWebContext);
   
   // Use the auction image hook to check if it's a video with URL fallback
   const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
@@ -583,11 +579,6 @@ export function LinkVisitClaimPopup({
     
     onClose();
   };
-
-  // Don't render the dialog if there's an active lock
-  if (hasLock) {
-    return null;
-  }
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
