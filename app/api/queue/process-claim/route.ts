@@ -536,7 +536,33 @@ export async function POST(req: NextRequest) {
       if (insertError) {
         console.error('Error inserting success record:', insertError);
         
-        // Try update if insert fails
+        // Check if it's a duplicate key error
+        if (insertError.code === '23505' || insertError.message.includes('duplicate key')) {
+          // CRITICAL: This means another transaction already claimed!
+          console.log(`⚠️ QUEUE DUPLICATE CLAIM: Transaction ${txReceipt.hash} succeeded but claim already exists`);
+          
+          // Still mark as success since blockchain transaction went through
+          await updateRetryStatus(failureId, {
+            status: 'success_duplicate',
+            tx_hash: txReceipt.hash,
+            completedAt: new Date().toISOString()
+          });
+          
+          // Delete from failures table
+          await supabase
+            .from('link_visit_claim_failures')
+            .delete()
+            .eq('id', failureId);
+          
+          return NextResponse.json({
+            success: true,
+            status: 'success_duplicate',
+            tx_hash: txReceipt.hash,
+            warning: 'Transaction successful but claim was already recorded'
+          });
+        }
+        
+        // Try update if insert fails for other reasons
         const { error: updateError } = await supabase
           .from('link_visit_claims')
           .update({

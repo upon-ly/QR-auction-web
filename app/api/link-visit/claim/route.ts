@@ -476,7 +476,7 @@ export async function POST(request: NextRequest) {
       
       const fidLockAcquired = await redis.set(fidLockKey, Date.now().toString(), {
         nx: true, // Only set if not exists
-        ex: 60    // Expire in 60 seconds (covers full processing time)
+        ex: 300   // Extended to 5 minutes to cover blockchain + DB operations
       });
       
       if (!fidLockAcquired) {
@@ -496,7 +496,7 @@ export async function POST(request: NextRequest) {
     
     const lockAcquired = await redis.set(lockKey, Date.now().toString(), {
       nx: true, // Only set if not exists
-      ex: 60    // Expire in 60 seconds (covers full processing time)
+      ex: 300   // Extended to 5 minutes to cover blockchain + DB operations
     });
     
     if (!lockAcquired) {
@@ -1186,8 +1186,39 @@ export async function POST(request: NextRequest) {
         });
         
       if (insertError) {
-        // If insert fails, try an update as fallback
+        // If insert fails due to duplicate key, another concurrent request succeeded
         console.error('Error inserting claim record, trying update:', insertError);
+        
+        // Check if it's a duplicate key error
+        if (insertError.code === '23505' || insertError.message.includes('duplicate key')) {
+          // CRITICAL: This means another transaction already claimed!
+          // The blockchain transaction succeeded but someone else recorded the claim first
+          console.log(`⚠️ DUPLICATE CLAIM DETECTED: Transaction ${receipt.hash} succeeded but claim already exists`);
+          
+          // Try to fetch the existing claim to see who got there first
+          const { data: existingClaim } = await supabase
+            .from('link_visit_claims')
+            .select('tx_hash, claimed_at, eth_address')
+            .eq('fid', effectiveFid)
+            .eq('auction_id', auction_id)
+            .single();
+          
+          if (existingClaim) {
+            console.log(`⚠️ DUPLICATE TX: Original claim tx: ${existingClaim.tx_hash}, Duplicate tx: ${receipt.hash}`);
+          }
+          
+          // Still return success since the blockchain transaction went through
+          // but flag it as a duplicate for monitoring
+          return NextResponse.json({ 
+            success: true, 
+            warning: 'Transaction successful but claim was already recorded',
+            tx_hash: receipt.hash,
+            is_duplicate: true,
+            original_tx: existingClaim?.tx_hash
+          });
+        }
+        
+        // For other errors, try update as fallback
         const { error: updateError } = await supabase
           .from('link_visit_claims')
           .update({
@@ -1231,6 +1262,26 @@ export async function POST(request: NextRequest) {
             warning: 'Airdrop successful but failed to update claim record',
             tx_hash: receipt.hash
           });
+        }
+      }
+      
+      // CRITICAL: Release locks ONLY after successful database insert
+      // This prevents other requests from proceeding until the claim is recorded
+      if (lockKey) {
+        try {
+          await redis.del(lockKey);
+          console.log(`🔓 RELEASED ADDRESS LOCK (after DB): ${lockKey}`);
+        } catch (lockError) {
+          console.error('Error releasing address lock:', lockError);
+        }
+      }
+      
+      if (fidLockKey) {
+        try {
+          await redis.del(fidLockKey);
+          console.log(`🔓 RELEASED FID LOCK (after DB): ${fidLockKey}`);
+        } catch (lockError) {
+          console.error('Error releasing FID lock:', lockError);
         }
       }
       
@@ -1375,11 +1426,16 @@ export async function POST(request: NextRequest) {
       error: errorMessage
     }, { status: 500 });
   } finally {
-    // Always release locks if they were acquired (release in reverse order)
+    // Locks are now released after successful DB insert in the main flow
+    // Only release here if we're returning early due to an error
+    // Check if locks still exist (not already released in success path)
     if (lockKey) {
       try {
-        await redis.del(lockKey);
-        console.log(`🔓 RELEASED ADDRESS LOCK: ${lockKey}`);
+        const lockExists = await redis.exists(lockKey);
+        if (lockExists) {
+          await redis.del(lockKey);
+          console.log(`🔓 RELEASED ADDRESS LOCK (error path): ${lockKey}`);
+        }
       } catch (lockError) {
         console.error('Error releasing address lock:', lockError);
       }
@@ -1387,8 +1443,11 @@ export async function POST(request: NextRequest) {
     
     if (fidLockKey) {
       try {
-        await redis.del(fidLockKey);
-        console.log(`🔓 RELEASED FID LOCK: ${fidLockKey}`);
+        const lockExists = await redis.exists(fidLockKey);
+        if (lockExists) {
+          await redis.del(fidLockKey);
+          console.log(`🔓 RELEASED FID LOCK (error path): ${fidLockKey}`);
+        }
       } catch (lockError) {
         console.error('Error releasing FID lock:', lockError);
       }
