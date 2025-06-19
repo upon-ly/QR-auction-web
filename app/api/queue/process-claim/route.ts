@@ -155,15 +155,15 @@ export async function POST(req: NextRequest) {
     const banCheckConditions = [];
     
     if (failure.fid && failure.fid > 0) {
-      banCheckConditions.push(`fid = ${failure.fid}`);
+      banCheckConditions.push(`fid.eq.${failure.fid}`);
     }
     
     if (failure.eth_address) {
-      banCheckConditions.push(`LOWER(eth_address) = LOWER('${failure.eth_address}')`);
+      banCheckConditions.push(`eth_address.ilike.${failure.eth_address}`);
     }
     
     if (failure.username) {
-      banCheckConditions.push(`LOWER(username) = LOWER('${failure.username}')`);
+      banCheckConditions.push(`username.ilike.${failure.username}`);
     }
     
     if (banCheckConditions.length > 0) {

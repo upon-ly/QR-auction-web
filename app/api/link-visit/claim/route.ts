@@ -469,15 +469,15 @@ export async function POST(request: NextRequest) {
     const banCheckConditions = [];
     
     if (claim_source !== 'web' && fid) {
-      banCheckConditions.push(`fid = ${fid}`);
+      banCheckConditions.push(`fid.eq.${fid}`);
     }
     
     if (address) {
-      banCheckConditions.push(`LOWER(eth_address) = LOWER('${address}')`);
+      banCheckConditions.push(`eth_address.ilike.${address}`);
     }
     
     if (username && claim_source !== 'web') {
-      banCheckConditions.push(`LOWER(username) = LOWER('${username}')`);
+      banCheckConditions.push(`username.ilike.${username}`);
     }
     
     if (banCheckConditions.length > 0) {
