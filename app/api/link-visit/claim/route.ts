@@ -354,6 +354,7 @@ async function executeWithRetry<T>(
 export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
   let lockKey: string | undefined;
+  let fidLockKey: string | undefined;
   let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
   let walletPool: ReturnType<typeof getWalletPool> | null = null;
   
@@ -469,7 +470,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
     }
     
-    // Create user-specific lock to prevent concurrent duplicate claims
+    // For mini-app claims, acquire FID lock first to prevent same FID claiming with multiple addresses
+    if (claim_source !== 'web' && fid) {
+      fidLockKey = `claim-fid-lock:${fid}:${auction_id}`;
+      
+      const fidLockAcquired = await redis.set(fidLockKey, Date.now().toString(), {
+        nx: true, // Only set if not exists
+        ex: 60    // Expire in 60 seconds (covers full processing time)
+      });
+      
+      if (!fidLockAcquired) {
+        console.log(`🔒 FID DUPLICATE BLOCKED: FID ${fid} already processing claim for auction ${auction_id}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This Farcaster account is already processing a claim. Please wait a moment and try again.',
+          code: 'FID_CLAIM_IN_PROGRESS'
+        }, { status: 429 });
+      }
+      
+      console.log(`🔓 ACQUIRED FID LOCK: FID ${fid} for auction ${auction_id}`);
+    }
+    
+    // Create user-specific address lock to prevent concurrent duplicate claims
     lockKey = `claim-lock:${address?.toLowerCase()}:${auction_id}`;
     
     const lockAcquired = await redis.set(lockKey, Date.now().toString(), {
@@ -478,15 +500,15 @@ export async function POST(request: NextRequest) {
     });
     
     if (!lockAcquired) {
-      console.log(`🔒 DUPLICATE BLOCKED: ${address} already processing claim for auction ${auction_id}`);
+      console.log(`🔒 ADDRESS DUPLICATE BLOCKED: ${address} already processing claim for auction ${auction_id}`);
       return NextResponse.json({ 
         success: false, 
         error: 'A claim is already being processed for this address. Please wait a moment and try again.',
-        code: 'CLAIM_IN_PROGRESS'
+        code: 'ADDRESS_CLAIM_IN_PROGRESS'
       }, { status: 429 });
     }
     
-    console.log(`🔓 ACQUIRED LOCK: ${address} for auction ${auction_id}`);
+    console.log(`🔓 ACQUIRED ADDRESS LOCK: ${address} for auction ${auction_id}`);
     
     try {
       // Validate required parameters based on context
@@ -1398,13 +1420,22 @@ export async function POST(request: NextRequest) {
       error: errorMessage
     }, { status: 500 });
   } finally {
-    // Always release the lock if it was acquired
+    // Always release locks if they were acquired (release in reverse order)
     if (lockKey) {
       try {
         await redis.del(lockKey);
-        console.log(`🔓 RELEASED LOCK: ${lockKey}`);
+        console.log(`🔓 RELEASED ADDRESS LOCK: ${lockKey}`);
       } catch (lockError) {
-        console.error('Error releasing lock:', lockError);
+        console.error('Error releasing address lock:', lockError);
+      }
+    }
+    
+    if (fidLockKey) {
+      try {
+        await redis.del(fidLockKey);
+        console.log(`🔓 RELEASED FID LOCK: ${fidLockKey}`);
+      } catch (lockError) {
+        console.error('Error releasing FID lock:', lockError);
       }
     }
   }
