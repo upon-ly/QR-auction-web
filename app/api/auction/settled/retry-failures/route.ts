@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
       
       // Get current auction info from contract
       const currentAuction = await auctionContract.auction();
-      const currentAuctionId = currentAuction.tokenId;
-      const expectedSettledAuctionId = currentAuctionId - 1n; // The auction that just settled
+      const currentAuctionId = currentAuction.tokenId - 1n;
+      const expectedSettledAuctionId = currentAuctionId - 2n; // The auction that just settled
       
       console.log(`Current auction: ${currentAuctionId}, Requested retry for: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
       
