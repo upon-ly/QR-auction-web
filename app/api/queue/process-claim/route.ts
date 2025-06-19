@@ -90,6 +90,8 @@ const ERC20_ABI = [
 ];
 
 export async function POST(req: NextRequest) {
+  let queueLockKey: string | undefined;
+  
   // Verify the request is from QStash
   try {
     const signature = req.headers.get('upstash-signature');
@@ -113,6 +115,25 @@ export async function POST(req: NextRequest) {
     
     console.log(`Processing queued claim: ${failureId}, attempt: ${attempt}`);
     
+    // Acquire queue processing lock to prevent duplicate processing of same failure
+    queueLockKey = `queue-failure-lock:${failureId}`;
+    
+    const queueLockAcquired = await redis.set(queueLockKey, Date.now().toString(), {
+      nx: true, // Only set if not exists
+      ex: 300   // Expire in 5 minutes (longer than normal processing time)
+    });
+    
+    if (!queueLockAcquired) {
+      console.log(`🔒 QUEUE DUPLICATE BLOCKED: Failure ${failureId} already being processed`);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'This failure is already being processed by another worker.',
+        code: 'QUEUE_PROCESSING_IN_PROGRESS'
+      }, { status: 429 });
+    }
+    
+    console.log(`🔓 ACQUIRED QUEUE LOCK: Failure ${failureId}`);
+    
     // Get the failure details from the database
     const { data: failure, error: fetchError } = await supabase
       .from('link_visit_claim_failures')
@@ -129,6 +150,136 @@ export async function POST(req: NextRequest) {
     const claimSource = failure.claim_source || 'mini_app';
     
     console.log(`Processing queued claim with source: ${claimSource}`);
+    
+    // PRIORITY: Early duplicate check - see if this has been claimed since the failure was queued
+    console.log(`🔍 QUEUE EARLY DUPLICATE CHECK: Checking if already claimed for auction ${failure.auction_id}`);
+    
+    // Check by address first (applies to both web and mini-app)
+    const { data: existingClaimByAddress, error: addressCheckError } = await supabase
+      .from('link_visit_claims')
+      .select('tx_hash, claimed_at, claim_source')
+      .eq('eth_address', failure.eth_address)
+      .eq('auction_id', failure.auction_id)
+      .not('claimed_at', 'is', null);
+    
+    if (addressCheckError) {
+      console.error('Error in queue early address duplicate check:', addressCheckError);
+      return NextResponse.json({
+        success: false,
+        error: 'Database error when checking claim status'
+      });
+    }
+    
+    if (existingClaimByAddress && existingClaimByAddress.length > 0) {
+      const existing = existingClaimByAddress[0];
+      console.log(`🚫 QUEUE EARLY DUPLICATE BY ADDRESS: ${failure.eth_address} already claimed for auction ${failure.auction_id} at tx ${existing.tx_hash} (source: ${existing.claim_source})`);
+      
+      // Update retry status and clean up
+      await updateRetryStatus(failureId, {
+        status: 'already_claimed_by_address',
+        completedAt: new Date().toISOString()
+      });
+      
+      // Delete the failure record
+      await supabase
+        .from('link_visit_claim_failures')
+        .delete()
+        .eq('id', failureId);
+      
+      return NextResponse.json({ 
+        success: true, 
+        status: 'already_claimed_by_address',
+        tx_hash: existing.tx_hash
+      });
+    }
+    
+    // For mini-app claims, also check by FID
+    if (claimSource !== 'web' && failure.fid && failure.fid > 0) {
+      const { data: existingClaimByFid, error: fidCheckError } = await supabase
+        .from('link_visit_claims')
+        .select('tx_hash, claimed_at, claim_source')
+        .eq('fid', failure.fid)
+        .eq('auction_id', failure.auction_id)
+        .not('claimed_at', 'is', null);
+      
+      if (fidCheckError) {
+        console.error('Error in queue early FID duplicate check:', fidCheckError);
+        return NextResponse.json({
+          success: false,
+          error: 'Database error when checking FID claim status'
+        });
+      }
+      
+      if (existingClaimByFid && existingClaimByFid.length > 0) {
+        const existing = existingClaimByFid[0];
+        console.log(`🚫 QUEUE EARLY DUPLICATE BY FID: FID ${failure.fid} already claimed for auction ${failure.auction_id} at tx ${existing.tx_hash} (source: ${existing.claim_source})`);
+        
+        // Update retry status and clean up
+        await updateRetryStatus(failureId, {
+          status: 'already_claimed_by_fid',
+          completedAt: new Date().toISOString()
+        });
+        
+        // Delete the failure record
+        await supabase
+          .from('link_visit_claim_failures')
+          .delete()
+          .eq('id', failureId);
+        
+        return NextResponse.json({ 
+          success: true, 
+          status: 'already_claimed_by_fid',
+          tx_hash: existing.tx_hash
+        });
+      }
+    }
+    
+    // Check by user ID/username if available
+    if (failure.user_id || failure.username) {
+      const checkField = failure.user_id ? 'user_id' : 'username';
+      const checkValue = failure.user_id || failure.username;
+      
+      const { data: existingClaimByUser, error: userCheckError } = await supabase
+        .from('link_visit_claims')
+        .select('tx_hash, claimed_at, claim_source')
+        .eq(checkField, checkValue)
+        .eq('auction_id', failure.auction_id)
+        .not('claimed_at', 'is', null);
+      
+      if (userCheckError) {
+        console.error(`Error in queue early ${checkField} duplicate check:`, userCheckError);
+        return NextResponse.json({
+          success: false,
+          error: `Database error when checking ${checkField} claim status`
+        });
+      }
+      
+      if (existingClaimByUser && existingClaimByUser.length > 0) {
+        const existing = existingClaimByUser[0];
+        const userIdentifier = failure.user_id ? `User ID ${failure.user_id}` : `Username ${failure.username}`;
+        console.log(`🚫 QUEUE EARLY DUPLICATE BY ${checkField.toUpperCase()}: ${userIdentifier} already claimed for auction ${failure.auction_id} at tx ${existing.tx_hash} (source: ${existing.claim_source})`);
+        
+        // Update retry status and clean up
+        await updateRetryStatus(failureId, {
+          status: `already_claimed_by_${checkField}`,
+          completedAt: new Date().toISOString()
+        });
+        
+        // Delete the failure record
+        await supabase
+          .from('link_visit_claim_failures')
+          .delete()
+          .eq('id', failureId);
+        
+        return NextResponse.json({ 
+          success: true, 
+          status: `already_claimed_by_${checkField}`,
+          tx_hash: existing.tx_hash
+        });
+      }
+    }
+    
+    console.log(`✅ QUEUE EARLY DUPLICATE CHECK PASSED: No existing claims found for auction ${failure.auction_id}`);
     
     // Initialize provider
     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -180,36 +331,6 @@ export async function POST(req: NextRequest) {
         processingStarted: new Date().toISOString(),
         currentAttempt: attempt
       });
-      
-      // Check if it's already been handled successfully
-      const { data: existingClaim } = await supabase
-        .from('link_visit_claims')
-        .select('*')
-        .eq('fid', failure.fid)
-        .eq('auction_id', failure.auction_id)
-        .eq('success', true)
-        .maybeSingle();
-      
-      if (existingClaim) {
-        console.log(`User already has successful claim for auction ${failure.auction_id}`);
-        
-        // Update retry status
-        await updateRetryStatus(failureId, {
-          status: 'already_claimed',
-          completedAt: new Date().toISOString()
-        });
-        
-        // Delete the failure record
-        await supabase
-          .from('link_visit_claim_failures')
-          .delete()
-          .eq('id', failureId);
-        
-        return NextResponse.json({ 
-          success: true, 
-          status: 'already_claimed'
-        });
-      }
       
       // Check wallet balances
       const ethBalance = await provider.getBalance(adminWallet.address);
@@ -478,5 +599,15 @@ export async function POST(req: NextRequest) {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  } finally {
+    // Always release the queue lock if it was acquired
+    if (queueLockKey) {
+      try {
+        await redis.del(queueLockKey);
+        console.log(`🔓 RELEASED QUEUE LOCK: ${queueLockKey}`);
+      } catch (lockError) {
+        console.error('Error releasing queue lock:', lockError);
+      }
+    }
   }
 } 

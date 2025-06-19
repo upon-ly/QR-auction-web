@@ -511,6 +511,65 @@ export async function POST(request: NextRequest) {
     console.log(`🔓 ACQUIRED ADDRESS LOCK: ${address} for auction ${auction_id}`);
     
     try {
+      // PRIORITY: Check duplicates immediately after acquiring locks, before expensive operations
+      console.log(`🔍 EARLY DUPLICATE CHECK: Checking claims for auction ${auction_id}`);
+      
+      // Quick duplicate check by address first (applies to both web and mini-app)
+      const { data: existingClaimByAddress, error: addressCheckError } = await supabase
+        .from('link_visit_claims')
+        .select('tx_hash, claimed_at, claim_source')
+        .eq('eth_address', address)
+        .eq('auction_id', auction_id)
+        .not('claimed_at', 'is', null);
+      
+      if (addressCheckError) {
+        console.error('Error in early address duplicate check:', addressCheckError);
+        return NextResponse.json({
+          success: false,
+          error: 'Database error when checking claim status'
+        }, { status: 500 });
+      }
+      
+      if (existingClaimByAddress && existingClaimByAddress.length > 0) {
+        const existing = existingClaimByAddress[0];
+        console.log(`🚫 EARLY DUPLICATE DETECTED BY ADDRESS: ${address} already claimed for auction ${auction_id} at tx ${existing.tx_hash} (source: ${existing.claim_source})`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This wallet address has already claimed tokens for this auction',
+          tx_hash: existing.tx_hash
+        }, { status: 400 });
+      }
+      
+      // For mini-app users, also check by FID
+      if (claim_source !== 'web' && fid) {
+        const { data: existingClaimByFid, error: fidCheckError } = await supabase
+          .from('link_visit_claims')
+          .select('tx_hash, claimed_at, claim_source')
+          .eq('fid', fid)
+          .eq('auction_id', auction_id)
+          .not('claimed_at', 'is', null);
+        
+        if (fidCheckError) {
+          console.error('Error in early FID duplicate check:', fidCheckError);
+          return NextResponse.json({
+            success: false,
+            error: 'Database error when checking FID claim status'
+          }, { status: 500 });
+        }
+        
+        if (existingClaimByFid && existingClaimByFid.length > 0) {
+          const existing = existingClaimByFid[0];
+          console.log(`🚫 EARLY DUPLICATE DETECTED BY FID: FID ${fid} already claimed for auction ${auction_id} at tx ${existing.tx_hash} (source: ${existing.claim_source})`);
+          return NextResponse.json({ 
+            success: false, 
+            error: 'This Farcaster account has already claimed tokens for this auction',
+            tx_hash: existing.tx_hash
+          }, { status: 400 });
+        }
+      }
+      
+      console.log(`✅ EARLY DUPLICATE CHECK PASSED: No existing claims found for auction ${auction_id}`);
+      
       // Validate required parameters based on context
       let effectiveFid: number;
       let effectiveUsername: string | null = null;
@@ -701,157 +760,53 @@ export async function POST(request: NextRequest) {
       console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
-    // Check if user has already claimed tokens for this auction (check userId, FID, and address)
-    let claimDataByFid = null;
-    let selectErrorByFid = null;
+    // Clean up any incomplete claims (no tx_hash) for this FID/address/user to allow retry
+    console.log(`🧹 CLEANUP: Removing any incomplete claims for auction ${auction_id}`);
     
-    // Only check FID for mini-app users (skip for web users since they all use negative FIDs)
-    if (claim_source !== 'web') {
-      const fidCheck = await supabase
-        .from('link_visit_claims')
-        .select('*')
-        .eq('fid', fid)
-        .eq('auction_id', auction_id);
-      
-      claimDataByFid = fidCheck.data;
-      selectErrorByFid = fidCheck.error;
-    }
-    
-    const { data: claimDataByAddress, error: selectErrorByAddress } = await supabase
+    // Clean up incomplete claims by address
+    const { error: cleanupAddressError } = await supabase
       .from('link_visit_claims')
-      .select('*')
+      .delete()
       .eq('eth_address', address)
-      .eq('auction_id', auction_id);
+      .eq('auction_id', auction_id)
+      .is('tx_hash', null);
     
-    if (selectErrorByFid || selectErrorByAddress) {
-      console.error('Error checking claim status:', selectErrorByFid || selectErrorByAddress);
-      
-      // Log database error
-      await logFailedTransaction({
-        fid: effectiveFid,
-        eth_address: address,
-        auction_id,
-        username: effectiveUsername,
-        user_id: effectiveUserId,
-        error_message: 'Database error when checking claim status',
-        error_code: (selectErrorByFid || selectErrorByAddress)?.code || 'DB_SELECT_ERROR',
-        request_data: requestData as Record<string, unknown>,
-        network_status: 'db_error',
-        client_ip: clientIP
-      });
-      
-      return NextResponse.json({
-        success: false,
-        error: 'Database error when checking claim status'
-      }, { status: 500 });
+    if (cleanupAddressError) {
+      console.warn('Error cleaning up incomplete address claims:', cleanupAddressError);
     }
     
-    // Check if this FID has already claimed
-    if (claim_source !== 'web' && claimDataByFid && claimDataByFid.length > 0 && claimDataByFid[0].claimed_at) {
-      if (claimDataByFid[0].tx_hash) {
-        console.log(`User ${fid} has already claimed tokens for auction ${auction_id} at tx ${claimDataByFid[0].tx_hash}`);
-        
-        // Don't queue failed transactions for duplicate claims - these are user errors
-        return NextResponse.json({ 
-          success: false, 
-          error: 'This Farcaster account has already claimed tokens for this auction',
-          tx_hash: claimDataByFid[0].tx_hash
-        }, { status: 400 });
-      } else {
-        // Incomplete claim by FID - delete and allow retry
-        console.log(`Found incomplete claim for user ${fid}, auction ${auction_id} - allowing retry`);
-        await supabase
-          .from('link_visit_claims')
-          .delete()
-          .match({
-            fid: fid,
-            auction_id: auction_id
-          });
+    // Clean up incomplete claims by FID (mini-app only)
+    if (claim_source !== 'web' && fid) {
+      const { error: cleanupFidError } = await supabase
+        .from('link_visit_claims')
+        .delete()
+        .eq('fid', fid)
+        .eq('auction_id', auction_id)
+        .is('tx_hash', null);
+      
+      if (cleanupFidError) {
+        console.warn('Error cleaning up incomplete FID claims:', cleanupFidError);
       }
     }
     
-    // Check if this address has already claimed
-    if (claimDataByAddress && claimDataByAddress.length > 0 && claimDataByAddress[0].claimed_at) {
-      if (claimDataByAddress[0].tx_hash) {
-        console.log(`Address ${address} has already claimed tokens for auction ${auction_id} at tx ${claimDataByAddress[0].tx_hash}`);
-        
-        // Don't queue failed transactions for duplicate claims - these are user errors
-        return NextResponse.json({ 
-          success: false, 
-          error: 'This wallet address has already claimed tokens for this auction',
-          tx_hash: claimDataByAddress[0].tx_hash
-        }, { status: 400 });
-      } else {
-        // Incomplete claim by address - delete and allow retry
-        console.log(`Found incomplete claim for address ${address}, auction ${auction_id} - allowing retry`);
-        await supabase
-          .from('link_visit_claims')
-          .delete()
-          .match({
-            eth_address: address,
-            auction_id: auction_id
-          });
-      }
-    }
-    
-    // Check if this userId (web) or username (mini-app) has already claimed
+    // Clean up incomplete claims by user (if applicable)
     if (effectiveUserId || effectiveUsername) {
       const checkField = effectiveUserId ? 'user_id' : 'username';
       const checkValue = effectiveUserId || effectiveUsername;
       
-      const { data: claimDataByUser, error: selectErrorByUser } = await supabase
+      const { error: cleanupUserError } = await supabase
         .from('link_visit_claims')
-        .select('*')
+        .delete()
         .eq(checkField, checkValue)
-        .eq('auction_id', auction_id);
+        .eq('auction_id', auction_id)
+        .is('tx_hash', null);
       
-      if (selectErrorByUser) {
-        console.error(`Error checking ${checkField} claim status:`, selectErrorByUser);
-        
-        await logFailedTransaction({
-          fid: effectiveFid,
-          eth_address: address,
-          auction_id,
-          username: effectiveUsername,
-          user_id: effectiveUserId,
-          error_message: `Database error when checking ${checkField} claim status`,
-          error_code: selectErrorByUser?.code || 'DB_USER_CHECK_ERROR',
-          request_data: requestData as Record<string, unknown>,
-          network_status: 'db_error',
-          client_ip: clientIP
-        });
-        
-        return NextResponse.json({
-          success: false,
-          error: `Database error when checking ${checkField} claim status`
-        }, { status: 500 });
-      }
-      
-      if (claimDataByUser && claimDataByUser.length > 0 && claimDataByUser[0].claimed_at) {
-        if (claimDataByUser[0].tx_hash) {
-          const userIdentifier = effectiveUserId ? `User ID ${effectiveUserId}` : `Username ${effectiveUsername}`;
-          console.log(`${userIdentifier} has already claimed tokens for auction ${auction_id} at tx ${claimDataByUser[0].tx_hash} (source: ${claimDataByUser[0].claim_source})`);
-          
-          // Don't queue failed transactions for duplicate claims - these are user errors
-          return NextResponse.json({ 
-            success: false, 
-            error: 'This user has already claimed tokens for this auction',
-            tx_hash: claimDataByUser[0].tx_hash
-          }, { status: 400 });
-        } else {
-          // Incomplete claim by user - delete and allow retry
-          const userIdentifier = effectiveUserId ? `user ID ${effectiveUserId}` : `username ${effectiveUsername}`;
-          console.log(`Found incomplete claim for ${userIdentifier}, auction ${auction_id} - allowing retry`);
-          await supabase
-            .from('link_visit_claims')
-            .delete()
-            .match({
-              [checkField]: checkValue,
-              auction_id: auction_id
-            });
-        }
+      if (cleanupUserError) {
+        console.warn(`Error cleaning up incomplete ${checkField} claims:`, cleanupUserError);
       }
     }
+    
+    console.log(`✅ CLEANUP COMPLETE: Ready to proceed with new claim`);
     
     // Initialize ethers provider and get wallet from pool
     const provider = new ethers.JsonRpcProvider(RPC_URL);
