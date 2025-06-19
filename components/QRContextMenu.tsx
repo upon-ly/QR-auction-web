@@ -42,7 +42,7 @@ export function QRContextMenu({ children, className, isHeaderLogo = false }: QRC
     // Create a new image to load the QR
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "/qrLogo.png";
+    img.src = "/qrLogoWebsite.png";
     
     img.onload = () => {
       const canvas = document.createElement("canvas");

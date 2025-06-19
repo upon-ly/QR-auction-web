@@ -820,7 +820,7 @@ export function LikesRecastsClaimPopup({
                 className="w-28 h-28 rounded-full flex items-center justify-center bg-secondary mt-6"
               >
                 <img 
-                  src="/qrLogo.png" 
+                  src="/qrLogoWebsite.png" 
                   alt="QR Token" 
                   className="w-28 h-28"
                 />
@@ -1002,7 +1002,7 @@ export function LikesRecastsClaimPopup({
                 className="w-28 h-28 rounded-full flex items-center justify-center bg-secondary mt-6"
               >
                 <img 
-                  src="/qrLogo.png" 
+                  src="/qrLogoWebsite.png" 
                   alt="QR Logo" 
                   className="w-28 h-28"
                 />

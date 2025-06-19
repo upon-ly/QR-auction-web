@@ -1120,7 +1120,7 @@ export function CustomWallet() {
                         {/* QR balance */}
                         <div className="rounded-lg bg-muted/30 p-2.5 flex flex-col items-center justify-center">
                           <Image 
-                            src="/qrLogo.png" 
+                            src="/qrLogoWebsite.png" 
                             alt="$QR" 
                             width={18} 
                             height={18}
@@ -1320,7 +1320,7 @@ export function CustomWallet() {
                                 </div>
                                 <div className="flex justify-between items-center text-xs sm:text-sm">
                                     <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <Image src="/qrLogo.png" alt="$QR" width={14} height={14} className="sm:w-4 sm:h-4" /> $QR
+                                        <Image src="/qrLogoWebsite.png" alt="$QR" width={14} height={14} className="sm:w-4 sm:h-4" /> $QR
                                     </span>
                                     {tokensLoading ? <Skeleton className="h-4 w-16" /> :
                                     <span className="font-mono">{new Intl.NumberFormat().format(qrBalance)}</span>
@@ -1366,7 +1366,7 @@ export function CustomWallet() {
                                             <Image src="https://www.cryptologos.cc/logos/usd-coin-usdc-logo.png?v=040" alt="USDC" width={14} height={14} className="mr-2 sm:w-4 sm:h-4"/> USDC
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setSelectedToken('$QR')}>
-                                            <Image src="/qrLogo.png" alt="$QR" width={14} height={14} className="mr-2 sm:w-4 sm:h-4"/> $QR
+                                            <Image src="/qrLogoWebsite.png" alt="$QR" width={14} height={14} className="mr-2 sm:w-4 sm:h-4"/> $QR
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>

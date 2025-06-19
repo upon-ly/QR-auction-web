@@ -4,7 +4,7 @@
 export function QRPage() {
   return (
     <img
-      src="/qrLogo.png"
+      src="/qrLogoWebsite.png"
       alt="QR Code"
       className="md:flex-1 overflow-hidden w-[200px] h-[200px] md:w-[279px] md:h-[279px]"
     />

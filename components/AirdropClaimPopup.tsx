@@ -200,7 +200,7 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
               <Check className="h-20 w-20 text-green-500" />
             ) : (
               <img 
-                src="/qrLogo.png" 
+                src="/qrLogoWebsite.png" 
                 alt="QR Token" 
                 className="w-28 h-28"
               />

@@ -98,7 +98,7 @@ const basePrivyConfig = {
   appearance: {
     showWalletLoginFirst: false, // Changed to false to prioritize social logins
     accentColor: "hsl(var(--primary))", // Primary color from CSS
-    logo: `https://qrcoin.fun/qrLogo.png`,
+    logo: `https://qrcoin.fun/qrLogoWebsite.png`,
   },
   supportedChains: chains,
   defaultChain: useTestnets ? baseSepolia : mainnetOverride,
