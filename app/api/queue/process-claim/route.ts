@@ -151,6 +151,51 @@ export async function POST(req: NextRequest) {
     
     console.log(`Processing queued claim with source: ${claimSource}`);
     
+    // CHECK BANNED USERS before processing
+    const banCheckConditions = [];
+    
+    if (failure.fid && failure.fid > 0) {
+      banCheckConditions.push(`fid = ${failure.fid}`);
+    }
+    
+    if (failure.eth_address) {
+      banCheckConditions.push(`LOWER(eth_address) = LOWER('${failure.eth_address}')`);
+    }
+    
+    if (failure.username) {
+      banCheckConditions.push(`LOWER(username) = LOWER('${failure.username}')`);
+    }
+    
+    if (banCheckConditions.length > 0) {
+      const { data: bannedUser } = await supabase
+        .from('banned_users')
+        .select('fid, username, reason')
+        .or(banCheckConditions.join(','))
+        .single();
+      
+      if (bannedUser) {
+        console.log(`🚫 QUEUE: BANNED USER BLOCKED: FID=${failure.fid}, username=${failure.username}, reason=${bannedUser.reason}`);
+        
+        // Update retry status
+        await updateRetryStatus(failureId, {
+          status: 'banned_user',
+          completedAt: new Date().toISOString()
+        });
+        
+        // Delete from failures table
+        await supabase
+          .from('link_visit_claim_failures')
+          .delete()
+          .eq('id', failureId);
+        
+        return NextResponse.json({ 
+          success: false, 
+          status: 'banned_user',
+          error: 'User is banned'
+        });
+      }
+    }
+    
     // PRIORITY: Early duplicate check - see if this has been claimed since the failure was queued
     console.log(`🔍 QUEUE EARLY DUPLICATE CHECK: Checking if already claimed for auction ${failure.auction_id}`);
     
@@ -540,6 +585,49 @@ export async function POST(req: NextRequest) {
         if (insertError.code === '23505' || insertError.message.includes('duplicate key')) {
           // CRITICAL: This means another transaction already claimed!
           console.log(`⚠️ QUEUE DUPLICATE CLAIM: Transaction ${txReceipt.hash} succeeded but claim already exists`);
+          
+          // AUTO-BAN: This user managed to get multiple blockchain transactions through!
+          try {
+            // Get the existing claim to find the other transaction
+            const { data: existingClaim } = await supabase
+              .from('link_visit_claims')
+              .select('tx_hash')
+              .eq('fid', failure.fid)
+              .eq('auction_id', failure.auction_id)
+              .single();
+            
+            if (existingClaim) {
+              console.log(`🚨 QUEUE AUTO-BAN: FID ${failure.fid} exploited race condition`);
+              console.log(`🚨 Transactions: ${existingClaim.tx_hash} and ${txReceipt.hash}`);
+              
+              const duplicateTxs = [existingClaim.tx_hash, txReceipt.hash];
+              
+              // Ban this user
+              await supabase
+                .from('banned_users')
+                .insert({
+                  fid: failure.fid,
+                  username: failure.username,
+                  eth_address: failure.eth_address,
+                  reason: `Auto-banned: Exploited race condition via retry queue - auction ${failure.auction_id}`,
+                  created_at: new Date().toISOString(),
+                  banned_by: 'queue_race_detector',
+                  auto_banned: true,
+                  total_claims_attempted: 2,
+                  duplicate_transactions: duplicateTxs,
+                  total_tokens_received: duplicateTxs.length * 420,
+                  ban_metadata: {
+                    trigger: 'queue_duplicate_tx',
+                    auction_id: failure.auction_id,
+                    recorded_tx: existingClaim.tx_hash,
+                    duplicate_tx: txReceipt.hash,
+                    source: 'retry_queue'
+                  }
+                });
+            }
+          } catch (banError) {
+            console.error('Error auto-banning from queue:', banError);
+          }
           
           // Still mark as success since blockchain transaction went through
           await updateRetryStatus(failureId, {

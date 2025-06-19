@@ -464,10 +464,58 @@ export async function POST(request: NextRequest) {
       console.log(`✅ IP VALIDATION PASSED: IP=${clientIP} (auction: ${ipClaimsThisAuction?.length || 0}/3, daily: ${ipClaimsDaily?.length || 0}/5)`);
     }
     
-    // IMMEDIATE BLOCK for known abuser (before any validation) - only for mini-app users
-    if (claim_source !== 'web' && (fid === 521172 || username === 'nancheng' || address === '0x52d24FEcCb7C546ABaE9e89629c9b417e48FaBD2')) {
-      console.log(`🚫 BLOCKED ABUSER: IP=${clientIP}, FID=${fid}, username=${username}, address=${address}`);
-      return NextResponse.json({ success: false, error: 'Access Denied' }, { status: 403 });
+    // CHECK BANNED USERS TABLE - applies to both web and mini-app users
+    // Check by FID (mini-app) or address (both)
+    const banCheckConditions = [];
+    
+    if (claim_source !== 'web' && fid) {
+      banCheckConditions.push(`fid = ${fid}`);
+    }
+    
+    if (address) {
+      banCheckConditions.push(`LOWER(eth_address) = LOWER('${address}')`);
+    }
+    
+    if (username && claim_source !== 'web') {
+      banCheckConditions.push(`LOWER(username) = LOWER('${username}')`);
+    }
+    
+    if (banCheckConditions.length > 0) {
+      const { data: bannedUser, error: banCheckError } = await supabase
+        .from('banned_users')
+        .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
+        .or(banCheckConditions.join(','))
+        .single();
+      
+      if (banCheckError && banCheckError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error checking banned users:', banCheckError);
+      }
+      
+      if (bannedUser) {
+        console.log(`🚫 BANNED USER BLOCKED: IP=${clientIP}, FID=${fid || bannedUser.fid}, username=${username || bannedUser.username}, address=${address || bannedUser.eth_address}, reason=${bannedUser.reason}`);
+        
+        // Update last attempt and increment counter
+        const currentAttempts = bannedUser.total_claims_attempted || 0;
+        await supabase
+          .from('banned_users')
+          .update({
+            last_attempt_at: new Date().toISOString(),
+            total_claims_attempted: currentAttempts + 1
+          })
+          .eq('fid', bannedUser.fid);
+        
+        // Also update IP addresses with raw SQL
+        await supabase.rpc('add_ip_to_banned_user', {
+          banned_fid: bannedUser.fid,
+          new_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This account has been banned due to policy violations',
+          code: 'BANNED_USER'
+        }, { status: 403 });
+      }
     }
     
     // For mini-app claims, acquire FID lock first to prevent same FID claiming with multiple addresses
@@ -1198,13 +1246,56 @@ export async function POST(request: NextRequest) {
           // Try to fetch the existing claim to see who got there first
           const { data: existingClaim } = await supabase
             .from('link_visit_claims')
-            .select('tx_hash, claimed_at, eth_address')
+            .select('tx_hash, claimed_at, eth_address, fid')
             .eq('fid', effectiveFid)
             .eq('auction_id', auction_id)
             .single();
           
           if (existingClaim) {
             console.log(`⚠️ DUPLICATE TX: Original claim tx: ${existingClaim.tx_hash}, Duplicate tx: ${receipt.hash}`);
+            
+            // AUTO-BAN: This is PROOF they got multiple blockchain transactions through!
+            console.log(`🚨 AUTO-BAN TRIGGERED: Multiple successful blockchain transactions detected!`);
+            console.log(`🚨 FID ${effectiveFid} got at least 2 transactions: ${existingClaim.tx_hash} and ${receipt.hash}`);
+            
+            try {
+              // Record this duplicate transaction attempt for evidence
+              const duplicateTxs = [existingClaim.tx_hash, receipt.hash];
+              
+              // Ban this user immediately - they successfully exploited the race condition
+              const { error: banError } = await supabase
+                .from('banned_users')
+                .insert({
+                  fid: effectiveFid,
+                  username: effectiveUsername,
+                  eth_address: address,
+                  reason: `Auto-banned: Exploited race condition - multiple blockchain transactions for auction ${auction_id}`,
+                  created_at: new Date().toISOString(),
+                  banned_by: 'race_condition_detector',
+                  auto_banned: true,
+                  total_claims_attempted: 2, // At minimum, could be more
+                  duplicate_transactions: duplicateTxs,
+                  total_tokens_received: duplicateTxs.length * 420,
+                  ban_metadata: {
+                    trigger: 'duplicate_blockchain_tx_detected',
+                    auction_id: auction_id,
+                    recorded_tx: existingClaim.tx_hash,
+                    duplicate_tx: receipt.hash,
+                    duplicate_tx_timestamp: new Date().toISOString(),
+                    exploit_type: 'race_condition',
+                    note: 'User successfully executed multiple blockchain transactions before database lock'
+                  }
+                })
+                .select();
+              
+              if (banError && banError.code !== '23505') { // Ignore if already banned
+                console.error('Error auto-banning user:', banError);
+              } else {
+                console.log(`✅ User FID ${effectiveFid} banned for exploiting race condition`);
+              }
+            } catch (banError) {
+              console.error('Error in auto-ban process:', banError);
+            }
           }
           
           // Still return success since the blockchain transaction went through
@@ -1262,6 +1353,23 @@ export async function POST(request: NextRequest) {
             warning: 'Airdrop successful but failed to update claim record',
             tx_hash: receipt.hash
           });
+        }
+      }
+      
+      // Check for auto-ban conditions after successful claim
+      if (claim_source !== 'web' && effectiveFid > 0) {
+        try {
+          const { data: banCheck } = await supabase.rpc('check_and_auto_ban_user', {
+            check_fid: effectiveFid,
+            check_address: address,
+            check_username: effectiveUsername
+          });
+          
+          if (banCheck && banCheck[0]?.is_banned) {
+            console.log(`🚨 AUTO-BAN TRIGGERED: FID=${effectiveFid}, reason=${banCheck[0].ban_reason}`);
+          }
+        } catch (autoBanError) {
+          console.error('Error checking auto-ban conditions:', autoBanError);
         }
       }
       
