@@ -609,11 +609,11 @@ export async function POST(req: NextRequest) {
                   fid: failure.fid,
                   username: failure.username,
                   eth_address: failure.eth_address,
-                  reason: `Auto-banned: Exploited race condition via retry queue - auction ${failure.auction_id}`,
+                  reason: `Auto-banned: Exploited race condition via retry queue - got ${duplicateTxs.length} blockchain transactions for auction ${failure.auction_id}`,
                   created_at: new Date().toISOString(),
                   banned_by: 'queue_race_detector',
                   auto_banned: true,
-                  total_claims_attempted: 2,
+                  total_claims_attempted: duplicateTxs.length, // Only count the duplicate transactions for THIS auction
                   duplicate_transactions: duplicateTxs,
                   total_tokens_received: duplicateTxs.length * 420,
                   ban_metadata: {
@@ -621,7 +621,10 @@ export async function POST(req: NextRequest) {
                     auction_id: failure.auction_id,
                     recorded_tx: existingClaim.tx_hash,
                     duplicate_tx: txReceipt.hash,
-                    source: 'retry_queue'
+                    source: 'retry_queue',
+                    exploited_auction: failure.auction_id,
+                    duplicate_count: duplicateTxs.length,
+                    note: `User successfully executed ${duplicateTxs.length} blockchain transactions for auction ${failure.auction_id} via retry queue`
                   }
                 });
             }

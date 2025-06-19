@@ -1269,11 +1269,11 @@ export async function POST(request: NextRequest) {
                   fid: effectiveFid,
                   username: effectiveUsername,
                   eth_address: address,
-                  reason: `Auto-banned: Exploited race condition - multiple blockchain transactions for auction ${auction_id}`,
+                  reason: `Auto-banned: Exploited race condition - got ${duplicateTxs.length} blockchain transactions for auction ${auction_id}`,
                   created_at: new Date().toISOString(),
                   banned_by: 'race_condition_detector',
                   auto_banned: true,
-                  total_claims_attempted: 2, // At minimum, could be more
+                  total_claims_attempted: duplicateTxs.length, // Only count the duplicate transactions for THIS auction
                   duplicate_transactions: duplicateTxs,
                   total_tokens_received: duplicateTxs.length * 420,
                   ban_metadata: {
@@ -1283,7 +1283,9 @@ export async function POST(request: NextRequest) {
                     duplicate_tx: receipt.hash,
                     duplicate_tx_timestamp: new Date().toISOString(),
                     exploit_type: 'race_condition',
-                    note: 'User successfully executed multiple blockchain transactions before database lock'
+                    exploited_auction: auction_id,
+                    duplicate_count: duplicateTxs.length,
+                    note: `User successfully executed ${duplicateTxs.length} blockchain transactions for auction ${auction_id} before database lock`
                   }
                 })
                 .select();
@@ -1356,22 +1358,8 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Check for auto-ban conditions after successful claim
-      if (claim_source !== 'web' && effectiveFid > 0) {
-        try {
-          const { data: banCheck } = await supabase.rpc('check_and_auto_ban_user', {
-            check_fid: effectiveFid,
-            check_address: address,
-            check_username: effectiveUsername
-          });
-          
-          if (banCheck && banCheck[0]?.is_banned) {
-            console.log(`🚨 AUTO-BAN TRIGGERED: FID=${effectiveFid}, reason=${banCheck[0].ban_reason}`);
-          }
-        } catch (autoBanError) {
-          console.error('Error checking auto-ban conditions:', autoBanError);
-        }
-      }
+      // REMOVED: Overly aggressive auto-ban check that was banning legitimate users
+      // Auto-ban only happens when we detect actual exploitation (duplicate blockchain transactions)
       
       // CRITICAL: Release locks ONLY after successful database insert
       // This prevents other requests from proceeding until the claim is recorded
