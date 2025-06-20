@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       console.log(`Current auction: ${currentAuctionId}, Requested retry for: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
       
       // Only allow retries for the auction that just settled (current - 1)
-      if (BigInt(auctionId) - 1n !== expectedSettledAuctionId) {
+      if (BigInt(auctionId) !== expectedSettledAuctionId) {
         console.error(`Security check failed: Can only retry the most recently settled auction (${expectedSettledAuctionId}), requested: ${auctionId}`);
         return NextResponse.json({ 
           success: false, 
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     const { data: failures, error: fetchError } = await supabase
       .from('link_visit_claim_failures')
       .select('*')
-      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
+      .eq('auction_id', auctionId.toString())
       .order('created_at', { ascending: true });
 
     if (fetchError) {
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
 
     // Check wallet balances before processing
     const ethBalance = await provider.getBalance(adminWallet.address);
-    if (ethBalance < ethers.parseEther("0.01")) {
+    if (ethBalance < ethers.parseEther("0.005")) {
       console.error('Insufficient ETH for batch processing');
       return NextResponse.json({ 
         success: false, 

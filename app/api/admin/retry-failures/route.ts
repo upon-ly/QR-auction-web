@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       console.log(`Admin manual retry: Current auction: ${currentAuctionId}, Requested: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
       
       // Only allow retries for the auction that just settled (current - 1)
-      if (BigInt(auctionId) - 1n !== expectedSettledAuctionId) {
+      if (BigInt(auctionId) !== expectedSettledAuctionId) {
         console.error(`Admin retry security check failed: Can only retry the most recently settled auction (${expectedSettledAuctionId}), requested: ${auctionId}`);
         return NextResponse.json({ 
           success: false, 
