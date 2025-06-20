@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
     const { data: failures, error: fetchError } = await supabase
       .from('link_visit_claim_failures')
       .select('id, fid, created_at, error_message, retry_count')
-      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
+      .eq('auction_id', auctionId.toString())
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
     const { data: successfulClaims, error: claimsError } = await supabase
       .from('link_visit_claims')
       .select('id')
-      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
+      .eq('auction_id', auctionId.toString())
       .eq('success', true);
 
     if (claimsError) {
