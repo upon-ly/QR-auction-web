@@ -98,13 +98,13 @@ export async function POST(req: NextRequest) {
       
       // Get current auction info from contract
       const currentAuction = await auctionContract.auction();
-      const currentAuctionId = currentAuction.tokenId - 1n;
-      const expectedSettledAuctionId = currentAuctionId - 2n; // The auction that just settled
+      const currentAuctionId = currentAuction.tokenId - 2n;
+      const expectedSettledAuctionId = currentAuctionId; // The auction that just settled
       
       console.log(`Current auction: ${currentAuctionId}, Requested retry for: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
       
       // Only allow retries for the auction that just settled (current - 1)
-      if (BigInt(auctionId) !== expectedSettledAuctionId) {
+      if (BigInt(auctionId) - 1n !== expectedSettledAuctionId) {
         console.error(`Security check failed: Can only retry the most recently settled auction (${expectedSettledAuctionId}), requested: ${auctionId}`);
         return NextResponse.json({ 
           success: false, 
