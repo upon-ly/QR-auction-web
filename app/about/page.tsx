@@ -39,7 +39,7 @@ export default function AboutPage() {
           <div>
             <h2 className="text-xl font-bold mb-2">The Token:</h2>
             <p className="mb-2">There is a cryptocurrency associated with this project called QR coin ($QR).</p>
-            <p className="mb-2">The $QR contract address is: 0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF</p>
+            <p className="mb-2">The $QR contract address is: <span className="text-sm">0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF</span></p>
             <p className="font-bold">You can earn $QR every day by checking out the link of the day and claiming a reward.</p>
           </div>
         </div>
