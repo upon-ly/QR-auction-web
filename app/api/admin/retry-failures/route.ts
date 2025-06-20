@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
       
       // Get current auction info from contract
       const currentAuction = await auctionContract.auction();
-      const currentAuctionId = currentAuction.tokenId - 1n;
-      const expectedSettledAuctionId = currentAuctionId - 2n; // The auction that just settled
+      const currentAuctionId = currentAuction.tokenId - 2n;
+      const expectedSettledAuctionId = currentAuctionId; // The auction that just settled
       
       console.log(`Admin manual retry: Current auction: ${currentAuctionId}, Requested: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
       
       // Only allow retries for the auction that just settled (current - 1)
-      if (BigInt(auctionId) !== expectedSettledAuctionId) {
+      if (BigInt(auctionId) - 1n !== expectedSettledAuctionId) {
         console.error(`Admin retry security check failed: Can only retry the most recently settled auction (${expectedSettledAuctionId}), requested: ${auctionId}`);
         return NextResponse.json({ 
           success: false, 
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
     const { data: failures, error: fetchError } = await supabase
       .from('link_visit_claim_failures')
       .select('id, fid, created_at, error_message, retry_count')
-      .eq('auction_id', auctionId)
+      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
     const { data: successfulClaims, error: claimsError } = await supabase
       .from('link_visit_claims')
       .select('id')
-      .eq('auction_id', parseInt(auctionId))
+      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
       .eq('success', true);
 
     if (claimsError) {

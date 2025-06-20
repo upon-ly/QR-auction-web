@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     const { data: failures, error: fetchError } = await supabase
       .from('link_visit_claim_failures')
       .select('*')
-      .eq('auction_id', auctionId.toString())
+      .eq('auction_id', (BigInt(auctionId) - 1n).toString())
       .order('created_at', { ascending: true });
 
     if (fetchError) {
