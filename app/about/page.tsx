@@ -27,59 +27,20 @@ export default function AboutPage() {
   return (
     <main className="min-h-screen p-4 md:px-8 md:pb-8">
       <div className="max-w-3xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">About</h1>
         <div className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold mb-2">What is this?</h2>
-            <p className="mb-2"><Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link> is a website with a daily auction.</p>
+            <h2 className="text-xl font-bold mb-2">The Auction:</h2>
+            <p className="mb-2"><Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00]">qrcoin.fun</Link> is a daily auction for attention.</p>
+            <p className="mb-2">The winner of our daily auction decides where the QR points for a day.</p>
+            <p>Winning our daily auction is a great way to drive attention to any link on the internet for a day.</p>
           </div>
           
           <div>
-            <h2 className="text-xl font-bold mb-2">What&apos;s the auction for?</h2>
-            <p>The winner of the daily auction decides where the QR points for a day.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">Why would people want to do that?</h2>
-            <p>Winning our daily auction is a great way to bring attention to any website for a day.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How does winning bring attention to the website?</h2>
-            <p className="mb-3">Long-term: the goal is to have our QR widely distributed in both the physical and digital worlds. Since the QR never changes, we can continue to compound its distribution over time to bring an increasing amount of attention to our auction winners.</p>
-            <p>Near-term: most of the attention will be driven through our daily winner announcements on X, notifications sent to farcaster users, and other mostly digital drivers of attention. Our daily winner announcements have each received thousands or tens of thousands of views and our daily distribution should only get larger with time. So far, we have helped tokens increase market cap, projects add new users, and charities raise money, among many other use cases.</p>
-          </div>
-
-          <div>
-            <h2 className="text-xl font-bold mb-2">Why is it called qrcoin.fun?</h2>
-            <p>There is a cryptocurrency connected to the project called QR coin ($QR).</p>
-            <p className="font-mono text-sm mt-2">The contract address is: 0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How do I bid on the auction?</h2>
-            <p>Go to <Link href="https://qrcoin.fun" className="text-[#0000FF] dark:text-[#00FF00] hover:underline">qrcoin.fun</Link>, sign up with your email address, and pay with Apple Pay or credit card in a few clicks. If you’re into crypto, you can optionally connect your wallet to pay with USDC.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">What happens if I am outbid?</h2>
-            <p>If and when you are outbid, you get your money back immediately.</p>
-          </div>
-          
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How is the coin connected to the project?</h2>
-            <p>We have used and plan to continue to use a portion of the revenues from our daily auctions to buy $QR. This auction-driven demand for the coin should theoretically allow people who believe in the project to bet on its success by buying and holding $QR. If and as the project becomes more popular over time, the price of the coin could increase accordingly. This relationship between the project&apos;s success and the QR coin&apos;s price should incentivize $QR holders from around the world to help promote the project.</p>
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold mb-2">How can $QR holders help to promote the project?</h2>
-            <ol className="list-decimal pl-6 space-y-2">
-              <li>Bid on our daily auctions</li>
-              <li>Boost our daily winner announcements on X (like or RT)</li>
-              <li>Spread the QR code in the digital world (i.e. add it to your website, profile, etc.)</li>
-              <li>Spread the QR code in the physical world (i.e. post stickers, flyers, billboards, etc.)</li>
-              <li>Share the project with friends</li>
-            </ol>
+            <h2 className="text-xl font-bold mb-2">The Token:</h2>
+            <p className="mb-2">There is a cryptocurrency associated with this project called QR coin ($QR).</p>
+            <p className="mb-2">The $QR contract address is: 0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF</p>
+            <p className="font-bold">You can earn $QR every day by checking out the link of the day and claiming a reward.</p>
           </div>
         </div>
       </div>
