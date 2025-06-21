@@ -996,13 +996,13 @@ export function CustomWallet() {
       <Button
         variant="outline"
         className={clsx(
-            "flex items-center justify-center h-8 w-8 md:h-10 md:w-10",
+            "flex items-center justify-center h-10 w-10 md:h-10 md:w-10",
           isBaseColors && "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
         )}
         onClick={handleProfileClick}
         aria-label="View profile"
       >
-          <Avatar className="h-6 w-6 border rounded-full overflow-hidden md:h-8 md:w-8"> 
+          <Avatar className="h-8 w-8 border rounded-full overflow-hidden md:h-8 md:w-8"> 
             <AvatarImage 
               src={frameUser?.pfpUrl ?? undefined} 
               alt={frameUser?.displayName ?? "Profile"} 
