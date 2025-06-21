@@ -76,8 +76,8 @@ export interface WalletBalance {
 }
 
 // Thresholds for low balance warnings
-const ETH_LOW_THRESHOLD_USD = 5; // $5 USD
-const QR_LOW_THRESHOLD = 100000; // 100,000 QR tokens
+const ETH_LOW_THRESHOLD_USD = 20; // $5 USD
+const QR_LOW_THRESHOLD = 4200000; // 100,000 QR tokens
 
 export function useWalletBalances() {
   const [ethBalances, setEthBalances] = useState<{ [address: string]: bigint }>({});

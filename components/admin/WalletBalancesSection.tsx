@@ -161,8 +161,8 @@ export function WalletBalancesSection() {
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
               <div>⚠️ Low balance thresholds:</div>
-              <div>• ETH: &lt; $5 USD</div>
-              <div>• $QR: &lt; 100,000 $QR</div>
+              <div>• ETH: &lt; $20 USD</div>
+              <div>• $QR: &lt; 4200000 $QR</div>
             </div>
           </div>
         </CardContent>
