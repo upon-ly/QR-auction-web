@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import type { Context } from '@farcaster/frame-sdk';
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
@@ -12,22 +13,41 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Define the shape of our link visit claim data
+interface LinkVisitClaim {
+  id: string;
+  eth_address?: string;
+  username?: string;
+  user_id?: string;
+  claimed_at?: string;
+  link_visited_at?: string;
+  auction_id: number;
+  fid?: number;
+  claim_source?: string;
+}
+
+// Key factory for React Query
+const linkVisitKeys = {
+  all: ['linkVisit'] as const,
+  byAuction: (auctionId: number) => [...linkVisitKeys.all, 'auction', auctionId] as const,
+  byUser: (auctionId: number, identifier: string) => [...linkVisitKeys.byAuction(auctionId), identifier] as const,
+};
+
 export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean = false) {
-  const [hasClicked, setHasClicked] = useState(false);
-  const [hasClaimed, setHasClaimed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [frameContext, setFrameContext] = useState<Context.FrameContext | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const frameCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Web-specific hooks
   const { authenticated, user } = usePrivy();
   const { address } = useAccount();
   const { client: smartWalletClient } = useSmartWallets();
   
-  // Get smart wallet address from user's linked accounts (more reliable)
+  // Get smart wallet address from user's linked accounts
   const smartWalletAddress = user?.linkedAccounts?.find((account: { type: string; address?: string }) => account.type === 'smart_wallet')?.address;
   
-  // Use appropriate wallet address based on context - prioritize smart wallet for web users
+  // Use appropriate wallet address based on context
   const effectiveWalletAddress = isWebContext 
     ? (smartWalletAddress || smartWalletClient?.account?.address || address)
     : walletAddress;
@@ -45,25 +65,15 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
     return twitterAccount?.username || null;
   }, [isWebContext, authenticated, user?.linkedAccounts]);
   
-  // Log state changes
-  useEffect(() => {
-  }, [hasClicked, hasClaimed, isLoading, effectiveWalletAddress, frameContext, auctionId, isWebContext, authenticated]);
-  
-  // Function to refresh frame context (can be called repeatedly to check for changes)
-  const checkFrameContext = useCallback(async () => {
-    if (isWebContext) {
-      // For web context, we don't need frame context
-      return null;
-    }
+  // Initialize frame context (only for mini-app)
+  const initializeFrameContext = useCallback(async () => {
+    if (isWebContext) return;
     
     try {
-      // Request latest frame context
+      // Use SDK singleton with built-in caching
       const context = await frameSdk.getContext();
-      
-      // Update context state
       setFrameContext(context);
       
-      // If we don't have a wallet address yet, try to get it
       if (!walletAddress) {
         const isWalletConnected = await frameSdk.isWalletConnected();
         if (isWalletConnected) {
@@ -73,347 +83,193 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
           }
         }
       }
-      
-      // Return the context for convenience
-      return context;
     } catch (error) {
-      console.error('Error fetching frame context:', error);
-      return null;
+      console.error('Error initializing frame context:', error);
     }
-  }, [walletAddress, isWebContext]);
+  }, [isWebContext, walletAddress]);
   
-  // Get initial frame context and wallet, and poll for updates (only for mini-app)
+  // Set up frame context polling with reduced frequency
   useEffect(() => {
-    if (isWebContext) {
-      // For web context, we're done with initialization
-      return;
+    if (!isWebContext) {
+      initializeFrameContext();
+      
+      // Only poll every 30 seconds instead of 3 seconds
+      frameCheckIntervalRef.current = setInterval(() => {
+        initializeFrameContext();
+      }, 30000);
+      
+      return () => {
+        if (frameCheckIntervalRef.current) {
+          clearInterval(frameCheckIntervalRef.current);
+        }
+      };
     }
-    
-    const initializeFrameContext = async () => {
-      await checkFrameContext();
-    };
-    
-    initializeFrameContext();
-    
-    // Set up an interval to check for updates
-    const intervalId = setInterval(() => {
-      checkFrameContext();
-    }, 3000); // Check every 3 seconds
-    
-    // Clean up interval on unmount
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [checkFrameContext, isWebContext]);
+  }, [isWebContext, initializeFrameContext]);
+  
+  // Build query key based on context
+  const queryKey = isWebContext
+    ? linkVisitKeys.byUser(auctionId, effectiveWalletAddress || getTwitterUsername() || 'unknown')
+    : linkVisitKeys.byUser(auctionId, frameContext?.user?.fid?.toString() || 'unknown');
+  
+  // Query function to check link visit status
+  const checkVisitStatus = async (): Promise<{ hasClicked: boolean; hasClaimed: boolean }> => {
+    if (!auctionId) {
+      return { hasClicked: false, hasClaimed: false };
+    }
 
-  // Check link visit status based on context
-  useEffect(() => {
-    const checkVisitStatus = async () => {
+    if (isWebContext) {
+      // Web context logic
+      const twitterUsername = getTwitterUsername();
       
-      // If no auction ID, can't check status
-      if (!auctionId) {
-        setIsLoading(false);
-        return;
+      if (!effectiveWalletAddress && !twitterUsername) {
+        return { hasClicked: false, hasClaimed: false };
       }
-
-      if (isWebContext) {
-        // Web context: check by wallet address or Twitter username with cross-context support
-        const twitterUsername = getTwitterUsername();
-        
-        if (!effectiveWalletAddress && !twitterUsername) {
-          setIsLoading(false);
-          return;
-        }
-        
-        setIsLoading(true);
-        
-        try {
-          
-          // Get both Twitter and Farcaster usernames
-          let farcasterUsername: string | null = null;
-          
-          // twitterUsername already retrieved above in the scope
-          
-          // Get Farcaster username associated with this address if we have one
-          if (effectiveWalletAddress) {
-            try {
-              const farcasterUser = await getFarcasterUser(effectiveWalletAddress);
-              farcasterUsername = farcasterUser?.username || null;
-            } catch (error) {
-              console.warn('HOOK: Could not fetch Farcaster username for address:', error);
-            }
-          }
-          
-          // For web users, we need to get their Privy userId for more secure checking
-          let privyUserId: string | null = null;
-          if (authenticated && user?.id) {
-            privyUserId = user.id; // This is the Privy DID
-          }
-          
-          // Check for ANY claims by this wallet address (regardless of claim_source)
-          let allClaims: Array<{
-            id: string;
-            eth_address?: string;
-            username?: string;
-            user_id?: string;
-            claimed_at?: string;
-            link_visited_at?: string;
-            auction_id: number;
-          }> = [];
-          if (effectiveWalletAddress) {
-            const { data: addressClaims, error } = await supabase
-              .from('link_visit_claims')
-              .select('*')
-              .eq('eth_address', effectiveWalletAddress)
-              .eq('auction_id', auctionId);
-            
-            if (!error && addressClaims) {
-              allClaims = addressClaims;
-            }
-          }
-          
-          // Also check for claims by user identifier (userId for web, username for Farcaster)
-          let userClaims: typeof allClaims = [];
-          
-          // For web users, check by Privy userId (more secure)
-          if (privyUserId) {
-            const { data: userIdClaimsData, error: userIdError } = await supabase
-              .from('link_visit_claims')
-              .select('*')
-              .eq('user_id', privyUserId)
-              .eq('auction_id', auctionId);
-            
-            if (!userIdError && userIdClaimsData) {
-              userClaims = [...userClaims, ...userIdClaimsData];
-            }
-          }
-          
-          // Also check by usernames (for cross-context compatibility and Farcaster users)
-          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
-          if (usernamesToCheck.length > 0) {
-            for (const username of usernamesToCheck) {
-              const { data: usernameClaimsData, error: usernameError } = await supabase
-                .from('link_visit_claims')
-                .select('*')
-                .ilike('username', username!)
-                .eq('auction_id', auctionId);
-              
-              if (!usernameError && usernameClaimsData) {
-                userClaims = [...userClaims, ...usernameClaimsData];
-              }
-            }
-          }
-          
-          // Combine both sets of claims and deduplicate by id
-          const allClaimsArray = [...(allClaims || []), ...userClaims];
-          const combinedClaims = allClaimsArray.filter((claim, index, self) => 
-            index === self.findIndex(c => c.id === claim.id)
-          );
-          
-          if (combinedClaims.length > 0) {
-            // Find the most relevant claim (prefer the one that matches the current context)
-            const relevantClaim = combinedClaims.find(claim => claim.eth_address === effectiveWalletAddress) || combinedClaims[0];
-            
-            
-            setHasClicked(!!relevantClaim.link_visited_at);
-            setHasClaimed(!!relevantClaim.claimed_at);
-          } else {
-            // No record found, reset states
-            setHasClicked(false);
-            setHasClaimed(false);
-          }
-          
-          setIsLoading(false);
-        } catch (error) {
-          console.error('Error checking web link visit status:', error);
-          setIsLoading(false);
-        }
-      } else {
-        // Mini-app context: check by FID (existing logic)
-        if (!frameContext) {
-          setIsLoading(false);
-          return;
-        }
-
-        const fid = frameContext.user?.fid;
-        
       
-        if (!fid) {
-          setIsLoading(false);
-          return;
-        }
-        
-        setIsLoading(true);
-        
+      let farcasterUsername: string | null = null;
+      let privyUserId: string | null = null;
+      
+      if (effectiveWalletAddress) {
         try {
-          // Check if user has already claimed or clicked
-          const { data, error } = await supabase
-            .from('link_visit_claims')
-            .select('*')
-            .eq('fid', fid)
-            .eq('auction_id', auctionId)
-            .eq('claim_source', 'mini_app')
-            .maybeSingle();
-        
-          if (error && error.code !== 'PGRST116') {
-          }
-          
-          if (data) {
-            setHasClicked(!!data.link_visited_at);
-            setHasClaimed(!!data.claimed_at);
-          } else {
-            // No record found, reset states
-            setHasClicked(false);
-            setHasClaimed(false);
-          }
-        
-          setIsLoading(false);
+          const farcasterUser = await getFarcasterUser(effectiveWalletAddress);
+          farcasterUsername = farcasterUser?.username || null;
         } catch (error) {
-          console.error('Error checking mini-app link visit status:', error);
-          setIsLoading(false);
+          console.warn('Could not fetch Farcaster username:', error);
         }
       }
-    };
-
-    checkVisitStatus();
-  }, [frameContext, auctionId, isWebContext, effectiveWalletAddress, authenticated, user, getTwitterUsername]);
-  
-  // Record claim in database
-  const recordClaim = async (txHash?: string): Promise<boolean> => {
-    if (isWebContext) {
-      // Web context: use wallet address (required for claiming)
-      if (!effectiveWalletAddress || !auctionId) return false;
       
-      try {
-
-        const addressHash = effectiveWalletAddress?.slice(2).toLowerCase(); // Remove 0x and lowercase
-        const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
-        const effectiveFid = -(hashNumber % 1000000000);
-        
-        // Get Twitter username and Privy userId for web context
-        const twitterUsername = getTwitterUsername();
-        const privyUserId = authenticated && user?.id ? user.id : null;
-        
-        const { error } = await supabase
+      if (authenticated && user?.id) {
+        privyUserId = user.id;
+      }
+      
+      // Check for claims by wallet address
+      let allClaims: LinkVisitClaim[] = [];
+      if (effectiveWalletAddress) {
+        const { data: addressClaims, error } = await supabase
           .from('link_visit_claims')
-          .upsert({
-            fid: effectiveFid, // Placeholder for web users
-            auction_id: auctionId,
-            eth_address: effectiveWalletAddress,
-            claimed_at: new Date().toISOString(),
-            amount: 420, // 420 QR tokens
-            tx_hash: txHash,
-            success: !!txHash,
-            claim_source: 'web',
-            username: twitterUsername || null, // Display username from Twitter
-            user_id: privyUserId // Verified Privy userId
-          }, {
-            onConflict: 'eth_address,auction_id'
-          });
-          
-        if (error) {
-          console.error("Error recording web claim:", error);
-          throw error;
-        }
+          .select('*')
+          .eq('eth_address', effectiveWalletAddress)
+          .eq('auction_id', auctionId);
         
-        // Update local state
-        setHasClaimed(true);
-        return true;
-      } catch (error) {
-        console.error('Error recording web claim:', error);
-        return false;
+        if (!error && addressClaims) {
+          allClaims = addressClaims;
+        }
       }
+      
+      // Check by userId
+      if (privyUserId) {
+        const { data: userIdClaimsData, error: userIdError } = await supabase
+          .from('link_visit_claims')
+          .select('*')
+          .eq('user_id', privyUserId)
+          .eq('auction_id', auctionId);
+        
+        if (!userIdError && userIdClaimsData) {
+          allClaims = [...allClaims, ...userIdClaimsData];
+        }
+      }
+      
+      // Check by usernames
+      const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
+      for (const username of usernamesToCheck) {
+        const { data: usernameClaimsData, error: usernameError } = await supabase
+          .from('link_visit_claims')
+          .select('*')
+          .ilike('username', username!)
+          .eq('auction_id', auctionId);
+        
+        if (!usernameError && usernameClaimsData) {
+          allClaims = [...allClaims, ...usernameClaimsData];
+        }
+      }
+      
+      // Deduplicate claims
+      const uniqueClaims = allClaims.filter((claim, index, self) => 
+        index === self.findIndex(c => c.id === claim.id)
+      );
+      
+      if (uniqueClaims.length > 0) {
+        const relevantClaim = uniqueClaims.find(claim => claim.eth_address === effectiveWalletAddress) || uniqueClaims[0];
+        return {
+          hasClicked: !!relevantClaim.link_visited_at,
+          hasClaimed: !!relevantClaim.claimed_at
+        };
+      }
+      
+      return { hasClicked: false, hasClaimed: false };
     } else {
-      // Mini-app context: use FID (existing logic)
-      if (!frameContext?.user?.fid || !effectiveWalletAddress || !auctionId) return false;
-      
-      try {
-        
-        const { error } = await supabase
-          .from('link_visit_claims')
-          .upsert({
-            fid: frameContext.user.fid,
-            auction_id: auctionId,
-            eth_address: effectiveWalletAddress,
-            claimed_at: new Date().toISOString(),
-            amount: 420, // 420 QR tokens
-            tx_hash: txHash,
-            success: !!txHash,
-            claim_source: 'mini_app',
-            username: frameContext.user.username || null
-          }, {
-            onConflict: 'fid,auction_id'
-          });
-          
-        if (error) {
-          console.error("Error recording mini-app claim:", error);
-          throw error;
-        }
-        
-        // Update local state
-        setHasClaimed(true);
-        return true;
-      } catch (error) {
-        console.error('Error recording mini-app claim:', error);
-        return false;
+      // Mini-app context
+      if (!frameContext?.user?.fid) {
+        return { hasClicked: false, hasClaimed: false };
       }
+      
+      const { data, error } = await supabase
+        .from('link_visit_claims')
+        .select('*')
+        .eq('fid', frameContext.user.fid)
+        .eq('auction_id', auctionId)
+        .eq('claim_source', 'mini_app')
+        .maybeSingle();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking status:', error);
+      }
+      
+      if (data) {
+        return {
+          hasClicked: !!data.link_visited_at,
+          hasClaimed: !!data.claimed_at
+        };
+      }
+      
+      return { hasClicked: false, hasClaimed: false };
     }
   };
-
-  // Record link click in database
-  const recordClick = async (): Promise<boolean> => {
-    if (isWebContext) {
-      // Web context: use wallet address
-      if (!effectiveWalletAddress || !auctionId) return false;
-      
-      try {
+  
+  // Use React Query for the status check
+  const { data, isLoading, refetch } = useQuery({
+    queryKey,
+    queryFn: checkVisitStatus,
+    // Only enable query when we have the necessary data
+    enabled: isWebContext 
+      ? !!(effectiveWalletAddress || getTwitterUsername()) && !!auctionId
+      : !!frameContext?.user?.fid && !!auctionId,
+    // Stale time of 30 seconds - data is fresh for 30 seconds
+    staleTime: 30 * 1000,
+    // Cache time of 5 minutes
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Mutation for recording clicks
+  const recordClickMutation = useMutation({
+    mutationFn: async () => {
+      if (isWebContext) {
+        if (!effectiveWalletAddress || !auctionId) throw new Error('Missing required data');
         
-        // Update local state immediately for UI responsiveness
-        setHasClicked(true);
-
-        const addressHash = effectiveWalletAddress?.slice(2).toLowerCase(); // Remove 0x and lowercase
+        const addressHash = effectiveWalletAddress?.slice(2).toLowerCase();
         const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
         const effectiveFid = -(hashNumber % 1000000000);
         
-        // Get Twitter username and Privy userId for web context
         const twitterUsername = getTwitterUsername();
         const privyUserId = authenticated && user?.id ? user.id : null;
         
-        // Record in database
         const { error } = await supabase
           .from('link_visit_claims')
           .upsert({
-            fid: effectiveFid, // Placeholder for web users
+            fid: effectiveFid,
             auction_id: auctionId,
             link_visited_at: new Date().toISOString(),
             eth_address: effectiveWalletAddress,
             claim_source: 'web',
-            username: twitterUsername || null, // Display username from Twitter
-            user_id: privyUserId // Verified Privy userId
+            username: twitterUsername || null,
+            user_id: privyUserId
           }, {
             onConflict: 'eth_address,auction_id'
           });
-          
-        if (error) {
-          console.error("Error recording web link click:", error);
-          throw error;
-        }
         
-        return true;
-      } catch (error) {
-        console.error('Error recording web click:', error);
-        return false;
-      }
-    } else {
-      // Mini-app context: use FID (existing logic)
-      if (!frameContext?.user?.fid || !auctionId) return false;
-      
-      try {
+        if (error) throw error;
+      } else {
+        if (!frameContext?.user?.fid || !auctionId) throw new Error('Missing required data');
         
-        // Update local state immediately for UI responsiveness
-        setHasClicked(true);
-        
-        // Record in database
         const { error } = await supabase
           .from('link_visit_claims')
           .upsert({
@@ -426,168 +282,84 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
           }, {
             onConflict: 'fid,auction_id'
           });
-          
-        if (error) {
-          console.error("Error recording mini-app link click:", error);
-          throw error;
-        }
         
-        return true;
-      } catch (error) {
-        console.error('Error recording mini-app click:', error);
-        return false;
+        if (error) throw error;
       }
-    }
-  };
+    },
+    onSuccess: () => {
+      // Invalidate and refetch the query
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
   
-  // Manual refresh function
-  const refreshStatus = useCallback(async () => {
-    if (isWebContext) {
-      // Web context: refresh by wallet address or Twitter username with cross-context support
-      const twitterUsername = getTwitterUsername();
-      
-      if ((effectiveWalletAddress || twitterUsername) && auctionId) {
-        setIsLoading(true);
+  // Mutation for recording claims
+  const recordClaimMutation = useMutation({
+    mutationFn: async (txHash?: string) => {
+      if (isWebContext) {
+        if (!effectiveWalletAddress || !auctionId) throw new Error('Missing required data');
         
-        try {
-          // Get both Twitter and Farcaster usernames
-          let farcasterUsername: string | null = null;
-          
-          // twitterUsername already retrieved above
-          
-          // Get Farcaster username associated with this address if we have one
-          if (effectiveWalletAddress) {
-            try {
-              const farcasterUser = await getFarcasterUser(effectiveWalletAddress);
-              farcasterUsername = farcasterUser?.username || null;
-            } catch (error) {
-              console.warn('HOOK: Could not fetch Farcaster username for address:', error);
-            }
-          }
-          
-          // For web users, we need to get their Privy userId for more secure checking
-          let privyUserId: string | null = null;
-          if (authenticated && user?.id) {
-            privyUserId = user.id; // This is the Privy DID
-          }
-          
-          // Check for ANY claims by this wallet address (regardless of claim_source)
-          let allClaims: Array<{
-            id: string;
-            eth_address?: string;
-            username?: string;
-            user_id?: string;
-            claimed_at?: string;
-            link_visited_at?: string;
-            auction_id: number;
-          }> = [];
-          if (effectiveWalletAddress) {
-            const { data: addressClaims, error } = await supabase
-              .from('link_visit_claims')
-              .select('*')
-              .eq('eth_address', effectiveWalletAddress)
-              .eq('auction_id', auctionId);
-            
-            if (!error && addressClaims) {
-              allClaims = addressClaims;
-            }
-          }
-          
-          // Also check for claims by user identifier (userId for web, username for Farcaster)
-          let userClaims: typeof allClaims = [];
-          
-          // For web users, check by Privy userId (more secure)
-          if (privyUserId) {
-            const { data: userIdClaimsData, error: userIdError } = await supabase
-              .from('link_visit_claims')
-              .select('*')
-              .eq('user_id', privyUserId)
-              .eq('auction_id', auctionId);
-            
-            if (!userIdError && userIdClaimsData) {
-              userClaims = [...userClaims, ...userIdClaimsData];
-            }
-          }
-          
-          // Also check by usernames (for cross-context compatibility and Farcaster users)
-          const usernamesToCheck = [twitterUsername, farcasterUsername].filter(Boolean);
-          if (usernamesToCheck.length > 0) {
-            for (const username of usernamesToCheck) {
-              const { data: usernameClaimsData, error: usernameError } = await supabase
-                .from('link_visit_claims')
-                .select('*')
-                .ilike('username', username!)
-                .eq('auction_id', auctionId);
-              
-              if (!usernameError && usernameClaimsData) {
-                userClaims = [...userClaims, ...usernameClaimsData];
-              }
-            }
-          }
-          
-          // Combine both sets of claims and deduplicate by id
-          const allClaimsArray = [...(allClaims || []), ...userClaims];
-          const combinedClaims = allClaimsArray.filter((claim, index, self) => 
-            index === self.findIndex(c => c.id === claim.id)
-          );
-          
-          if (combinedClaims.length > 0) {
-            const relevantClaim = combinedClaims.find(claim => claim.eth_address === effectiveWalletAddress) || combinedClaims[0];
-            setHasClicked(!!relevantClaim.link_visited_at);
-            setHasClaimed(!!relevantClaim.claimed_at);
-          } else {
-            setHasClicked(false);
-            setHasClaimed(false);
-          }
-        } catch (error) {
-          console.error('Manual web refresh error:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    } else {
-      // Mini-app context: refresh by frame context (existing logic)
-      const context = await checkFrameContext();
-      
-      if (context?.user?.fid && auctionId) {
-        setIsLoading(true);
+        const addressHash = effectiveWalletAddress?.slice(2).toLowerCase();
+        const hashNumber = parseInt(addressHash?.slice(0, 8) || '0', 16);
+        const effectiveFid = -(hashNumber % 1000000000);
         
-        try {
-          const { data, error } = await supabase
-            .from('link_visit_claims')
-            .select('*')
-            .eq('fid', context.user.fid)
-            .eq('auction_id', auctionId)
-            .eq('claim_source', 'mini_app')
-            .maybeSingle();
-          
-          if (error && error.code !== 'PGRST116') {
-          }
-          
-          if (data) {
-            setHasClicked(!!data.link_visited_at);
-            setHasClaimed(!!data.claimed_at);
-          } else {
-            setHasClicked(false);
-            setHasClaimed(false);
-          }
-        } catch (error) {
-          console.error('Manual mini-app refresh error:', error);
-          setIsLoading(false);
-        }
+        const twitterUsername = getTwitterUsername();
+        const privyUserId = authenticated && user?.id ? user.id : null;
+        
+        const { error } = await supabase
+          .from('link_visit_claims')
+          .upsert({
+            fid: effectiveFid,
+            auction_id: auctionId,
+            eth_address: effectiveWalletAddress,
+            claimed_at: new Date().toISOString(),
+            amount: 420,
+            tx_hash: txHash,
+            success: !!txHash,
+            claim_source: 'web',
+            username: twitterUsername || null,
+            user_id: privyUserId
+          }, {
+            onConflict: 'eth_address,auction_id'
+          });
+        
+        if (error) throw error;
+      } else {
+        if (!frameContext?.user?.fid || !effectiveWalletAddress || !auctionId) throw new Error('Missing required data');
+        
+        const { error } = await supabase
+          .from('link_visit_claims')
+          .upsert({
+            fid: frameContext.user.fid,
+            auction_id: auctionId,
+            eth_address: effectiveWalletAddress,
+            claimed_at: new Date().toISOString(),
+            amount: 420,
+            tx_hash: txHash,
+            success: !!txHash,
+            claim_source: 'mini_app',
+            username: frameContext.user.username || null
+          }, {
+            onConflict: 'fid,auction_id'
+          });
+        
+        if (error) throw error;
       }
-    }
-  }, [checkFrameContext, auctionId, isWebContext, effectiveWalletAddress, getTwitterUsername]);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch the query
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
   
-  return { 
-    hasClicked, 
-    hasClaimed,
+  return {
+    hasClicked: data?.hasClicked || false,
+    hasClaimed: data?.hasClaimed || false,
     isLoading,
-    recordClaim,
-    recordClick,
+    recordClaim: (txHash?: string) => recordClaimMutation.mutateAsync(txHash).then(() => true).catch(() => false),
+    recordClick: () => recordClickMutation.mutateAsync().then(() => true).catch(() => false),
     frameContext,
     walletAddress: effectiveWalletAddress,
-    checkFrameContext,
-    refreshStatus
+    checkFrameContext: initializeFrameContext,
+    refreshStatus: refetch
   };
-} 
+}

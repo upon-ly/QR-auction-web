@@ -8,7 +8,8 @@ import "react-farcaster-embed/dist/styles.css";
 import { FarcasterEmbed } from "react-farcaster-embed/dist/client";
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 
 interface Testimonial {
   id: number;
@@ -26,21 +27,7 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const isFrameRef = useRef(false);
-  
-  // Check if we're running in a Farcaster frame context
-  useEffect(() => {
-    async function checkFrameContext() {
-      try {
-        const context = await frameSdk.getContext();
-        isFrameRef.current = !!context?.user;
-        console.log("Carousel frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
-      } catch (error) {
-        console.error("Error checking frame context:", error);
-      }
-    }
-    checkFrameContext();
-  }, []);
+  const { isMiniApp } = useIsMiniApp();
 
   // Handle click on any embed to open the original URL
   const handleEmbedClick = async (e: React.MouseEvent) => {
@@ -50,7 +37,7 @@ const SafeEmbed = ({ testimonial }: { testimonial: Testimonial }) => {
     const url = e.currentTarget.getAttribute('data-url');
     if (!url) return;
     
-    if (isFrameRef.current) {
+    if (isMiniApp) {
       try {
         await frameSdk.redirectToUrl(url);
       } catch (error) {

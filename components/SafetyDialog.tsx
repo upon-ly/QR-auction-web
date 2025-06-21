@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Shield, HelpCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 
 interface SafetyDialogProps {
   isOpen: boolean;

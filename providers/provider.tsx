@@ -20,7 +20,24 @@ import { getPrivyConfig } from "../config/privyConfig";
 import { wagmiConfig } from "../config/wagmiConfig";
 
 // Create a singleton instance of QueryClient that can be imported elsewhere
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Cache for 5 minutes by default
+      staleTime: 5 * 60 * 1000,
+      // Keep in cache for 10 minutes
+      gcTime: 10 * 60 * 1000,
+      // Retry failed requests up to 3 times
+      retry: 3,
+      // Don't refetch on window focus
+      refetchOnWindowFocus: false,
+      // Don't refetch on reconnect
+      refetchOnReconnect: false,
+      // Only refetch when explicitly told to
+      refetchOnMount: false,
+    },
+  },
+});
 
 export function Provider(props: { children: ReactNode }) {
   // Get current theme

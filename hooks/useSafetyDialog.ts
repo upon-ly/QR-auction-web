@@ -1,28 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { frameSdk } from "@/lib/frame-sdk";
+import { useState, useCallback } from "react";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 
 export function useSafetyDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
-  const isFrameRef = useRef(false);
-  
-  // Check if we're in a frame context
-  useEffect(() => {
-    async function checkFrameContext() {
-      try {
-        const context = await frameSdk.getContext();
-        isFrameRef.current = !!context?.user;
-        console.log("Safety dialog frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
-      } catch (error) {
-        console.error("Error checking frame context:", error);
-        isFrameRef.current = false;
-      }
-    }
-    
-    checkFrameContext();
-  }, []);
+  const { isMiniApp } = useIsMiniApp();
 
   const openDialog = useCallback((url: string) => {
     const hideSafetyWarning =
@@ -43,7 +28,7 @@ export function useSafetyDialog() {
 
   const handleContinue = useCallback(async () => {
     if (pendingUrl) {
-      if (isFrameRef.current) {
+      if (isMiniApp) {
         try {
           await frameSdk.redirectToUrl(pendingUrl);
         } catch (error) {
@@ -54,7 +39,7 @@ export function useSafetyDialog() {
       }
     }
     closeDialog();
-  }, [pendingUrl, closeDialog]);
+  }, [pendingUrl, closeDialog, isMiniApp]);
 
   return {
     isOpen,
@@ -62,6 +47,6 @@ export function useSafetyDialog() {
     openDialog,
     closeDialog,
     handleContinue,
-    isFrame: isFrameRef.current
+    isFrame: isMiniApp
   };
 }

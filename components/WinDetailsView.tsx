@@ -18,7 +18,7 @@ import { useBaseColors } from "@/hooks/useBaseColors";
 import useEthPrice from "@/hooks/useEthPrice";
 import { getAuctionVersion } from "@/utils/auctionPriceData";
 import { useWinnerData } from "@/hooks/useWinnerData";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 import { useAuctionImage } from "@/hooks/useAuctionImage";
 import { useFetchBidsSubgraph } from "@/hooks/useFetchBidsSubgraph";
 import { XLogo } from "./XLogo";

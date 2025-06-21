@@ -15,7 +15,7 @@ import { WarpcastLogo } from "@/components/WarpcastLogo";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../types/database";
 import { getFarcasterProfilePicture } from "@/utils/farcaster";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 
 // Initialize Supabase client once, outside the component
 const supabase = createClient<Database>(

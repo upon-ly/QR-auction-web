@@ -116,36 +116,36 @@ export function LikesRecastsProvider({ children, onPopupComplete }: LikesRecasts
       return;
     }
     
-    // Show popup if user is eligible and hasn't claimed
-    if (isEligible === true && !hasClaimedEither) {
-      // Show popup whether they have signer approval or not
-      // If they have approval, the popup will skip to claim state
-      // If they don't have approval, the popup will start with permissions
-      console.log('🎉 ALL CONDITIONS MET - SHOWING LIKES/RECASTS POPUP');
-      console.log('Has signer approval:', hasSignerApproval);
-      
-      const timer = setTimeout(() => {
-        console.log('Timer fired - requesting popup from coordinator');
-        const granted = requestPopup('likesRecasts');
-        if (granted) {
-          setShowLikesRecastsPopup(true);
-        }
+    // Handle different eligibility states
+    if (isEligible === true) {
+      if (!hasClaimedEither) {
+        // Show popup if user is eligible and hasn't claimed
+        console.log('🎉 ALL CONDITIONS MET - SHOWING LIKES/RECASTS POPUP');
+        console.log('Has signer approval:', hasSignerApproval);
+        
+        const timer = setTimeout(() => {
+          console.log('Timer fired - requesting popup from coordinator');
+          const granted = requestPopup('likesRecasts');
+          if (granted) {
+            setShowLikesRecastsPopup(true);
+          }
+          setHasCheckedEligibility(true);
+        }, 1000); // Show after 1 second
+        
+        return () => {
+          console.log('Cleaning up timer');
+          clearTimeout(timer);
+        };
+      } else {
+        console.log('❌ User has already claimed either option');
         setHasCheckedEligibility(true);
-      }, 1000); // Show after 1 second
-      
-      return () => {
-        console.log('Cleaning up timer');
-        clearTimeout(timer);
-      };
+      }
     } else if (isEligible === false) {
       // Only set as checked if user is definitely not eligible
       console.log('❌ User is not eligible for likes/recasts popup');
       setHasCheckedEligibility(true);
-    } else if (hasClaimedEither) {
-      console.log('❌ User has already claimed either option');
-      setHasCheckedEligibility(true);
     } else {
-      console.log('❓ Unknown condition preventing popup');
+      console.log('❓ Unknown condition preventing popup - isEligible is null or other state');
     }
   }, [isEligible, isLoading, hasClaimedEither, hasSignerApproval, hasCheckedEligibility, walletAddress, showLikesRecastsPopup, requestPopup]);
   

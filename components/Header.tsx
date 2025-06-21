@@ -10,7 +10,8 @@ import { ThemeDialog } from '@/components/ThemeDialog';
 import { QRContextMenu } from '@/components/QRContextMenu';
 import { useBaseColors } from '@/hooks/useBaseColors';
 import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions';
-import { sdk } from '@farcaster/frame-sdk';
+import { useIsMiniApp } from '@/hooks/useIsMiniApp';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 
 export function Header() {
   const router = useRouter();
@@ -18,27 +19,13 @@ export function Header() {
   const isBaseColors = useBaseColors();
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [latestV3Id, setLatestV3Id] = useState(0);
-  const [isMiniApp, setIsMiniApp] = useState(false);
+  const { isMiniApp } = useIsMiniApp();
   
   // Check if we're on the Base Colors UI page
   const isBaseColorsUI = pathname === '/ui';
   
   // Call useFetchAuctions without a tokenId parameter to get auctions from all contracts
   const { auctions } = useFetchAuctions();
-  
-  // Check if we're in a Mini App context once on mount
-  useEffect(() => {
-    const checkMiniApp = async () => {
-      try {
-        const isInMiniApp = await sdk.isInMiniApp();
-        setIsMiniApp(isInMiniApp);
-      } catch {
-        setIsMiniApp(false);
-      }
-    };
-    
-    checkMiniApp();
-  }, []);
   
   // Fetch the latest V3 auction ID when auctions data updates
   useEffect(() => {
@@ -116,7 +103,7 @@ export function Header() {
               // Use cached mini app status
               if (isMiniApp) {
                 e.preventDefault();
-                await sdk.actions.openUrl("https://shop.qrcoin.fun");
+                await frameSdk.redirectToUrl("https://shop.qrcoin.fun");
               }
               // Otherwise, not in mini app, let Link handle normally
             }}
@@ -144,7 +131,7 @@ export function Header() {
               // Use cached mini app status
               if (isMiniApp) {
                 e.preventDefault();
-                await sdk.actions.openUrl("https://farcaster.xyz/miniapps/vTuDnU8a1PCz/qr-map");
+                await frameSdk.redirectToUrl("https://farcaster.xyz/miniapps/vTuDnU8a1PCz/qr-map");
               }
               // Otherwise, not in mini app, let Link handle normally
             }}

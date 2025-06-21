@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLinkVisitEligibility } from './useLinkVisitEligibility';
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";

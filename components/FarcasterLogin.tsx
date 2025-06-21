@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useLoginToFrame } from "@privy-io/react-auth/farcaster";
 import sdk from "@farcaster/frame-sdk";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 
 export function FarcasterLogin() {
   // Get authentication state from Privy

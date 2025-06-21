@@ -9,7 +9,7 @@ import { base, baseSepolia } from "viem/chains";
 import { toast } from "sonner";
 import { parseEther } from "viem";
 import { useBaseColors } from "@/hooks/useBaseColors";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 
 function UI() {
   const isBaseColors = useBaseColors();

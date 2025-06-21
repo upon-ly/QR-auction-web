@@ -15,7 +15,7 @@ import { FarcasterEmbed } from "react-farcaster-embed/dist/client";
 import "react-farcaster-embed/dist/styles.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 import Link from "next/link";
 
 interface Testimonial {

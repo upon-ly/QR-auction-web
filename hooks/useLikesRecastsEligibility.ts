@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import type { Context } from '@farcaster/frame-sdk';
 
 // Setup Supabase client
@@ -8,41 +9,32 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Key factory for React Query
+const likesRecastsKeys = {
+  all: ['likesRecasts'] as const,
+  byFid: (fid: number) => [...likesRecastsKeys.all, 'fid', fid] as const,
+};
+
+interface EligibilityData {
+  isEligible: boolean;
+  hasClaimedLikes: boolean;
+  hasClaimedBoth: boolean;
+  hasSignerApproval: boolean;
+}
+
 export function useLikesRecastsEligibility() {
-  const [isEligible, setIsEligible] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasClaimedLikes, setHasClaimedLikes] = useState(false);
-  const [hasClaimedBoth, setHasClaimedBoth] = useState(false);
+  const queryClient = useQueryClient();
   const [frameContext, setFrameContext] = useState<Context.FrameContext | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [hasSignerApproval, setHasSignerApproval] = useState(false);
-  const [lastCheckTime, setLastCheckTime] = useState(0);
-  const [hasCompletedInitialCheck, setHasCompletedInitialCheck] = useState(false);
+  const frameCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Log state changes
-  useEffect(() => {
-    console.log("LIKES/RECASTS ELIGIBILITY - State changed:", {
-      isEligible,
-      isLoading,
-      hasClaimedLikes,
-      hasClaimedBoth,
-      walletAddress: walletAddress ? `${walletAddress.slice(0,6)}...` : null,
-      frameContextUsername: frameContext?.user?.username,
-      hasSignerApproval
-    });
-  }, [isEligible, isLoading, hasClaimedLikes, hasClaimedBoth, walletAddress, frameContext, hasSignerApproval]);
-  
-  // Function to refresh frame context
-  const checkFrameContext = useCallback(async () => {
+  // Initialize frame context
+  const initializeFrameContext = useCallback(async () => {
     try {
-      // Request latest frame context
+      // Use SDK singleton with built-in caching
       const context = await frameSdk.getContext();
-      console.log("Frame context updated:", context);
-      
-      // Update context state
       setFrameContext(context);
       
-      // If we don't have a wallet address yet, try to get it
       if (!walletAddress) {
         const isWalletConnected = await frameSdk.isWalletConnected();
         if (isWalletConnected) {
@@ -55,157 +47,147 @@ export function useLikesRecastsEligibility() {
       
       return context;
     } catch (error) {
-      console.error('Error fetching frame context:', error);
+      console.error('Error initializing frame context:', error);
       return null;
     }
   }, [walletAddress]);
   
-  // Get initial frame context and wallet
+  // Set up frame context polling with reduced frequency
   useEffect(() => {
-    const initializeFrameContext = async () => {
-      await checkFrameContext();
-    };
-    
     initializeFrameContext();
     
-    // Set up an interval to check for updates
-    const intervalId = setInterval(() => {
-      checkFrameContext();
-    }, 5000); // Check every 5 seconds (reduced frequency)
+    // Only poll every 30 seconds instead of 5 seconds
+    frameCheckIntervalRef.current = setInterval(() => {
+      initializeFrameContext();
+    }, 30000);
     
     return () => {
-      clearInterval(intervalId);
-    };
-  }, [checkFrameContext]);
-
-  // Check eligibility based on frame context
-  useEffect(() => {
-    const checkEligibility = async () => {
-      // Skip if we've already completed the initial check
-      if (hasCompletedInitialCheck) {
-        console.log("SKIPPING eligibility check - already completed initial check");
-        return;
-      }
-      
-      // Debounce: don't check if we checked recently (within 2 seconds)
-      const now = Date.now();
-      if (now - lastCheckTime < 2000) {
-        console.log("SKIPPING eligibility check - too recent");
-        return;
-      }
-      
-      console.log("CHECKING LIKES/RECASTS ELIGIBILITY - Starting check");
-      setLastCheckTime(now);
-      
-      // If no frame context or wallet, not eligible
-      if (!frameContext || !walletAddress) {
-        console.log("Missing frame context or wallet address");
-        setIsLoading(false);
-        setIsEligible(false);
-        return;
-      }
-
-      const fid = frameContext.user?.fid;
-      const username = frameContext.user?.username;
-      
-      console.log("ELIGIBILITY CHECK:", { fid, username });
-      
-      if (!fid) {
-        console.log("No FID found");
-        setIsLoading(false);
-        setIsEligible(false);
-        setHasCompletedInitialCheck(true);
-        return;
-      }
-      
-      setIsLoading(true);
-      
-      try {
-        // Check if user has already claimed for likes or both
-        console.log("Checking database for previous claims");
-        const { data: claimData, error } = await supabase
-          .from('likes_recasts_claims')
-          .select('*')
-          .eq('fid', fid);
-          
-        if (error) {
-          console.error('Error checking claim status:', error);
-          setIsEligible(false);
-          setIsLoading(false);
-          setHasCompletedInitialCheck(true);
-          return;
-        }
-        
-        if (claimData && claimData.length > 0) {
-          // Check what they've already claimed
-          const likesOnlyClaim = claimData.find(claim => claim.option_type === 'likes');
-          const recastsOnlyClaim = claimData.find(claim => claim.option_type === 'recasts');
-          const bothClaim = claimData.find(claim => claim.option_type === 'both');
-          
-          setHasClaimedLikes(!!likesOnlyClaim);
-          setHasClaimedBoth(!!bothClaim);
-          
-          // If they've claimed both options, they're not eligible
-          if (bothClaim) {
-            console.log("User has already claimed likes & recasts - not eligible");
-            setIsEligible(false);
-            setIsLoading(false);
-            setHasCompletedInitialCheck(true);
-            return;
-          }
-          
-          // If they've claimed any individual option, they might still be eligible for the other
-          // But if they've claimed both individual options, they're not eligible
-          if (likesOnlyClaim && recastsOnlyClaim) {
-            console.log("User has already claimed both individual options - not eligible");
-            setIsEligible(false);
-            setIsLoading(false);
-            setHasCompletedInitialCheck(true);
-            return;
-          }
-        }
-        
-        // Check if user has existing signer approval
-        console.log("Checking for existing approved signer");
-        const { data: signerData, error: signerError } = await supabase
-          .from('neynar_signers')
-          .select('*')
-          .eq('fid', fid)
-          .eq('status', 'approved');
-          
-        if (signerError) {
-          console.error('Error checking signer status:', signerError);
-          // Continue with check but assume no approval
-          setHasSignerApproval(false);
-        } else if (signerData && signerData.length > 0) {
-          console.log("Found approved signer for user");
-          setHasSignerApproval(true);
-        } else {
-          console.log("No approved signer found for user");
-          setHasSignerApproval(false);
-        }
-          
-        // User is eligible if they haven't claimed the 'both' option
-        console.log("User is eligible for likes/recasts permissions");
-        setIsEligible(true);
-        setIsLoading(false);
-        setHasCompletedInitialCheck(true);
-      } catch (error) {
-        console.error('Error checking likes/recasts eligibility:', error);
-        setIsEligible(false);
-        setIsLoading(false);
-        setHasCompletedInitialCheck(true);
+      if (frameCheckIntervalRef.current) {
+        clearInterval(frameCheckIntervalRef.current);
       }
     };
-
-    checkEligibility();
-  }, [frameContext, walletAddress, hasCompletedInitialCheck, lastCheckTime]);
+  }, [initializeFrameContext]);
   
-  // Function to record claim in database
-  const recordClaim = async (optionType: 'likes' | 'recasts' | 'both', txHash?: string): Promise<boolean> => {
-    if (!frameContext?.user?.fid || !walletAddress) return false;
+  // Query function to check eligibility
+  const checkEligibility = async (): Promise<EligibilityData> => {
+    if (!frameContext || !walletAddress) {
+      return {
+        isEligible: false,
+        hasClaimedLikes: false,
+        hasClaimedBoth: false,
+        hasSignerApproval: false
+      };
+    }
+
+    const fid = frameContext.user?.fid;
+    
+    if (!fid) {
+      return {
+        isEligible: false,
+        hasClaimedLikes: false,
+        hasClaimedBoth: false,
+        hasSignerApproval: false
+      };
+    }
     
     try {
+      // Check if user has already claimed
+      const { data: claimData, error } = await supabase
+        .from('likes_recasts_claims')
+        .select('*')
+        .eq('fid', fid);
+      
+      if (error) {
+        console.error('Error checking claim status:', error);
+        return {
+          isEligible: false,
+          hasClaimedLikes: false,
+          hasClaimedBoth: false,
+          hasSignerApproval: false
+        };
+      }
+      
+      let hasClaimedLikes = false;
+      let hasClaimedBoth = false;
+      
+      if (claimData && claimData.length > 0) {
+        const likesOnlyClaim = claimData.find(claim => claim.option_type === 'likes');
+        const recastsOnlyClaim = claimData.find(claim => claim.option_type === 'recasts');
+        const bothClaim = claimData.find(claim => claim.option_type === 'both');
+        
+        hasClaimedLikes = !!likesOnlyClaim;
+        hasClaimedBoth = !!bothClaim;
+        
+        // If they've claimed both options, they're not eligible
+        if (bothClaim) {
+          return {
+            isEligible: false,
+            hasClaimedLikes,
+            hasClaimedBoth,
+            hasSignerApproval: false
+          };
+        }
+        
+        // If they've claimed both individual options, they're not eligible
+        if (likesOnlyClaim && recastsOnlyClaim) {
+          return {
+            isEligible: false,
+            hasClaimedLikes,
+            hasClaimedBoth,
+            hasSignerApproval: false
+          };
+        }
+      }
+      
+      // Check for existing signer approval
+      let hasSignerApproval = false;
+      const { data: signerData, error: signerError } = await supabase
+        .from('neynar_signers')
+        .select('*')
+        .eq('fid', fid)
+        .eq('status', 'approved');
+      
+      if (!signerError && signerData && signerData.length > 0) {
+        hasSignerApproval = true;
+      }
+      
+      // User is eligible if they haven't claimed the 'both' option
+      return {
+        isEligible: true,
+        hasClaimedLikes,
+        hasClaimedBoth,
+        hasSignerApproval
+      };
+    } catch (error) {
+      console.error('Error checking likes/recasts eligibility:', error);
+      return {
+        isEligible: false,
+        hasClaimedLikes: false,
+        hasClaimedBoth: false,
+        hasSignerApproval: false
+      };
+    }
+  };
+  
+  // Use React Query for the eligibility check
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: frameContext?.user?.fid ? likesRecastsKeys.byFid(frameContext.user.fid) : ['likesRecasts-pending'],
+    queryFn: checkEligibility,
+    // Only enable query when we have frame context and wallet
+    enabled: !!frameContext && !!walletAddress,
+    // Stale time of 2 minutes - permissions don't change often
+    staleTime: 2 * 60 * 1000,
+    // Cache time of 10 minutes
+    gcTime: 10 * 60 * 1000,
+  });
+  
+  // Mutation for recording claims
+  const recordClaimMutation = useMutation({
+    mutationFn: async ({ optionType, txHash }: { optionType: 'likes' | 'recasts' | 'both'; txHash?: string }) => {
+      if (!frameContext?.user?.fid || !walletAddress) {
+        throw new Error('Missing required data');
+      }
+      
       const amount = optionType === 'likes' ? 1000 : optionType === 'recasts' ? 1000 : 2000;
       
       const { error } = await supabase
@@ -221,38 +203,35 @@ export function useLikesRecastsEligibility() {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
-        
+      
       if (error) throw error;
-      
-      // Update local state
-      if (optionType === 'likes') {
-        setHasClaimedLikes(true);
-      } else if (optionType === 'recasts') {
-        // For recasts only, we might want to add a separate state or handle differently
-        // For now, treating it similar to likes in terms of eligibility
-        setHasClaimedLikes(true); // This might need its own state variable
-      } else {
-        setHasClaimedBoth(true);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch the query
+      if (frameContext?.user?.fid) {
+        queryClient.invalidateQueries({ queryKey: likesRecastsKeys.byFid(frameContext.user.fid) });
       }
-      setIsEligible(false);
-      
-      return true;
-    } catch (error) {
-      console.error('Error recording claim:', error);
-      return false;
-    }
-  };
+    },
+  });
   
-  return { 
-    isEligible, 
-    isLoading, 
-    hasClaimedLikes,
-    hasClaimedBoth,
-    hasClaimedEither: hasClaimedLikes || hasClaimedBoth,
-    recordClaim,
+  // Log state changes for debugging
+  useEffect(() => {
+    if (data) {
+      console.log("LIKES/RECASTS ELIGIBILITY - State from React Query:", data);
+    }
+  }, [data]);
+  
+  return {
+    isEligible: data?.isEligible || null,
+    isLoading,
+    hasClaimedLikes: data?.hasClaimedLikes || false,
+    hasClaimedBoth: data?.hasClaimedBoth || false,
+    hasClaimedEither: data?.hasClaimedLikes || data?.hasClaimedBoth || false,
+    recordClaim: (optionType: 'likes' | 'recasts' | 'both', txHash?: string) => 
+      recordClaimMutation.mutateAsync({ optionType, txHash }).then(() => true).catch(() => false),
     frameContext,
     walletAddress,
-    hasSignerApproval,
-    checkFrameContext
+    hasSignerApproval: data?.hasSignerApproval || false,
+    checkFrameContext: refetch
   };
-} 
+}

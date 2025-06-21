@@ -39,7 +39,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { broadcastConnection } from "@/lib/channelManager";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 import { motion, AnimatePresence, useDragControls, PanInfo } from "framer-motion";
 
 // Import the frame detection functions from privyConfig
@@ -93,7 +94,7 @@ export function CustomWallet() {
   const [selectedToken, setSelectedToken] = useState<Token>("ETH");
   const [isSending, setIsSending] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false); // Track connection state
-  const [isFrame, setIsFrame] = useState(false); // Track if we're in a Farcaster frame
+  const { isMiniApp: isFrame } = useIsMiniApp(); // Use hook to detect mini app context
   // We'll use frameUser object to store all frame context user data
   const [frameUser, setFrameUser] = useState<FrameUser | null>(null);
   const [copied, setCopied] = useState(false); // Track whether the address was just copied
@@ -249,7 +250,7 @@ export function CustomWallet() {
           if (DEBUG) {
           console.log("Running in Farcaster frame context", context);
           }
-          setIsFrame(true);
+          // isFrame is now from the hook, no need to set it
           
           // Store frame user data with correct typing
           setFrameUser({
@@ -283,13 +284,13 @@ export function CustomWallet() {
           }
           
         } else {
-          setIsFrame(false);
+          // isFrame is now from the hook, no need to set it
         }
       } catch (error) {
         if (DEBUG) {
         console.log("Not in a Farcaster frame context:", error);
         }
-        setIsFrame(false);
+        
       }
     };
 
@@ -1207,7 +1208,7 @@ export function CustomWallet() {
           <Button
             variant="outline"
             className={clsx(
-              "flex items-center gap-2 h-8 w-8 md:h-10 md:w-10",
+              "flex items-center gap-2 h-10 w-10 md:h-10 md:w-10",
               "p-0",
               isBaseColors && "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
             )}
@@ -1230,9 +1231,9 @@ export function CustomWallet() {
           <Button
             variant="outline"
             className={clsx(
-              "h-8 text-sm font-medium md:h-10",
+              "h-10 text-sm font-medium md:h-10",
               "px-3 md:px-3",
-              "w-auto",
+              "w-auto md:w-auto",
               isBaseColors && "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none"
             )}
             onClick={handleConnectWallet}

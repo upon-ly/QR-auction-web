@@ -29,7 +29,7 @@ import { formatURL } from "@/utils/helperFunctions";
 import BidStats from "@/components/BidStats";
 import { EndorsementsCarousel } from "@/components/EndorsementsCarousel";
 import styles from "./AuctionPageDesktopText.module.css";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 import { AuctionProvider } from "@/providers/provider";
 import { useLinkVisit } from "@/providers/LinkVisitProvider";
 import { useAuctionImage } from "@/hooks/useAuctionImage";

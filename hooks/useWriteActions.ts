@@ -4,9 +4,10 @@ import QRAuctionV3 from "../abi/QRAuctionV3.json";
 import { Address, encodeFunctionData } from "viem";
 import { useWriteContract } from "wagmi";
 import { USDC_TOKEN_ADDRESS } from "@/config/tokens";
-import { frameSdk } from "@/lib/frame-sdk";
-import { useEffect, useRef, useMemo } from "react";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useEffect, useMemo } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 
 // ERC20 ABI for token approval
 const erc20ABI = [
@@ -40,24 +41,8 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
     return null;
   }, [user?.linkedAccounts]);
   
-  // Reference to track if we're in frame context
-  const isFrame = useRef(false);
-  
-  // Check if we're in frame context when the component mounts
-  useEffect(() => {
-    async function checkFrameContext() {
-      try {
-        const context = await frameSdk.getContext();
-        isFrame.current = !!context?.user;
-        console.log("Frame context check:", isFrame.current ? "Running in frame" : "Not in frame");
-      } catch (frameError) {
-        console.log("Not in a Farcaster frame context:", frameError);
-        isFrame.current = false;
-      }
-    }
-    
-    checkFrameContext();
-  }, []);
+  // Use the hook to detect if we're in a mini app
+  const { isMiniApp } = useIsMiniApp();
 
   // Determine which auction version we're dealing with
   const isLegacyAuction = tokenId <= 22n;
@@ -94,11 +79,11 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       console.log(`Using USDC token, address: ${USDC_TOKEN_ADDRESS}`);
       
       // Determine the name to use - Twitter username for website users, empty for frame users
-      const bidderName = isFrame.current ? "" : (twitterUsername || "");
+      const bidderName = isMiniApp ? "" : (twitterUsername || "");
       console.log("Using bidder name:", bidderName);
       
       // Check if we're in a Farcaster frame context
-      console.log("Bidding environment:", { isFrame: isFrame.current });
+      console.log("Bidding environment:", { isMiniApp });
       
       // Check if we have a smart wallet client
       if (smartWalletClient) {
@@ -134,7 +119,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         
         const tx = await smartWalletClient.writeContract(bidTxData);
         return tx;
-      } else if (isFrame.current && await frameSdk.isWalletConnected()) {
+      } else if (isMiniApp && await frameSdk.isWalletConnected()) {
         // Use Farcaster SDK for bidding in frames
         try {
           console.log("Using Farcaster SDK for bidding");
@@ -271,7 +256,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
       
       console.log("navigator.userAgent", navigator.userAgent);
       // Check if we're in a frame context
-      console.log("Settlement environment:", { isFrame: isFrame.current });
+      console.log("Settlement environment:", { isMiniApp });
       
       if (smartWalletClient) {
         console.log("Using smart wallet for settlement");
@@ -308,7 +293,7 @@ export function useWriteActions({ tokenId }: { tokenId: bigint }) {
         }
         
         return tx;
-      } else if (isFrame.current && await frameSdk.isWalletConnected()) {
+      } else if (isMiniApp && await frameSdk.isWalletConnected()) {
         // Use Farcaster SDK for settlement in frames
         try {
           console.log("Using Farcaster SDK for settlement");

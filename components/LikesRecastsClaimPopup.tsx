@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { motion } from 'framer-motion';
 import { Check, X as XIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { toast } from "sonner";
 import { useClaimLikesRecasts } from '@/hooks/useClaimLikesRecasts';
 import { useLikesRecastsEligibility } from '@/hooks/useLikesRecastsEligibility';
@@ -283,12 +283,9 @@ export function LikesRecastsClaimPopup({
     
     async function checkFrameContext() {
       try {
-        const context = await frameSdk.getContext();
-        if (context?.user) {
-          isFrameRef.current = true;
-        }
+        isFrameRef.current = await frameSdk.isInMiniApp();
       } catch {
-        console.log('Not in frame context');
+        console.log('Not in mini app context');
         isFrameRef.current = false;
       }
     }

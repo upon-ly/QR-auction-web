@@ -28,7 +28,7 @@ import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { Address, Chain } from "viem";
 import { useFundWallet } from "@privy-io/react-auth";
 import { base } from "viem/chains";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
 import { usePrivy, useConnectWallet } from "@privy-io/react-auth";
 
 // Polling configuration
@@ -244,7 +244,7 @@ export function BidForm({
   
   // Calculate full token value based on auction type
   const fullMinimumBid = lastHighestBid === 0n 
-    ? (isV3Auction ? 11.11 : MIN_QR_BID) // For V3, we use 11.11 USDC flat minimum
+    ? (isV3Auction ? 1 : MIN_QR_BID) // For V3, we use 11.11 USDC flat minimum
     : isV3Auction 
       ? Number(formatUnits(lastHighestBid + increment, 6)) // USDC has 6 decimals
       : Number(formatEther(lastHighestBid + increment)); // ETH/QR have 18 decimals

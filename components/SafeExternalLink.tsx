@@ -2,8 +2,8 @@
 
 import type React from "react";
 import type { ReactNode } from "react";
-import { frameSdk } from "@/lib/frame-sdk";
-import { useEffect, useRef } from "react";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 interface SafeExternalLinkProps {
   href: string;
   children: ReactNode;
@@ -17,12 +17,12 @@ export function SafeExternalLink({
   className = "",
   onBeforeNavigate,
 }: SafeExternalLinkProps) {
-  const isFrame = useRef(false);
+  const { isMiniApp } = useIsMiniApp();
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     const shouldShowWarning = onBeforeNavigate(href);
     if (!shouldShowWarning) {
-      if (isFrame.current) {
+      if (isMiniApp) {
         try {
           await frameSdk.redirectToUrl(href);
         } catch (error) {
@@ -33,18 +33,6 @@ export function SafeExternalLink({
       }
     }
   };
-
-  useEffect(() => {
-    async function checkFrameContext() {
-      try {
-        const context = await frameSdk.getContext();
-        isFrame.current = !!context?.user;
-      } catch (error) {
-        console.error("Error checking frame context:", error);
-      }
-    }
-    checkFrameContext();
-  }, []);
 
   // Process children to remove www. if it's a string
   const processedChildren =

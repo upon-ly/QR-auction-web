@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Check, X as XIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import confetti from 'canvas-confetti';
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { toast } from "sonner";
 
 interface AirdropClaimPopupProps {
@@ -69,11 +69,11 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
   useEffect(() => {
     async function checkFrameContext() {
       try {
-        const context = await frameSdk.getContext();
-        isFrameRef.current = !!context?.user;
-        console.log("Frame context check:", isFrameRef.current ? "In frame" : "Not in frame");
+        isFrameRef.current = await frameSdk.isInMiniApp();
+        console.log("Frame context check:", isFrameRef.current ? "In mini app" : "Not in mini app");
       } catch (error) {
-        console.error("Error checking frame context:", error);
+        console.error("Error checking mini app context:", error);
+        isFrameRef.current = false;
       }
     }
     checkFrameContext();

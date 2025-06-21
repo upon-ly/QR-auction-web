@@ -13,7 +13,8 @@ import { useEffect, useRef, useState } from "react";
 import { useBaseColors } from "@/hooks/useBaseColors";
 import { usePrivy } from "@privy-io/react-auth";
 import { cn } from "@/lib/utils";
-import { frameSdk } from "@/lib/frame-sdk";
+import { frameSdk } from "@/lib/frame-sdk-singleton";
+import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 import { useRouter } from "next/navigation";
 
 interface ThemeDialogProps {
@@ -31,13 +32,13 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
   const isTestnet = process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true";
   const [frameWalletAddress, setFrameWalletAddress] = useState<string | null>(null);
   const [isWalletCheckComplete, setIsWalletCheckComplete] = useState(false);
+  const { isMiniApp } = useIsMiniApp();
   
   // Check if we're in a Farcaster frame context
   useEffect(() => {
     const checkFrameContext = async () => {
       try {
-        const context = await frameSdk.getContext();
-        if (context && context.user) {
+        if (isMiniApp) {
           // Check if wallet is connected in frame
           const isWalletConnected = await frameSdk.isWalletConnected();
           if (isWalletConnected) {
@@ -59,7 +60,7 @@ export function ThemeDialog({ open, onOpenChange }: ThemeDialogProps) {
     if (open) {
       checkFrameContext();
     }
-  }, [open]);
+  }, [open, isMiniApp]);
   
   // For regular (non-frame) environments, mark check complete when wagmi is ready
   useEffect(() => {

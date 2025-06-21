@@ -1,63 +1,83 @@
 "use client";
 
-/* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export const useCountdown = (
   targetTimestamp: number
 ): { time: string; isComplete: boolean } => {
-  const [timeLeft, setTimeLeft] = useState<number>();
-  // Convert the input timestamp (seconds) to milliseconds.
-  const targetTime = targetTimestamp * 1000;
-
-  // Helper function to calculate the remaining time (in ms).
-  const calculateTimeLeft = () => targetTime - Date.now();
-
-  useEffect(() => {
-    // Immediately calculate time left when targetTimestamp changes
-    if (targetTimestamp !== 0) {
-      setTimeLeft(calculateTimeLeft());
-    }
+  const [isComplete, setIsComplete] = useState(false);
+  const [displayTime, setDisplayTime] = useState("00:00:00");
+  
+  // Use refs to avoid re-renders
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const targetTimeRef = useRef(targetTimestamp * 1000);
+  
+  // Helper function to format time
+  const formatTime = useCallback((timeLeft: number): string => {
+    if (timeLeft <= 0) return "00:00:00";
     
-    // Set an interval to update the time left every second.
-    const intervalId = setInterval(() => {
-      if (targetTimestamp !== 0) {
-        setTimeLeft(calculateTimeLeft());
-      }
-    }, 1000);
-
-    // Cleanup interval on unmount.
-    return () => clearInterval(intervalId);
-  }, [targetTime, targetTimestamp]);
-
-  if (timeLeft === undefined) {
-    const time = "00:00:00";
-    return { time, isComplete: false };
-  } else {
-    if (timeLeft <= 0) {
-      const time = "00:00:00";
-      return { time, isComplete: true };
-    }
-
-    // Calculate days, hours, minutes, and seconds.
-    // const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(
-      (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-    );
+    const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-    // Helper function to pad numbers to two digits.
+    
     const padNumber = (num: number): string => num.toString().padStart(2, "0");
-
-    let time = `${padNumber(hours)}:${padNumber(minutes)}:${padNumber(
-      seconds
-    )}`;
-
+    
+    return `${padNumber(hours)}:${padNumber(minutes)}:${padNumber(seconds)}`;
+  }, []);
+  
+  // Update the target time ref when prop changes
+  useEffect(() => {
+    targetTimeRef.current = targetTimestamp * 1000;
+  }, [targetTimestamp]);
+  
+  useEffect(() => {
     if (targetTimestamp === 0) {
-      time = "00:00:00";
+      setDisplayTime("00:00:00");
+      setIsComplete(false);
+      return;
     }
-
-    return { time, isComplete: false };
-  }
+    
+    // Function to update the display
+    const updateDisplay = () => {
+      const now = Date.now();
+      const timeLeft = targetTimeRef.current - now;
+      
+      if (timeLeft <= 0) {
+        setDisplayTime("00:00:00");
+        setIsComplete(true);
+        
+        // Clear interval when complete
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Only update state if the formatted time actually changes
+        const newTime = formatTime(timeLeft);
+        setDisplayTime(prevTime => {
+          if (prevTime !== newTime) {
+            return newTime;
+          }
+          return prevTime;
+        });
+        setIsComplete(false);
+      }
+    };
+    
+    // Initial update
+    updateDisplay();
+    
+    // Set up interval
+    intervalRef.current = setInterval(updateDisplay, 1000);
+    
+    // Cleanup
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [targetTimestamp, formatTime]);
+  
+  return { time: displayTime, isComplete };
 };

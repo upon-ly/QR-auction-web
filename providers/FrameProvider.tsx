@@ -1,5 +1,5 @@
 "use client";
-import sdk from "@farcaster/frame-sdk";
+import { frameSDKManager } from "@/lib/frame-sdk-singleton";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -23,11 +23,10 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
     
     const initialize = async () => {
       try {
-        console.log("Initializing Farcaster Frame SDK");
+        console.log("Initializing Farcaster Frame Provider");
         
-        // Tell the SDK we're ready to receive events
-        await sdk.actions.ready();
-        console.log("Frame SDK initialized and ready");
+        // SDK ready is now handled by frame-sdk-singleton
+        // Just set up event listeners and check status
         
         // Set up event listeners
         setupEventListeners();
@@ -36,13 +35,16 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
         await checkFrameStatus();
         
         setInitialized(true);
+        console.log("Frame Provider initialized successfully");
       } catch (error) {
-        console.error("Error initializing Frame SDK:", error);
+        console.error("Error initializing Frame Provider:", error);
       }
     };
     
     // Set up listeners for all frame events
     const setupEventListeners = () => {
+      const sdk = frameSDKManager.getSDK();
+      
       // Frame added event - when a user adds the frame
       sdk.on("frameAdded", (event) => {
         console.log("Frame added event:", event);
@@ -85,6 +87,8 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
     
     // Check if the frame is already added and add it if not
     const checkFrameStatus = async () => {
+      const sdk = frameSDKManager.getSDK();
+      
       try {
         // First check if the frame is already added by getting the context
         const context = await sdk.context;
@@ -115,6 +119,8 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
     
     // Send a welcome notification to the user
     const sendWelcomeNotification = async () => {
+      const sdk = frameSDKManager.getSDK();
+      
       try {
         // Get user FID from context
         const context = await sdk.context;
@@ -145,6 +151,8 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
     
     // Clean up event listeners on unmount
     return () => {
+      const sdk = frameSDKManager.getSDK();
+      
       // Remove all event listeners
       sdk.off("frameAdded");
       sdk.off("frameAddRejected");

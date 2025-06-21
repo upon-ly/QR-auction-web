@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Check, X as XIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import confetti from 'canvas-confetti';
-import { frameSdk } from '@/lib/frame-sdk';
+import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { toast } from "sonner";
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
@@ -143,8 +143,8 @@ export function LinkVisitClaimPopup({
   useEffect(() => {
     async function detectContext() {
       try {
-        const context = await frameSdk.getContext();
-        setIsWebContext(!context?.user?.fid);
+        const isMiniApp = await frameSdk.isInMiniApp();
+        setIsWebContext(!isMiniApp);
       } catch {
         setIsWebContext(true);
       }
@@ -318,9 +318,9 @@ export function LinkVisitClaimPopup({
   useEffect(() => {
     async function checkFrameContext() {
       try {
-        const context = await frameSdk.getContext();
-        isFrameRef.current = !!context?.user;
+        isFrameRef.current = await frameSdk.isInMiniApp();
       } catch {
+        isFrameRef.current = false;
       }
     }
     checkFrameContext();

@@ -153,12 +153,12 @@ export function LinkVisitProvider({
   useEffect(() => {
     async function detectContext() {
       try {
-        // Try to get frame context - if this fails, we're in web context
-        const { frameSdk } = await import('@/lib/frame-sdk');
-        const context = await frameSdk.getContext();
-        setIsWebContext(!context?.user?.fid);
+        // Check if we're in a mini app
+        const { frameSdk } = await import('@/lib/frame-sdk-singleton');
+        const isMiniApp = await frameSdk.isInMiniApp();
+        setIsWebContext(!isMiniApp);
       } catch {
-        // If frameSdk fails, we're definitely in web context
+        // If check fails, we're in web context
         setIsWebContext(true);
       }
     }
