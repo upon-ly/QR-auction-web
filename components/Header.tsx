@@ -99,11 +99,11 @@ export function Header() {
             size="icon"
             className={
               isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                : "h-8 w-8 md:h-10 md:w-10"
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
+                : "h-10 w-10 md:h-10 md:w-10"
             }
           >
-            <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+            <div className="text-xl flex items-center justify-center">
               🏆
             </div>
           </Button>
@@ -126,11 +126,11 @@ export function Header() {
               size="icon"
               className={
                 isBaseColors
-                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                  : "h-8 w-8 md:h-10 md:w-10"
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
+                  : "h-10 w-10 md:h-10 md:w-10"
               }
             >
-              <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+              <div className="text-xl flex items-center justify-center">
                 🔥
               </div>
             </Button>
@@ -154,11 +154,11 @@ export function Header() {
               size="icon"
               className={
                 isBaseColors
-                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                  : "h-8 w-8 md:h-10 md:w-10"
+                  ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
+                  : "h-10 w-10 md:h-10 md:w-10"
               }
             >
-              <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+              <div className="text-xl flex items-center justify-center">
                 🌎
               </div>
             </Button>
@@ -170,11 +170,11 @@ export function Header() {
             size="icon"
             className={
               isBaseColors
-                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-                : "h-8 w-8 md:h-10 md:w-10"
+                ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
+                : "h-10 w-10 md:h-10 md:w-10"
             }
           >
-            <div className="h-5 w-5 flex items-center justify-center md:h-10 md:w-10">
+            <div className="text-xl flex items-center justify-center">
               ℹ️
             </div>
           </Button>
@@ -185,23 +185,23 @@ export function Header() {
           size="icon"
           className={
             isBaseColors
-              ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-8 w-8 md:h-10 md:w-10"
-              : "h-8 w-8 md:h-10 md:w-10"
+              ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
+              : "h-10 w-10 md:h-10 md:w-10"
           }
           onClick={() => setThemeDialogOpen(true)}
         >
-          <div className="h-5 w-5 flex items-center justify-center">
+          <div className="h-6 w-6 md:h-5 md:w-5 flex items-center justify-center">
             {isBaseColors ? (
               <img 
                 src="/basecolors2.jpeg" 
                 alt="Theme toggle - base colors"
-                className="h-5 w-5 object-cover"
+                className="h-6 w-6 md:h-5 md:w-5 object-cover"
               />
             ) : (
               <img 
                 src="/basecolors.jpeg" 
                 alt="Theme toggle - light/dark" 
-                className="h-5 w-5 object-cover border"
+                className="h-6 w-6 md:h-5 md:w-5 object-cover border"
               />
             )}
           </div>

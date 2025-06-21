@@ -27,7 +27,7 @@ export default function AboutPage() {
   return (
     <main className="min-h-screen p-4 md:px-8 md:pb-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">About</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-6">About</h1>
         <div className="space-y-6">
           <div>
             <h2 className="text-xl font-bold mb-2">The Auction:</h2>

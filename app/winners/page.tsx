@@ -386,7 +386,7 @@ export default function WinnersPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-center">All-Time Winners</h1>
           </div>
           <p className="text-sm md:text-lg text-gray-600 dark:text-gray-400">
-            Complete history of all auction winners
+            Complete history of our auction winners
           </p>
         </div>
 
