@@ -789,7 +789,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://x.com/qrcoindotfun", e);
+                handleFrameOpenUrl("https://x.com/qrcoindotfun", e, true);
               }
             }}
           >
@@ -806,7 +806,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0", e);
+                handleFrameOpenUrl("https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0", e, true);
               }
             }}
           >
@@ -821,7 +821,7 @@ export default function AuctionPage() {
             onClick={(e) => {
               if (isFrame.current) {
                 e.preventDefault();
-                handleFrameOpenUrl("https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base", e);
+                handleFrameOpenUrl("https://app.uniswap.org/swap?outputCurrency=0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF&chain=base", e, true);
               }
             }}
           >
