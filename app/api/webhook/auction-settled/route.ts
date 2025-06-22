@@ -15,9 +15,10 @@ export async function POST(req: NextRequest) {
 
     // Trigger the batch retry for the settled auction after a short delay
     // This allows the settlement transaction to be fully processed first
+    const auctionToRetry = settledAuctionId - 1;
     setTimeout(async () => {
       try {
-        console.log(`Triggering batch retry for settled auction ${settledAuctionId}`);
+        console.log(`Triggering batch retry for auction ${auctionToRetry} (settled auction ${settledAuctionId})`);
         
         const retryResponse = await fetch(`${HOST_URL}/api/auction/settled/retry-failures`, {
           method: 'POST',
@@ -26,31 +27,32 @@ export async function POST(req: NextRequest) {
             'Authorization': `Bearer ${RETRY_ENDPOINT_SECRET}`
           },
           body: JSON.stringify({
-            auctionId: settledAuctionId
+            auctionId: auctionToRetry
           })
         });
 
         const retryResult = await retryResponse.json();
         
         if (retryResult.success) {
-          console.log(`Batch retry completed for auction ${settledAuctionId}:`, {
+          console.log(`Batch retry completed for auction ${auctionToRetry}:`, {
             processed: retryResult.processed,
             successful: retryResult.successful,
             failed: retryResult.failed
           });
         } else {
-          console.error(`Batch retry failed for auction ${settledAuctionId}:`, retryResult.error);
+          console.error(`Batch retry failed for auction ${auctionToRetry}:`, retryResult.error);
         }
       } catch (error) {
-        console.error(`Error triggering batch retry for auction ${settledAuctionId}:`, error);
+        console.error(`Error triggering batch retry for auction ${auctionToRetry}:`, error);
       }
     }, 10000); // 10 second delay to ensure settlement is processed
 
     return NextResponse.json({
       success: true,
-      message: `Batch retry scheduled for auction ${settledAuctionId}`,
+      message: `Batch retry scheduled for auction ${auctionToRetry} (settled auction ${settledAuctionId})`,
       settledAuctionId,
-      newAuctionId
+      newAuctionId,
+      auctionToRetry
     });
 
   } catch (error) {
