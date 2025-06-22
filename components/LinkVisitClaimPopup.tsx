@@ -791,7 +791,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  1000 $QR sent to your wallet.
+                  1,000 $QR sent to your wallet.
                 </motion.p>
                 
                 <motion.div
