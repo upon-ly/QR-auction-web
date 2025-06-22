@@ -408,7 +408,7 @@ export async function POST(req: NextRequest) {
       
       // Check token balance
       const tokenBalance = await qrTokenContract.balanceOf(adminWallet.address);
-      if (tokenBalance < ethers.parseUnits('420', 18)) {
+      if (tokenBalance < ethers.parseUnits('1000', 18)) {
         // Update retry status
         await updateRetryStatus(failureId, {
           status: 'failed',
@@ -424,7 +424,7 @@ export async function POST(req: NextRequest) {
       
       // Check allowance
       const allowance = await qrTokenContract.allowance(adminWallet.address, DYNAMIC_AIRDROP_CONTRACT);
-      if (allowance < ethers.parseUnits('420', 18)) {
+      if (allowance < ethers.parseUnits('1000', 18)) {
         console.log('Approving tokens for airdrop contract...');
         
         // Increase gas price by 30%
@@ -443,7 +443,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Prepare airdrop data
-      const airdropAmount = ethers.parseUnits('420', 18);
+      const airdropAmount = ethers.parseUnits('1000', 18);
       const airdropContent = [{
         recipient: failure.eth_address,
         amount: airdropAmount
@@ -568,7 +568,7 @@ export async function POST(req: NextRequest) {
           eth_address: failure.eth_address,
           link_visited_at: new Date().toISOString(),
           claimed_at: new Date().toISOString(),
-          amount: 420,
+          amount: 1000,
           tx_hash: txReceipt.hash,
           success: true,
           username: failure.username || null,
@@ -615,7 +615,7 @@ export async function POST(req: NextRequest) {
                   auto_banned: true,
                   total_claims_attempted: duplicateTxs.length, // Only count the duplicate transactions for THIS auction
                   duplicate_transactions: duplicateTxs,
-                  total_tokens_received: duplicateTxs.length * 420,
+                  total_tokens_received: duplicateTxs.length * 1000,
                   ban_metadata: {
                     trigger: 'queue_duplicate_tx',
                     auction_id: failure.auction_id,
@@ -659,7 +659,7 @@ export async function POST(req: NextRequest) {
           .update({
             eth_address: failure.eth_address,
             claimed_at: new Date().toISOString(),
-            amount: 420,
+            amount: 1000,
             tx_hash: txReceipt.hash,
             success: true,
             username: failure.username || null,

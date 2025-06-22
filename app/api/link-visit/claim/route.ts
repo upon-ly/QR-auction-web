@@ -937,11 +937,11 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
     
-    // Define airdrop amount (420 QR tokens)
+    // Define airdrop amount (1000 QR tokens)
     // Assuming 18 decimals for the QR token
-    const airdropAmount = ethers.parseUnits('420', 18);
+    const airdropAmount = ethers.parseUnits('1000', 18);
     
-    console.log(`Preparing airdrop of 420 QR tokens to ${address}`);
+    console.log(`Preparing airdrop of 1,000 QR tokens to ${address}`);
     
       // Create contract instances using the dynamic contract from wallet pool
       const airdropContract = new ethers.Contract(
@@ -1223,7 +1223,7 @@ export async function POST(request: NextRequest) {
           eth_address: address, 
           link_visited_at: new Date().toISOString(), // Ensure we mark it as visited
           claimed_at: new Date().toISOString(),
-          amount: 420, // 420 QR tokens
+          amount: 1000, // 1,000 QR tokens
           tx_hash: receipt.hash,
           success: true,
           username: effectiveUsername, // Display username (from request for mini-app, null for web)
@@ -1275,7 +1275,7 @@ export async function POST(request: NextRequest) {
                   auto_banned: true,
                   total_claims_attempted: duplicateTxs.length, // Only count the duplicate transactions for THIS auction
                   duplicate_transactions: duplicateTxs,
-                  total_tokens_received: duplicateTxs.length * 420,
+                  total_tokens_received: duplicateTxs.length * 1000,
                   ban_metadata: {
                     trigger: 'duplicate_blockchain_tx_detected',
                     auction_id: auction_id,
@@ -1317,7 +1317,7 @@ export async function POST(request: NextRequest) {
           .update({
             eth_address: address,
             claimed_at: new Date().toISOString(),
-            amount: 420, // 420 QR tokens
+            amount: 1000, // 1,000 QR tokens
             tx_hash: receipt.hash,
             success: true,
             username: effectiveUsername, // Display username (from request for mini-app, null for web)

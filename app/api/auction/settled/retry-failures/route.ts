@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     );
 
     // Check token balance
-    const requiredTokens = BigInt(failures.length) * ethers.parseUnits('420', 18);
+    const requiredTokens = BigInt(failures.length) * ethers.parseUnits('1000', 18);
     const tokenBalance = await qrTokenContract.balanceOf(adminWallet.address);
     
     if (tokenBalance < requiredTokens) {
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
       // Prepare airdrop data for this batch
       const airdropContent = batch.map(failure => ({
         recipient: failure.eth_address,
-        amount: ethers.parseUnits('420', 18)
+        amount: ethers.parseUnits('1000', 18)
       }));
 
       // Execute batch airdrop
@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
           eth_address: failure.eth_address,
           link_visited_at: new Date().toISOString(),
           claimed_at: new Date().toISOString(),
-          amount: 420,
+          amount: 1000,
           tx_hash: txReceipt.hash,
           success: true,
           username: failure.username || null,
