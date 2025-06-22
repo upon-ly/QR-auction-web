@@ -47,23 +47,23 @@ export async function POST(req: NextRequest) {
       // Get current auction info from contract
       const currentAuction = await auctionContract.auction();
       const currentAuctionId = currentAuction.tokenId - 2n;
-      const expectedSettledAuctionId = currentAuctionId; // The auction that just settled
+      const expectedSettledAuctionId = currentAuctionId; // The auction with claims to retry
       
-      console.log(`Admin manual retry: Current auction: ${currentAuctionId}, Requested: ${auctionId}, Expected settled: ${expectedSettledAuctionId}`);
+      console.log(`Admin manual retry: Current auction: ${currentAuctionId + 2n}, Requested: ${auctionId}, Expected auction with claims: ${expectedSettledAuctionId}`);
       
-      // Only allow retries for the auction that just settled (current - 1)
+      // Only allow retries for the auction with claims
       if (BigInt(auctionId) !== expectedSettledAuctionId) {
-        console.error(`Admin retry security check failed: Can only retry the most recently settled auction (${expectedSettledAuctionId}), requested: ${auctionId}`);
+        console.error(`Admin retry security check failed: Can only retry claims for auction ${expectedSettledAuctionId}, requested: ${auctionId}`);
         return NextResponse.json({ 
           success: false, 
-          error: `Can only retry the most recently settled auction (${expectedSettledAuctionId.toString()})`,
-          currentAuction: currentAuctionId.toString(),
+          error: `Can only retry claims for auction ${expectedSettledAuctionId.toString()}`,
+          currentAuction: (currentAuctionId + 2n).toString(),
           requestedAuction: auctionId,
           allowedAuction: expectedSettledAuctionId.toString()
         }, { status: 403 });
       }
       
-      console.log(`Admin retry security check passed: Retrying auction ${auctionId} (most recently settled)`);
+      console.log(`Admin retry security check passed: Retrying claims for auction ${auctionId}`);
     } catch (contractError) {
       console.error('Failed to verify auction state for admin retry:', contractError);
       return NextResponse.json({ 
