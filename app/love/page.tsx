@@ -359,7 +359,7 @@ export default function WallOfLovePage() {
               </Button>
               <Button 
                 onClick={handleCastClick}
-                className="w-28 bg-[#472B92] text-white hover:bg-[#3b2277]"
+                className="w-28 bg-[#8A63D2] text-white hover:bg-[#7952c4]"
               >
                 Cast
               </Button>

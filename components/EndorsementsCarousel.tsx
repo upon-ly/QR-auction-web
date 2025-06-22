@@ -365,7 +365,7 @@ export function EndorsementsCarousel() {
             <div className="absolute right-0 bottom-0 mb-2 pr-4">
               <Link 
                 href="/love"
-                className="text-sm font-medium text-[#472B92] hover:underline"
+                className="text-sm font-medium text-[#8A63D2] hover:underline"
               >
                 See more →
               </Link>

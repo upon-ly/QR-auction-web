@@ -102,7 +102,7 @@ export function FarcasterFrameProvider({ children }: { children: ReactNode }) {
         
         // If not already added or no notifications, prompt to add the frame
         console.log("Prompting to add frame");
-        const result = await sdk.actions.addFrame();
+        const result = await sdk.actions.addMiniApp();
         console.log("Add frame result:", result);
         
         // Check if we got notificationDetails directly in the result

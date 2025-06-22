@@ -9,6 +9,7 @@ import { ThemeProvider } from "next-themes";
 import { InfoBar } from "@/components/InfoBar";
 import { Header } from "@/components/Header";
 import { FarcasterLogin } from "@/components/FarcasterLogin";
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -99,6 +100,7 @@ export default function RootLayout({
             <Header />
             <FarcasterLogin />
             {children}
+            <Analytics />
           </Provider>
         </ThemeProvider>
       </body>

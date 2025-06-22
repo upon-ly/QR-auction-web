@@ -1,7 +1,7 @@
 "use client";
 
-import sdk from "@farcaster/frame-sdk";
-import type { Context } from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/frame-sdk";
+import type { Context, SwapToken } from "@farcaster/frame-sdk";
 
 class FrameSDKManager {
   private static instance: FrameSDKManager;
@@ -233,6 +233,11 @@ class FrameSDKManager {
       return false;
     }
   }
+
+  async swapToken(params: { sellToken?: string; buyToken?: string; sellAmount?: string }): Promise<SwapToken.SwapTokenResult> {
+    await this.initialize();
+    return sdk.actions.swapToken(params);
+  }
 }
 
 // Export singleton instance wrapped in the same interface
@@ -244,6 +249,7 @@ export const frameSdk = {
   connectWallet: () => FrameSDKManager.getInstance().connectWallet(),
   signMessage: (options: { message: string }) => FrameSDKManager.getInstance().signMessage(options),
   isInMiniApp: () => FrameSDKManager.getInstance().isInMiniApp(),
+  swapToken: (params: { sellToken?: string; buyToken?: string; sellAmount?: string }) => FrameSDKManager.getInstance().swapToken(params),
 };
 
 // Export the manager for providers that need event handling
