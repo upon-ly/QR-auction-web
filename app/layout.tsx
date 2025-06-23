@@ -42,16 +42,16 @@ export function generateMetadata(): Metadata {
   return {
     metadataBase: new URL(url),
     title: "QR",
-    description: "Same QR. New Website. Every day.",
+    description: "Discover & earn every day.",
     openGraph: {
       images: [`${url}/opgIMage.png`],
       title: "QR coin",
-      description: "Same QR. New Website. Every day.",
+      description: "Discover & earn every day.",
     },
     twitter: {
       card: "summary",
-      title: "QR Coin",
-      description: "Same QR. New Website. Every day.",
+      title: "QR coin",
+      description: "Discover & earn every day.",
       images: {
         url: `${url}/opgIMage.png`,
         alt: "QRCoinDotFun Logo",
