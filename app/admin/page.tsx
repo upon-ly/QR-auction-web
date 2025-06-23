@@ -1495,7 +1495,16 @@ function ClaimsAnalytics() {
                 <th className="text-right p-3">Bid</th>
                 <th className="text-right p-3">Claims</th>
                 <th className="text-right p-3">CPC</th>
-                <th className="text-right p-3">Reward</th>
+                <th className="text-right p-3">
+                  <a 
+                    href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline text-blue-600 dark:text-blue-400"
+                  >
+                    Reward
+                  </a>
+                </th>
                 <th className="text-right p-3">$QR</th>
               </tr>
             </thead>
@@ -1504,7 +1513,7 @@ function ClaimsAnalytics() {
                 <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
                   <td className="p-3">{item.auction_id}</td>
                   <td className="p-3">{format(new Date(item.date), 'MMM d')}</td>
-                  <td className="text-right p-3">${Math.round(item.usd_value)}</td>
+                  <td className="text-right p-3">${Math.round(item.usd_value).toLocaleString()}</td>
                   <td className="text-right p-3">{item.click_count.toLocaleString()}</td>
                   <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
                   <td className="text-right p-3">
@@ -1550,20 +1559,15 @@ function ClaimsAnalytics() {
                         </button>
                       </div>
                     ) : (
-                      <a 
-                        href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
-                        onClick={(e) => {
-                          if (e.ctrlKey || e.metaKey) return; // Allow ctrl/cmd+click to open link
-                          e.preventDefault();
+                      <div 
+                        className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1 transition-colors"
+                        onClick={() => {
                           setEditingQRPrice(item.auction_id);
                           setQrPriceInput(item.qr_price_usd.toString());
                         }}
                       >
-                        ${item.qr_reward_value_usd.toFixed(2)}
-                      </a>
+                        ${item.qr_reward_value_usd.toFixed(3)}
+                      </div>
                     )}
                   </td>
                   <td className="text-right p-3">{item.qr_reward_per_claim.toLocaleString()}</td>
