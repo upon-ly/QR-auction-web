@@ -29,22 +29,7 @@ const receiver = new Receiver({
 // Contract details - function to get addresses based on claim source
 const QR_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_QR_COIN || '';
 
-// Use different contracts based on claim source
-const getContractAddresses = (claimSource: string = 'mini_app') => {
-  if (claimSource === 'web') {
-    // Web context: use contract 4
-    return {
-      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS4 || '',
-      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY4 || ''
-    };
-  } else {
-    // Mini-app context: use contract 2 (existing)
-    return {
-      AIRDROP_CONTRACT_ADDRESS: process.env.AIRDROP_CONTRACT_ADDRESS2 || '',
-      ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY2 || ''
-    };
-  }
-};
+// Contract addresses are now managed by wallet pool
 
 // Alchemy RPC URL
 const ALCHEMY_RPC_URL = 'https://base-mainnet.g.alchemy.com/v2/';
@@ -331,7 +316,14 @@ export async function POST(req: NextRequest) {
     const walletPool = getWalletPool(provider);
     
     // Determine the purpose based on claim source
-    const walletPurpose = claimSource === 'web' ? 'link-web' : 'link-miniapp';
+    let walletPurpose: 'link-web' | 'mobile-link-visit' | 'link-miniapp';
+    if (claimSource === 'mobile') {
+      walletPurpose = 'mobile-link-visit';
+    } else if (claimSource === 'web') {
+      walletPurpose = 'link-web';
+    } else {
+      walletPurpose = 'link-miniapp';
+    }
     
     // Check if we should use direct wallet (pool disabled for this purpose)
     const directWallet = walletPool.getDirectWallet(walletPurpose);
