@@ -1362,17 +1362,16 @@ function ClaimsAnalytics() {
               <Tooltip />
               <Legend />
               <Bar 
-                dataKey="click_count" 
-                name="Claim Count" 
-                fill="#ffc658"
-                label={{ 
-                  position: 'top',
-                  offset: 15,
-                  angle: -45,
-                  formatter: (value: number) => value.toLocaleString(),
-                  fill: '#666',
-                  fontSize: 16
-                }}
+                dataKey="web_click_count" 
+                name="Web Claims" 
+                fill="#3b82f6"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="mini_app_click_count" 
+                name="Mini App Claims" 
+                fill="#10b981"
+                stackId="a"
               />
             </BarChart>
           </ResponsiveContainer>
@@ -1505,6 +1504,7 @@ function ClaimsAnalytics() {
                     Reward
                   </a>
                 </th>
+                <th className="text-right p-3">Margin</th>
                 <th className="text-right p-3">$QR</th>
               </tr>
             </thead>
@@ -1515,7 +1515,7 @@ function ClaimsAnalytics() {
                   <td className="p-3">{format(new Date(item.date), 'MMM d')}</td>
                   <td className="text-right p-3">${Math.round(item.usd_value).toLocaleString()}</td>
                   <td className="text-right p-3">{item.click_count.toLocaleString()}</td>
-                  <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
+                  <td className="text-right p-3">{item.click_count > 0 ? `$${item.cost_per_click.toFixed(3)}` : '-'}</td>
                   <td className="text-right p-3">
                     {editingQRPrice === item.auction_id ? (
                       <div className="flex items-center justify-end space-x-2">
@@ -1568,6 +1568,21 @@ function ClaimsAnalytics() {
                       >
                         ${item.qr_reward_value_usd.toFixed(3)}
                       </div>
+                    )}
+                  </td>
+                  <td className="text-right p-3">
+                    {item.click_count > 0 && item.cost_per_click > 0 ? (
+                      <span 
+                        className={
+                          ((item.cost_per_click - item.qr_reward_value_usd) / item.cost_per_click) >= 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {Math.round(((item.cost_per_click - item.qr_reward_value_usd) / item.cost_per_click) * 100)}%
+                      </span>
+                    ) : (
+                      '-'
                     )}
                   </td>
                   <td className="text-right p-3">{item.qr_reward_per_claim.toLocaleString()}</td>

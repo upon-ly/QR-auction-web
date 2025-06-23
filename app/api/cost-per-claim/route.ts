@@ -140,20 +140,24 @@ export async function GET(request: Request) {
         continue; // Skip this auction if count fails
       }
       
-      // The count value is exactly what we need
-      let click_count = count || 0;
+      // Get counts by claim source
+      const { count: webCount } = await supabase
+        .from('link_visit_claims')
+        .select('*', { count: 'exact', head: true })
+        .eq('auction_id', auction_id)
+        .eq('claim_source', 'web');
       
-      // Add hardcoded click counts for specific auction IDs
-      if (auction_id === 71) {
-        click_count += 710; // Add 710 hardcoded clicks for auction 71
-        console.log(`Added 710 hardcoded clicks to auction ID 71, total: ${click_count}`);
-      } else if (auction_id === 72) {
-        click_count += 494; // Add 494 hardcoded clicks for auction 72
-        console.log(`Added 494 hardcoded clicks to auction ID 72, total: ${click_count}`);
-      } else if (auction_id === 73) {
-        click_count += 430; // Add 430 hardcoded clicks for auction 73
-        console.log(`Added 430 hardcoded clicks to auction ID 73, total: ${click_count}`);
-      }
+      const { count: miniAppCount } = await supabase
+        .from('link_visit_claims')
+        .select('*', { count: 'exact', head: true })
+        .eq('auction_id', auction_id)
+        .eq('claim_source', 'mini_app');
+      
+      // The count value is exactly what we need
+      const click_count = count || 0;
+      const web_click_count = webCount || 0;
+      const mini_app_click_count = miniAppCount || 0;
+      
       
       totalClicks += click_count;
       
@@ -190,6 +194,8 @@ export async function GET(request: Request) {
         date: format(new Date(winner.created_at), 'MMM d, yyyy'),
         usd_value: winner.usd_value,
         click_count,
+        web_click_count,
+        mini_app_click_count,
         cost_per_click,
         qr_price_usd,
         qr_reward_per_claim,
