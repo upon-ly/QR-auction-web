@@ -162,7 +162,11 @@ export async function GET(request: Request) {
       
       // QR reward per claim based on auction ID
       let qr_reward_per_claim: number;
-      if (auction_id >= 71 && auction_id <= 95) {
+      if (auction_id === 71) {
+        qr_reward_per_claim = 5000;
+      } else if (auction_id >= 72 && auction_id <= 76) {
+        qr_reward_per_claim = 2000;
+      } else if (auction_id >= 77 && auction_id <= 95) {
         qr_reward_per_claim = 1000;
       } else if (auction_id >= 96 && auction_id <= 107) {
         qr_reward_per_claim = 420;

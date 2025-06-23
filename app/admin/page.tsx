@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
 import {
   Tabs,
   TabsContent,
@@ -1489,21 +1490,22 @@ function ClaimsAnalytics() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left p-3">Auction ID</th>
+                <th className="text-left p-3">#</th>
                 <th className="text-left p-3">Date</th>
-                <th className="text-right p-3">Winning Bid (USD)</th>
+                <th className="text-right p-3">Bid</th>
                 <th className="text-right p-3">Claims</th>
-                <th className="text-right p-3">Cost Per Claim</th>
-                <th className="text-right p-3">QR Reward</th>
+                <th className="text-right p-3">CPC</th>
+                <th className="text-right p-3">Reward</th>
+                <th className="text-right p-3">$QR</th>
               </tr>
             </thead>
             <tbody>
               {filteredData.map((item, index) => (
                 <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
                   <td className="p-3">{item.auction_id}</td>
-                  <td className="p-3">{item.date}</td>
-                  <td className="text-right p-3">{formatCurrency(item.usd_value)}</td>
-                  <td className="text-right p-3">{item.click_count}</td>
+                  <td className="p-3">{format(new Date(item.date), 'MMM d')}</td>
+                  <td className="text-right p-3">${Math.round(item.usd_value)}</td>
+                  <td className="text-right p-3">{item.click_count.toLocaleString()}</td>
                   <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
                   <td className="text-right p-3">
                     {editingQRPrice === item.auction_id ? (
@@ -1524,7 +1526,7 @@ function ClaimsAnalytics() {
                           }}
                           className="w-20 px-2 py-1 text-sm border rounded dark:bg-gray-700"
                           placeholder="0.01"
-                          step="0.001"
+                          step="0.000001"
                           min="0"
                         />
                         <button
@@ -1548,20 +1550,23 @@ function ClaimsAnalytics() {
                         </button>
                       </div>
                     ) : (
-                      <div 
-                        className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1 transition-colors"
-                        onClick={() => {
+                      <a 
+                        href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer hover:underline text-blue-600 dark:text-blue-400"
+                        onClick={(e) => {
+                          if (e.ctrlKey || e.metaKey) return; // Allow ctrl/cmd+click to open link
+                          e.preventDefault();
                           setEditingQRPrice(item.auction_id);
                           setQrPriceInput(item.qr_price_usd.toString());
                         }}
                       >
-                        {formatCurrency(item.qr_reward_value_usd)}
-                        <span className="text-xs text-gray-500 ml-1">
-                          ({item.qr_reward_per_claim} @ ${item.qr_price_usd})
-                        </span>
-                      </div>
+                        ${item.qr_reward_value_usd.toFixed(2)}
+                      </a>
                     )}
                   </td>
+                  <td className="text-right p-3">{item.qr_reward_per_claim.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
