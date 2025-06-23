@@ -28,6 +28,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { useRedirectCostPerClick } from "@/hooks/useRedirectCostPerClick";
+import { useCostPerClaim } from "@/hooks/useCostPerClaim";
 import { WalletBalancesSection } from "@/components/admin/WalletBalancesSection";
 
 // List of authorized admin addresses (lowercase for easy comparison)
@@ -1113,87 +1114,30 @@ function ClicksAnalytics() {
   );
 }
 
-// Claims Analytics Component (uses cost per click data but changes terminology to "claims")
+// Claims Analytics Component (uses cost per claim data)
 function ClaimsAnalytics() {
-  const { address } = useAccount();
-  const [data, setData] = useState<{
-    auctionData: {
-      auction_id: number;
-      date: string;
-      usd_value: number;
-      click_count: number;
-      cost_per_click: number;
-    }[];
-    stats?: {
-      totalAuctions: number;
-      auctionsWithClicks: number;
-      totalClicks: number;
-      totalUsdValue: number;
-      minAuctionId: number;
-      maxAuctionId: number;
-      earliestAuctionIdWithClicks: number;
-    };
-    isLoading: boolean;
-    error: Error | null;
-  }>({
-    auctionData: [],
-    isLoading: true,
-    error: null
-  });
+  const { auctionData, stats, isLoading, error, updateQRPrice } = useCostPerClaim();
   
   // Filter states - initialize with null values since we don't know the range yet
   const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
   const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
+  const [editingQRPrice, setEditingQRPrice] = useState<number | null>(null);
+  const [qrPriceInput, setQrPriceInput] = useState<string>("");
   
+  // Set initial range when data loads
   useEffect(() => {
-    if (!address) return;
-    
-    const fetchData = async () => {
-      try {
-        // Include the wallet address in the authorization header
-        const response = await fetch('/api/cost-per-click', {
-          headers: {
-            'Authorization': `Bearer ${address}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-        
-        const resultData = await response.json();
-        
-        // Set the initial auction range based on the data
-        if (resultData.stats) {
-          const minId = resultData.stats.earliestAuctionIdWithClicks || resultData.stats.minAuctionId;
-          const maxId = resultData.stats.maxAuctionId;
-          setAuctionRange([minId, maxId]);
-        }
-        
-        setData({
-          auctionData: resultData.auctionData,
-          stats: resultData.stats,
-          isLoading: false,
-          error: null
-        });
-      } catch (error) {
-        console.error('Error fetching cost per click data:', error);
-        setData(prev => ({
-          ...prev,
-          isLoading: false,
-          error: error instanceof Error ? error : new Error('An unknown error occurred')
-        }));
-      }
-    };
-
-    fetchData();
-  }, [address]);
+    if (stats && !auctionRange) {
+      const minId = stats.earliestAuctionIdWithClicks || stats.minAuctionId;
+      const maxId = stats.maxAuctionId;
+      setAuctionRange([minId, maxId]);
+    }
+  }, [stats, auctionRange]);
 
   // Apply filters to the auction data
   const filteredData = useMemo(() => {
-    if (!data.auctionData || !auctionRange) return [];
+    if (!auctionData || !auctionRange) return [];
     
-    return data.auctionData
+    return auctionData
       .filter(item => {
         // Filter by auction ID range
         const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
@@ -1202,9 +1146,9 @@ function ClaimsAnalytics() {
         return inRange && hasClicks;
       })
       .sort((a, b) => a.auction_id - b.auction_id);
-  }, [data.auctionData, auctionRange, showOnlyWithClicks]);
+  }, [auctionData, auctionRange, showOnlyWithClicks]);
 
-  if (data.isLoading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-[300px] w-full" />
@@ -1228,24 +1172,24 @@ function ClaimsAnalytics() {
     );
   }
 
-  if (data.error) {
+  if (error) {
     return (
       <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
         <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
         <p className="text-red-700 dark:text-red-400">
-          There was an error loading the cost per click data. Please try again later.
+          There was an error loading the cost per claim data. Please try again later.
         </p>
       </div>
     );
   }
 
   // If we have no data yet
-  if (data.auctionData.length === 0) {
+  if (auctionData.length === 0) {
     return (
       <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
         <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">No Data Available</h3>
         <p className="text-amber-700 dark:text-amber-400">
-          Cost per click data is not available yet. This feature requires data from both winning bids and link visits.
+          Cost per claim data is not available yet. This feature requires data from both winning bids and link visits.
         </p>
       </div>
     );
@@ -1292,7 +1236,7 @@ function ClaimsAnalytics() {
       <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
         <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Cost Per Claim Analysis</h3>
         <p className="text-blue-700 dark:text-blue-400">
-          Analyze how much bidders are paying per claim. Starting from auction #{data.stats?.earliestAuctionIdWithClicks}, which is the earliest auction with link claim data.
+          Analyze how much bidders are paying per claim. Starting from auction #{stats?.earliestAuctionIdWithClicks}, which is the earliest auction with link claim data.
         </p>
         <div className="text-xs text-blue-600 dark:text-blue-500 mt-2">
           Note: &ldquo;Claims&rdquo; represent the total number of link visits on each auction&apos;s link, counting all records in the link_visit_claims table.
@@ -1305,16 +1249,16 @@ function ClaimsAnalytics() {
             <div className="flex items-center space-x-2">
               <input
                 type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
+                min={stats?.minAuctionId || 0}
+                max={stats?.maxAuctionId || 100}
                 value={auctionRange[0]}
                 onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
                 className="flex-1"
               />
               <input
                 type="range"
-                min={data.stats?.minAuctionId || 0}
-                max={data.stats?.maxAuctionId || 100}
+                min={stats?.minAuctionId || 0}
+                max={stats?.maxAuctionId || 100}
                 value={auctionRange[1]}
                 onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
                 className="flex-1"
@@ -1538,7 +1482,7 @@ function ClaimsAnalytics() {
         <div className="flex justify-between items-center mb-4">
           <h4 className="text-lg font-medium">Auction Data</h4>
           <div className="text-sm text-gray-500">
-            Showing {filteredData.length} of {data.auctionData.length} auctions
+            Showing {filteredData.length} of {auctionData.length} auctions
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -1550,6 +1494,7 @@ function ClaimsAnalytics() {
                 <th className="text-right p-3">Winning Bid (USD)</th>
                 <th className="text-right p-3">Claims</th>
                 <th className="text-right p-3">Cost Per Claim</th>
+                <th className="text-right p-3">QR Reward</th>
               </tr>
             </thead>
             <tbody>
@@ -1560,6 +1505,63 @@ function ClaimsAnalytics() {
                   <td className="text-right p-3">{formatCurrency(item.usd_value)}</td>
                   <td className="text-right p-3">{item.click_count}</td>
                   <td className="text-right p-3">{item.click_count > 0 ? formatCurrency(item.cost_per_click) : '-'}</td>
+                  <td className="text-right p-3">
+                    {editingQRPrice === item.auction_id ? (
+                      <div className="flex items-center justify-end space-x-2">
+                        <input
+                          type="number"
+                          value={qrPriceInput}
+                          onChange={(e) => setQrPriceInput(e.target.value)}
+                          onKeyPress={async (e) => {
+                            if (e.key === 'Enter') {
+                              try {
+                                await updateQRPrice(item.auction_id, parseFloat(qrPriceInput));
+                                setEditingQRPrice(null);
+                              } catch (error) {
+                                console.error('Failed to update QR price:', error);
+                              }
+                            }
+                          }}
+                          className="w-20 px-2 py-1 text-sm border rounded dark:bg-gray-700"
+                          placeholder="0.01"
+                          step="0.001"
+                          min="0"
+                        />
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateQRPrice(item.auction_id, parseFloat(qrPriceInput));
+                              setEditingQRPrice(null);
+                            } catch (error) {
+                              console.error('Failed to update QR price:', error);
+                            }
+                          }}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => setEditingQRPrice(null)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1 transition-colors"
+                        onClick={() => {
+                          setEditingQRPrice(item.auction_id);
+                          setQrPriceInput(item.qr_price_usd.toString());
+                        }}
+                      >
+                        {formatCurrency(item.qr_reward_value_usd)}
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({item.qr_reward_per_claim} @ ${item.qr_price_usd})
+                        </span>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
