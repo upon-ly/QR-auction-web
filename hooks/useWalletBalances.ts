@@ -20,47 +20,58 @@ const ERC20_ABI = [
 export const TRACKED_WALLETS = [
   {
     name: 'QR Mini App Adds',
-    address: '0x853835Cd1D420476F5791Ac7ac399Be4D21D2069'
+    address: '0x853835Cd1D420476F5791Ac7ac399Be4D21D2069',
+    basescanUrl: 'https://basescan.org/advanced-filter?tkn=0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf&txntype=2&mtd=0x56b0b449~Airdrop+ERC20&ps=100&fadd=0x853835Cd1D420476F5791Ac7ac399Be4D21D2069'
   },
   {
     name: 'QR Website Claims',
-    address: '0x37C01A876eecBd916c689D540Fc4FB19D1Dd247F'
+    address: '0x37C01A876eecBd916c689D540Fc4FB19D1Dd247F',
+    basescanUrl: 'https://basescan.org/advanced-filter?tkn=0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf&txntype=2&mtd=0x56b0b449%7eAirdrop+ERC20&ps=100&fadd=0x37C01A876eecBd916c689D540Fc4FB19D1Dd247F'
   },
   {
     name: 'QR Mini App Claims',
-    address: '0xF00Ce533a2aafEC8A38f2A94AaE693ca77b65077'
+    address: '0xF00Ce533a2aafEC8A38f2A94AaE693ca77b65077',
+    basescanUrl: 'https://basescan.org/advanced-filter?tkn=0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf&txntype=2&mtd=0x56b0b449%7eAirdrop+ERC20&ps=100&fadd=0xF00Ce533a2aafEC8A38f2A94AaE693ca77b65077'
   },
   {
     name: 'Mini App Claim +1',
-    address: '0xeFbC15f70c19cC21C5b5bD24d4F7D0f0eEe672d9'
+    address: '0xeFbC15f70c19cC21C5b5bD24d4F7D0f0eEe672d9',
+    basescanUrl: 'https://basescan.org/address/0xefbc15f70c19cc21c5b5bd24d4f7d0f0eee672d9#tokentxns'
   },
   {
     name: 'Mini App Claim +2',
-    address: '0x81d422932b0a8414Dd54e7DCC20D495af14D3730'
+    address: '0x81d422932b0a8414Dd54e7DCC20D495af14D3730',
+    basescanUrl: 'https://basescan.org/address/0x81d422932b0a8414Dd54e7DCC20D495af14D3730#tokentxns'
   },
   {
     name: 'Mini App Claim +3',
-    address: '0x474a2FF8EC14DbD05610FfDE675376b0A4aDFC28'
+    address: '0x474a2FF8EC14DbD05610FfDE675376b0A4aDFC28',
+    basescanUrl: 'https://basescan.org/address/0x474a2FF8EC14DbD05610FfDE675376b0A4aDFC28#tokentxns'
   },
   {
     name: 'Mini App Claim +4',
-    address: '0x1b28AdD24511E253f0F9084afd72CE7C0ECE162f'
+    address: '0x1b28AdD24511E253f0F9084afd72CE7C0ECE162f',
+    basescanUrl: 'https://basescan.org/address/0x1b28AdD24511E253f0F9084afd72CE7C0ECE162f#tokentxns'
   },
   {
     name: 'Mini App Claim +5',
-    address: '0x2Df989673806002c7ecc744f266D264D7cBFcb34'
+    address: '0x2Df989673806002c7ecc744f266D264D7cBFcb34',
+    basescanUrl: 'https://basescan.org/address/0x2Df989673806002c7ecc744f266D264D7cBFcb34#tokentxns'
   },
   {
     name: 'Mini App Claim Fail Retries',
-    address: '0xcc6bBF8693B63388eB64F10281dE74DeFfC4D1E0'
+    address: '0xcc6bBF8693B63388eB64F10281dE74DeFfC4D1E0',
+    basescanUrl: 'https://basescan.org/address/0xcc6bBF8693B63388eB64F10281dE74DeFfC4D1E0#tokentxns'
   },
   {
     name: 'QR iOS App Adds',
-    address: '0xe79E636fa40fcbACc27478aA8f03D2C2BB03c6AB'
+    address: '0xe79E636fa40fcbACc27478aA8f03D2C2BB03c6AB',
+    basescanUrl: 'https://basescan.org/address/0xe79E636fa40fcbACc27478aA8f03D2C2BB03c6AB#tokentxns'
   },
   {
     name: 'QR iOS App Claims',
-    address: '0xEBbC71022a8407Bda9C28255F38970A05D52D1F1'
+    address: '0xEBbC71022a8407Bda9C28255F38970A05D52D1F1',
+    basescanUrl: 'https://basescan.org/address/0xEBbC71022a8407Bda9C28255F38970A05D52D1F1#tokentxns'
   }
 ] as const;
 
@@ -73,6 +84,7 @@ export interface WalletBalance {
   qrBalanceRaw: bigint;
   isEthLow: boolean;
   isQrLow: boolean;
+  basescanUrl: string;
 }
 
 // Thresholds for low balance warnings
@@ -170,6 +182,7 @@ export function useWalletBalances() {
       qrBalanceRaw,
       isEthLow,
       isQrLow,
+      basescanUrl: wallet.basescanUrl,
     };
   });
 

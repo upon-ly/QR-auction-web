@@ -71,7 +71,14 @@ export function WalletBalancesSection() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
-              <span>Wallet Balances</span>
+              <a 
+                href="https://basescan.org/advanced-filter?tkn=0x2b5050f01d64fbb3e4ac44dc07f0732bfb5ecadf&txntype=2&mtd=0x56b0b449%7eAirdrop+ERC20&ps=100" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Wallet Balances
+              </a>
               <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded">
                 Auto-refreshes every 30s
               </div>
@@ -112,9 +119,14 @@ export function WalletBalancesSection() {
                       }`}
                     >
                       <td className="p-2">
-                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                        <a 
+                          href={wallet.basescanUrl}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
                           {wallet.name}
-                        </div>
+                        </a>
                       </td>
                       <td className="p-2">
                         <div className="flex items-center space-x-2">
