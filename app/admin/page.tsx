@@ -26,7 +26,8 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  LabelList
 } from 'recharts';
 import { useRedirectCostPerClick } from "@/hooks/useRedirectCostPerClick";
 import { useCostPerClaim } from "@/hooks/useCostPerClaim";
@@ -1359,7 +1360,31 @@ function ClaimsAnalytics() {
                 domain={[0, 10000]}
                 label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
               />
-              <Tooltip />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const webClaims = payload[0]?.value || 0;
+                    const miniAppClaims = payload[1]?.value || 0;
+                    const total = Number(webClaims) + Number(miniAppClaims);
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                        <p className="font-semibold mb-2">Auction #{label}</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                          Web Claims: {Number(webClaims).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          Mini App Claims: {Number(miniAppClaims).toLocaleString()}
+                        </p>
+                        <p className="text-sm font-semibold mt-2 border-t pt-2">
+                          Total: {total.toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
               <Legend />
               <Bar 
                 dataKey="web_click_count" 
@@ -1372,7 +1397,15 @@ function ClaimsAnalytics() {
                 name="Mini App Claims" 
                 fill="#10b981"
                 stackId="a"
-              />
+              >
+                <LabelList 
+                  dataKey="click_count"
+                  position="top"
+                  formatter={(value: number) => value.toLocaleString()}
+                  fill="#666"
+                  fontSize={14}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
