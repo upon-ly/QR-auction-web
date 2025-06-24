@@ -575,7 +575,7 @@ export function LinkVisitClaimPopup({
     
     if (isWebContext) {
       // Web context: Twitter/X share with quote tweet
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`drop your eth address if you love claiming daily $QR`);
       
       // Use dynamic quote tweet URL from database
       const tweetToQuote = socialLinks.quoteTweetUrl;
