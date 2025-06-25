@@ -1207,60 +1207,6 @@ function ClaimsAnalytics() {
         <WalletBalancesSection />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredData.length}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {clickedAuctionsCount} with claims ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Claims</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Avg {(filteredClicks / clickedAuctionsCount).toFixed(1)} per auction with claims
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total USD Spent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(filteredSpent)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Avg {formatCurrency(filteredSpent / filteredData.length)} per auction
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Cost Per Claim</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(filteredAvgCostPerClick)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Based on auctions with &gt;0 claims
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
         <h4 className="text-lg font-medium mb-4">Claim Count by Auction</h4>
         <div className="h-[300px] w-full">
