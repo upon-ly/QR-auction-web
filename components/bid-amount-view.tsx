@@ -30,6 +30,7 @@ import { useFundWallet } from "@privy-io/react-auth";
 import { base } from "viem/chains";
 import { frameSdk } from "@/lib/frame-sdk-singleton";
 import { usePrivy, useConnectWallet } from "@privy-io/react-auth";
+import { hapticActions } from "@/lib/haptics";
 
 // Polling configuration
 const BALANCE_POLL_INTERVAL = 3000; // 3 seconds
@@ -550,6 +551,8 @@ export function BidForm({
       toast.promise(transactionReceiptPr, {
         loading: "Executing Transaction...",
         success: async (data: any) => {
+          // Trigger success haptic
+          await hapticActions.bidPlaced();
           // Send notification to previous highest bidder
           if (previousBidder && 
               previousBidder !== activeAddress &&
@@ -587,7 +590,9 @@ export function BidForm({
           pendingBidRef.current = null;
           return "Bid placed successfully!";
         },
-        error: (data: any) => {
+        error: async (data: any) => {
+          // Trigger error haptic
+          await hapticActions.bidFailed();
           setIsPlacingBid(false);
           setTxPhase('idle');
           pendingBidRef.current = null;
@@ -764,6 +769,9 @@ export function BidForm({
   const onSubmit = async (data: FormSchemaType) => {
     console.log("Form data:", data);
     console.log("Frame context:", { isFrame: isFrame.current, frameWalletAddress: frameWalletAddress.current });
+    
+    // Trigger haptic feedback for form submission
+    await hapticActions.primaryButtonPress();
 
     // Check if we have a valid connection - this could be EOA, smart wallet, or frame wallet
     const hasFrameWallet = isFrame.current && !!frameWalletAddress.current;
@@ -826,12 +834,14 @@ export function BidForm({
           console.log(`[Frame] Current USDC balance: ${formattedBalance}, Required: ${fullBidAmount}`);
           
           if (formattedBalance < fullBidAmount) {
+            await hapticActions.error();
             toast.error(`You don't have enough USDC tokens for this bid`);
             setIsPlacingBid(false);
             return;
           }
         } catch (error) {
           console.error("[Frame] Error checking balance:", error);
+          await hapticActions.error();
           toast.error("Unable to check wallet balance");
           setIsPlacingBid(false);
           return;
@@ -880,6 +890,7 @@ export function BidForm({
 
       if (!hasEnoughTokens) {
         // Show appropriate message based on token type
+        await hapticActions.warning();
         toast.info(`You don't have enough ${tokenSymbol} tokens for this bid`);
         setShowUniswapModal(true);
         return;
@@ -965,6 +976,8 @@ export function BidForm({
       toast.promise(transactionReceiptPr, {
         loading: "Executing Transaction...",
         success: async (data: any) => {
+          // Trigger success haptic
+          await hapticActions.bidPlaced();
           // Send notification to previous highest bidder AFTER transaction confirms
           if (previousBidder && 
               previousBidder !== activeAddress &&

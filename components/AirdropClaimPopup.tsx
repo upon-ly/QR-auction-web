@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import confetti from 'canvas-confetti';
 import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { toast } from "sonner";
+import { hapticActions } from "@/lib/haptics";
 
 interface AirdropClaimPopupProps {
   isOpen: boolean;
@@ -139,8 +140,14 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
   }, [claimState]);
 
   const handleClaim = async () => {
+    // Trigger haptic feedback for claim button
+    await hapticActions.claimStarted();
+    
     // Immediately show success state
     setClaimState('success');
+    
+    // Trigger success haptic
+    await hapticActions.claimSuccess();
     
     // Show success toast with black styling
     toast.success('1,000 $QR has been sent to your wallet.', {
@@ -167,6 +174,9 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
   
   // Handle share to Warpcast
   const handleShare = async () => {
+    // Trigger haptic feedback for share button
+    await hapticActions.shareInitiated();
+    
     // Create Warpcast URL with the share text and embed the website URL
     const shareText = encodeURIComponent("free money $QR. just add the mini app to claim:");
     const embedUrl = encodeURIComponent("https://farcaster.xyz/jake/0x2330db73");

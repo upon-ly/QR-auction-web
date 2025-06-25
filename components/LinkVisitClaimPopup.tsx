@@ -17,6 +17,7 @@ import { usePrivy, useLogin, useConnectWallet } from "@privy-io/react-auth";
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useXPixel } from "@/hooks/useXPixel";
 import { useAnalytics, ANALYTICS_EVENTS } from "@/hooks/useAnalytics";
+import { hapticActions } from "@/lib/haptics";
 
 interface LinkVisitClaimPopupProps {
   isOpen: boolean;
@@ -388,8 +389,12 @@ export function LinkVisitClaimPopup({
   const handleClaimAction = async () => {
     if (isClaimLoading || isClaimingRef.current) return;
     
+    // Trigger haptic feedback for claim button
+    await hapticActions.claimStarted();
+    
     // NEW: Prevent claiming if Twitter user needs wallet
     if (isTwitterUserNeedsWallet) {
+      await hapticActions.error();
       toast.error('Please connect a wallet first to claim your $QR');
       return;
     }
@@ -397,6 +402,7 @@ export function LinkVisitClaimPopup({
     // NEW: Skip captcha for authenticated users (Twitter provides verification)
     // Only require captcha for non-authenticated web users
     if (isWebContext && !authenticated && !captchaToken) {
+      await hapticActions.error();
       toast.error('Please complete the verification first.');
       return;
     }
@@ -408,6 +414,9 @@ export function LinkVisitClaimPopup({
       
       // Clear the click state since they've successfully claimed
       clearClickedFromStorage();
+      
+      // Trigger success haptic
+      await hapticActions.claimSuccess();
       
       // Track successful token claim with X Pixel
       trackEvent('Lead', {
@@ -446,6 +455,9 @@ export function LinkVisitClaimPopup({
 
   // Handle link click
   const onLinkClick = async () => {
+    // Trigger haptic feedback for button press
+    await hapticActions.buttonPress();
+    
     // Track visit winner button click with Vercel Analytics
     trackAnalytics(ANALYTICS_EVENTS.VISIT_WINNER_CLICKED, {
       auction_id: auctionId,

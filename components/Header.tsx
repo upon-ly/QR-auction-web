@@ -12,6 +12,7 @@ import { useBaseColors } from '@/hooks/useBaseColors';
 import { useFetchAuctions, getLatestV3AuctionId } from '@/hooks/useFetchAuctions';
 import { useIsMiniApp } from '@/hooks/useIsMiniApp';
 import { frameSdk } from '@/lib/frame-sdk-singleton';
+import { hapticActions } from '@/lib/haptics';
 
 export function Header() {
   const router = useRouter();
@@ -35,7 +36,10 @@ export function Header() {
     }
   }, [auctions]);
 
-  const handleLogoClick = () => {
+  const handleLogoClick = async () => {
+    // Trigger haptic feedback for navigation
+    await hapticActions.navigate();
+    
     // Use the stored latestV3Id state
     if (latestV3Id > 0) {
       // Navigate to the latest V3 auction
@@ -175,7 +179,10 @@ export function Header() {
               ? "bg-primary text-foreground hover:bg-primary/90 hover:text-foreground border-none h-10 w-10 md:h-10 md:w-10"
               : "h-10 w-10 md:h-10 md:w-10"
           }
-          onClick={() => setThemeDialogOpen(true)}
+          onClick={async () => {
+            await hapticActions.buttonPress();
+            setThemeDialogOpen(true);
+          }}
         >
           <div className="h-6 w-6 md:h-5 md:w-5 flex items-center justify-center">
             {isBaseColors ? (

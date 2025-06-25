@@ -238,6 +238,37 @@ class FrameSDKManager {
     await this.initialize();
     return sdk.actions.swapToken(params);
   }
+
+  async hapticImpact(style?: 'light' | 'medium' | 'heavy' | 'soft' | 'rigid'): Promise<void> {
+    await this.initialize();
+    try {
+      if (style) {
+        await sdk.haptics.impactOccurred(style);
+      } else {
+        await sdk.haptics.impactOccurred('medium');
+      }
+    } catch (error) {
+      console.error("Error triggering haptic impact:", error);
+    }
+  }
+
+  async hapticNotification(type: 'success' | 'warning' | 'error'): Promise<void> {
+    await this.initialize();
+    try {
+      await sdk.haptics.notificationOccurred(type);
+    } catch (error) {
+      console.error("Error triggering haptic notification:", error);
+    }
+  }
+
+  async hapticSelection(): Promise<void> {
+    await this.initialize();
+    try {
+      await sdk.haptics.selectionChanged();
+    } catch (error) {
+      console.error("Error triggering haptic selection:", error);
+    }
+  }
 }
 
 // Export singleton instance wrapped in the same interface

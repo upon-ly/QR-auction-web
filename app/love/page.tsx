@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { frameSdk } from "@/lib/frame-sdk-singleton";
 import Link from "next/link";
+import { hapticActions } from "@/lib/haptics";
 
 interface Testimonial {
   id: number;
@@ -164,6 +165,9 @@ export default function WallOfLovePage() {
   
   // Open Warpcast compose URL
   const handleCastClick = async () => {
+    // Trigger haptic feedback for share button
+    await hapticActions.shareInitiated();
+    
     const url = 'https://warpcast.com/~/compose?text=we%20like%20%40qrcoindotfun';
     
     if (isFrameRef.current) {
@@ -179,6 +183,9 @@ export default function WallOfLovePage() {
 
   // Open Twitter compose URL
   const handleTweetClick = async () => {
+    // Trigger haptic feedback for share button
+    await hapticActions.shareInitiated();
+    
     const url = 'https://twitter.com/intent/tweet?text=we%20like%20%40qrcoindotfun';
     
     if (isFrameRef.current) {
@@ -231,12 +238,14 @@ export default function WallOfLovePage() {
   };
   
   const contractAddress = process.env.NEXT_PUBLIC_QR_COIN as string;
-  const copyToClipboard = (e: React.MouseEvent) => {
+  const copyToClipboard = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     navigator.clipboard.writeText(contractAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    // Trigger haptic feedback for copy action
+    await hapticActions.copyToClipboard();
     toast.info("CA copied!");
   };
 
