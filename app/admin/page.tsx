@@ -1492,7 +1492,7 @@ function ClaimsAnalytics() {
                           }}
                           className="w-20 px-2 py-1 text-sm border rounded dark:bg-gray-700"
                           placeholder="0.01"
-                          step="0.000001"
+                          step="any"
                           min="0"
                         />
                         <button
