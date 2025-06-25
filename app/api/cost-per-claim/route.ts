@@ -125,39 +125,45 @@ export async function GET(request: Request) {
     const auctionData = [];
     let totalClicks = 0;
     
-    // For each auction ID, get the exact count
+    // Get all click counts in one query using aggregation
+    const { data: clickData, error: clickError } = await supabase
+      .from('link_visit_claims')
+      .select(`
+        auction_id,
+        claim_source
+      `)
+      .gte('auction_id', earliestAuctionId);
+
+    if (clickError) {
+      console.error('Error fetching click data:', clickError);
+      return new NextResponse(JSON.stringify({ error: 'Failed to fetch click data' }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Aggregate click data by auction_id and source
+    const clickMap = new Map();
+    clickData?.forEach(click => {
+      const auctionId = click.auction_id;
+      if (!clickMap.has(auctionId)) {
+        clickMap.set(auctionId, { total: 0, web: 0, mini_app: 0 });
+      }
+      const counts = clickMap.get(auctionId);
+      counts.total++;
+      if (click.claim_source === 'web') counts.web++;
+      if (click.claim_source === 'mini_app') counts.mini_app++;
+    });
+
+    // For each auction ID, use pre-aggregated data
     for (const winner of winnersData as Winner[]) {
       const auction_id = winner.token_id;
       
-      // Get the count for this specific auction_id
-      const { count, error: countError } = await supabase
-        .from('link_visit_claims')
-        .select('*', { count: 'exact', head: true })
-        .eq('auction_id', auction_id);
-      
-      if (countError) {
-        console.error(`Error counting clicks for auction ID ${auction_id}:`, countError);
-        continue; // Skip this auction if count fails
-      }
-      
-      // Get counts by claim source
-      const { count: webCount } = await supabase
-        .from('link_visit_claims')
-        .select('*', { count: 'exact', head: true })
-        .eq('auction_id', auction_id)
-        .eq('claim_source', 'web');
-      
-      const { count: miniAppCount } = await supabase
-        .from('link_visit_claims')
-        .select('*', { count: 'exact', head: true })
-        .eq('auction_id', auction_id)
-        .eq('claim_source', 'mini_app');
-      
-      // The count value is exactly what we need
-      const click_count = count || 0;
-      const web_click_count = webCount || 0;
-      const mini_app_click_count = miniAppCount || 0;
-      
+      // Get the click counts from our aggregated data
+      const clickCounts = clickMap.get(auction_id) || { total: 0, web: 0, mini_app: 0 };
+      const click_count = clickCounts.total;
+      const web_click_count = clickCounts.web;
+      const mini_app_click_count = clickCounts.mini_app;
       
       totalClicks += click_count;
       

@@ -1120,35 +1120,17 @@ function ClicksAnalytics() {
 function ClaimsAnalytics() {
   const { auctionData, stats, isLoading, error, updateQRPrice } = useCostPerClaim();
   
-  // Filter states - initialize with null values since we don't know the range yet
-  const [showOnlyWithClicks, setShowOnlyWithClicks] = useState(false);
-  const [auctionRange, setAuctionRange] = useState<[number, number] | null>(null);
   const [editingQRPrice, setEditingQRPrice] = useState<number | null>(null);
   const [qrPriceInput, setQrPriceInput] = useState<string>("");
-  
-  // Set initial range when data loads
-  useEffect(() => {
-    if (stats && !auctionRange) {
-      const minId = stats.earliestAuctionIdWithClicks || stats.minAuctionId;
-      const maxId = stats.maxAuctionId;
-      setAuctionRange([minId, maxId]);
-    }
-  }, [stats, auctionRange]);
 
-  // Apply filters to the auction data
+  // Filter data to only show auctions with claims (71 onwards)
   const filteredData = useMemo(() => {
-    if (!auctionData || !auctionRange) return [];
+    if (!auctionData) return [];
     
     return auctionData
-      .filter(item => {
-        // Filter by auction ID range
-        const inRange = item.auction_id >= auctionRange[0] && item.auction_id <= auctionRange[1];
-        // Filter by click count if option is enabled
-        const hasClicks = showOnlyWithClicks ? item.click_count > 0 : true;
-        return inRange && hasClicks;
-      })
+      .filter(item => item.auction_id >= 71 && item.click_count > 0)
       .sort((a, b) => a.auction_id - b.auction_id);
-  }, [auctionData, auctionRange, showOnlyWithClicks]);
+  }, [auctionData]);
 
   if (isLoading) {
     return (
@@ -1197,17 +1179,7 @@ function ClaimsAnalytics() {
     );
   }
 
-  // If we don't have a range yet, show a loading state
-  if (!auctionRange) {
-    return (
-      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Preparing Data</h3>
-        <p className="text-blue-700 dark:text-blue-400">
-          Loading auction data and calculating metrics...
-        </p>
-      </div>
-    );
-  }
+
 
   // Calculate stats for the filtered data
   const filteredClicks = filteredData.reduce((sum, item) => sum + item.click_count, 0);
@@ -1233,55 +1205,6 @@ function ClaimsAnalytics() {
       {/* Wallet Balances Section */}
       <div className="mb-8">
         <WalletBalancesSection />
-      </div>
-
-      <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-        <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Cost Per Claim Analysis</h3>
-        <p className="text-blue-700 dark:text-blue-400">
-          Analyze how much bidders are paying per claim. Starting from auction #{stats?.earliestAuctionIdWithClicks}, which is the earliest auction with link claim data.
-        </p>
-        <div className="text-xs text-blue-600 dark:text-blue-500 mt-2">
-          Note: &ldquo;Claims&rdquo; represent the total number of link visits on each auction&apos;s link, counting all records in the link_visit_claims table.
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-              Auction ID Range: {auctionRange[0]} - {auctionRange[1]}
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="range"
-                min={stats?.minAuctionId || 0}
-                max={stats?.maxAuctionId || 100}
-                value={auctionRange[0]}
-                onChange={(e) => setAuctionRange([parseInt(e.target.value), auctionRange[1]])}
-                className="flex-1"
-              />
-              <input
-                type="range"
-                min={stats?.minAuctionId || 0}
-                max={stats?.maxAuctionId || 100}
-                value={auctionRange[1]}
-                onChange={(e) => setAuctionRange([auctionRange[0], parseInt(e.target.value)])}
-                className="flex-1"
-              />
-            </div>
-          </div>
-          <div className="flex items-center">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showOnlyWithClicks}
-                onChange={() => setShowOnlyWithClicks(!showOnlyWithClicks)}
-                className="sr-only peer"
-              />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-blue-800 dark:text-blue-300">
-                Show only auctions with claims
-              </span>
-            </label>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -1357,7 +1280,8 @@ function ClaimsAnalytics() {
                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
               />
               <YAxis 
-                domain={[0, 10000]}
+                domain={[0, 20000]}
+                ticks={[0, 5000, 10000, 15000, 20000]}
                 label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -1509,6 +1433,60 @@ function ClaimsAnalytics() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Auctions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredData.length}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {clickedAuctionsCount} with claims ({Math.round(clickedAuctionsCount / filteredData.length * 100) || 0}%)
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Claims</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredClicks.toLocaleString()}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Avg {(filteredClicks / clickedAuctionsCount).toFixed(1)} per auction with claims
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total USD Spent</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(filteredSpent)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Avg {formatCurrency(filteredSpent / filteredData.length)} per auction
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg. Cost Per Claim</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(filteredAvgCostPerClick)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Based on auctions with &gt;0 claims
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
