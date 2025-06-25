@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type CostPerClaimData = {
   auction_id: number;
@@ -33,75 +33,75 @@ type UseCostPerClaimReturn = {
   updateQRPrice: (auctionId: number, qrPrice: number) => Promise<void>;
 };
 
+async function fetchCostPerClaimData(address: string) {
+  const response = await fetch('/api/cost-per-claim', {
+    headers: {
+      'Authorization': `Bearer ${address}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+  
+  return response.json();
+}
+
+async function updateQRPriceApi(address: string, auctionId: number, qrPrice: number) {
+  const response = await fetch('/api/cost-per-claim', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${address}`
+    },
+    body: JSON.stringify({
+      auction_id: auctionId,
+      qr_price_usd: qrPrice
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to update QR price');
+  }
+  
+  return response.json();
+}
+
 export function useCostPerClaim(): UseCostPerClaimReturn {
   const { address } = useAccount();
-  const [data, setData] = useState<Omit<UseCostPerClaimReturn, 'updateQRPrice'>>({
-    auctionData: [],
-    isLoading: true,
-    error: null
+  const queryClient = useQueryClient();
+
+  const {
+    data: responseData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['costPerClaim', address],
+    queryFn: () => fetchCostPerClaimData(address!),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   });
 
-  const fetchData = async () => {
-    if (!address) return;
-    
-    try {
-      const response = await fetch('/api/cost-per-claim', {
-        headers: {
-          'Authorization': `Bearer ${address}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const resultData = await response.json();
-      
-      setData({
-        auctionData: resultData.auctionData,
-        stats: resultData.stats,
-        isLoading: false,
-        error: null
-      });
-    } catch (error) {
-      console.error('Error fetching cost per claim data:', error);
-      setData(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error : new Error('An unknown error occurred')
-      }));
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [address]);
+  const updateMutation = useMutation({
+    mutationFn: ({ auctionId, qrPrice }: { auctionId: number; qrPrice: number }) =>
+      updateQRPriceApi(address!, auctionId, qrPrice),
+    onSuccess: () => {
+      // Invalidate and refetch the data after successful update
+      queryClient.invalidateQueries({ queryKey: ['costPerClaim', address] });
+    },
+  });
 
   const updateQRPrice = async (auctionId: number, qrPrice: number) => {
     if (!address) throw new Error('No wallet connected');
-    
-    const response = await fetch('/api/cost-per-claim', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${address}`
-      },
-      body: JSON.stringify({
-        auction_id: auctionId,
-        qr_price_usd: qrPrice
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update QR price');
-    }
-    
-    // Refetch data after update
-    await fetchData();
+    return updateMutation.mutateAsync({ auctionId, qrPrice });
   };
 
   return {
-    ...data,
-    updateQRPrice
+    auctionData: responseData?.auctionData || [],
+    stats: responseData?.stats,
+    isLoading,
+    error: error as Error | null,
+    updateQRPrice,
   };
 }
