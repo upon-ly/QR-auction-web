@@ -1443,7 +1443,7 @@ function ClaimsAnalytics() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left p-3">#</th>
@@ -1463,6 +1463,8 @@ function ClaimsAnalytics() {
                 </th>
                 <th className="text-right p-3">Margin</th>
                 <th className="text-right p-3">$QR</th>
+                <th className="text-right p-3">Spend</th>
+                <th className="text-right p-3">Net</th>
               </tr>
             </thead>
             <tbody>
@@ -1543,6 +1545,26 @@ function ClaimsAnalytics() {
                     )}
                   </td>
                   <td className="text-right p-3">{item.qr_reward_per_claim.toLocaleString()}</td>
+                  <td className="text-right p-3">
+                    {item.click_count > 0 ? formatCurrency(item.click_count * item.qr_reward_value_usd) : '-'}
+                  </td>
+                  <td className="text-right p-3">
+                    {item.click_count > 0 ? (
+                      <span 
+                        className={
+                          (item.usd_value - (item.click_count * item.qr_reward_value_usd)) >= 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {formatCurrency(item.usd_value - (item.click_count * item.qr_reward_value_usd))}
+                      </span>
+                    ) : (
+                      <span className="text-green-600 dark:text-green-400">
+                        {formatCurrency(item.usd_value)}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
