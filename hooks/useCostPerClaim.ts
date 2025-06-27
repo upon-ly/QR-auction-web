@@ -8,6 +8,8 @@ type CostPerClaimData = {
   click_count: number;
   web_click_count: number;
   mini_app_click_count: number;
+  mini_app_spam_claims: number;
+  mini_app_valid_claims: number;
   cost_per_click: number;
   qr_price_usd: number;
   qr_reward_per_claim: number;

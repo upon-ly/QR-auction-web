@@ -130,7 +130,8 @@ export async function GET(request: Request) {
       .from('link_visit_claims')
       .select(`
         auction_id,
-        claim_source
+        claim_source,
+        spam_label
       `)
       .gte('auction_id', earliestAuctionId);
 
@@ -147,12 +148,29 @@ export async function GET(request: Request) {
     clickData?.forEach(click => {
       const auctionId = click.auction_id;
       if (!clickMap.has(auctionId)) {
-        clickMap.set(auctionId, { total: 0, web: 0, mini_app: 0 });
+        clickMap.set(auctionId, { 
+          total: 0, 
+          web: 0, 
+          mini_app: 0,
+          mini_app_spam: 0,
+          mini_app_valid: 0 
+        });
       }
       const counts = clickMap.get(auctionId);
       counts.total++;
-      if (click.claim_source === 'web') counts.web++;
-      if (click.claim_source === 'mini_app') counts.mini_app++;
+      if (click.claim_source === 'web') {
+        counts.web++;
+      }
+      if (click.claim_source === 'mini_app') {
+        counts.mini_app++;
+        // Count spam vs valid for mini app claims
+        if (click.spam_label === true) {
+          counts.mini_app_spam++;
+        } else if (click.spam_label === false) {
+          counts.mini_app_valid++;
+        }
+        // If spam_label is null, it's neither counted as spam nor valid
+      }
     });
 
     // For each auction ID, use pre-aggregated data
@@ -160,10 +178,18 @@ export async function GET(request: Request) {
       const auction_id = winner.token_id;
       
       // Get the click counts from our aggregated data
-      const clickCounts = clickMap.get(auction_id) || { total: 0, web: 0, mini_app: 0 };
+      const clickCounts = clickMap.get(auction_id) || { 
+        total: 0, 
+        web: 0, 
+        mini_app: 0,
+        mini_app_spam: 0,
+        mini_app_valid: 0 
+      };
       const click_count = clickCounts.total;
       const web_click_count = clickCounts.web;
       const mini_app_click_count = clickCounts.mini_app;
+      const mini_app_spam_claims = clickCounts.mini_app_spam;
+      const mini_app_valid_claims = clickCounts.mini_app_valid;
       
       totalClicks += click_count;
       
@@ -202,6 +228,8 @@ export async function GET(request: Request) {
         click_count,
         web_click_count,
         mini_app_click_count,
+        mini_app_spam_claims,
+        mini_app_valid_claims,
         cost_per_click,
         qr_price_usd,
         qr_reward_per_claim,

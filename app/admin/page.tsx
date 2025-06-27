@@ -1282,6 +1282,81 @@ function ClaimsAnalytics() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Mini App Claims: Spam vs Valid</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={filteredData}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                domain={[0, 10000]}
+                ticks={[0, 2500, 5000, 7500, 10000]}
+                label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const spam = payload[0]?.value || 0;
+                    const valid = payload[1]?.value || 0;
+                    const total = Number(spam) + Number(valid);
+                    const spamRate = total > 0 ? ((Number(spam) / total) * 100).toFixed(1) : 0;
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                        <p className="font-semibold mb-2">Auction #{label}</p>
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          Spam: {Number(spam).toLocaleString()}
+                        </p>
+                        <p className="text-sm" style={{ color: '#815AC6' }}>
+                          Valid: {Number(valid).toLocaleString()}
+                        </p>
+                        <p className="text-sm font-semibold mt-2 border-t pt-2">
+                          Total: {total.toLocaleString()} ({spamRate}% spam)
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend />
+              <Bar 
+                dataKey="mini_app_spam_claims" 
+                name="Spam Claims" 
+                fill="#ef4444"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="mini_app_valid_claims" 
+                name="Valid Claims" 
+                fill="#815AC6"
+                stackId="a"
+              >
+                <LabelList 
+                  dataKey="mini_app_click_count"
+                  position="top"
+                  formatter={(value: number) => value > 0 ? value.toLocaleString() : ''}
+                  fill="#666"
+                  fontSize={14}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
         <h4 className="text-lg font-medium mb-4">Cost Per Claim by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
