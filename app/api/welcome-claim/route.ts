@@ -420,8 +420,8 @@ export async function POST(request: NextRequest) {
             // Check if it's a duplicate key error (user already claimed)
             if (newError.message?.includes('duplicate') || newError.code === '23505') {
                 return NextResponse.json({ 
-                    error: 'ALREADY_CLAIMED',
-                    message: 'This user or address has already claimed welcome tokens'
+                    code: 'ALREADY_CLAIMED',
+                    error: 'You have already claimed welcome tokens'
                 }, { status: 400 });
             }
             

@@ -120,12 +120,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ auct
 
             return {
                 address: typedLog.args.bidder,
-                name: farcasterData?.username
-                    ? `@${farcasterData.username}`
-                    : typedLog.args.name
-                      ? typedLog.args.name
-                      : `${typedLog.args.bidder.slice(0, 6)}...${typedLog.args.bidder.slice(-4)}`,
-                icon: farcasterData?.avatarUrl || null,
+                name: typedLog.args.name
+                      ? `@${typedLog.args.name}`
+			: farcasterData?.username
+			  ? `@${farcasterData.username}`
+			  : `${typedLog.args.bidder.slice(0, 6)}...${typedLog.args.bidder.slice(-4)}`,
+                icon: typedLog.args.name ? `https://unavatar.io/x/${typedLog.args.name}` : farcasterData?.avatarUrl || null,
                 url: typedLog.args.urlString,
                 amount: Number(typedLog.args.amount / BigInt(10 ** 6)),
             }
