@@ -17,8 +17,6 @@ import { TestimonialsAdmin } from "./testimonials";
 import { EngagementManager } from "@/components/admin/EngagementManager";
 import { PostAuctionChecklist } from "@/components/admin/PostAuctionChecklist";
 import {
-  LineChart,
-  Line,
   BarChart, 
   Bar, 
   XAxis, 
@@ -1346,7 +1344,6 @@ function ClaimsAnalytics() {
                   return null;
                 }}
               />
-              <Legend />
               <Bar 
                 dataKey="neynar_score_0_20" 
                 name="Low (0-0.2)" 
@@ -1400,7 +1397,7 @@ function ClaimsAnalytics() {
         <h4 className="text-lg font-medium mb-4">Mini App Claims: 2s Only</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <BarChart
               data={filteredData}
               margin={{
                 top: 5,
@@ -1415,8 +1412,8 @@ function ClaimsAnalytics() {
                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
               />
               <YAxis 
-                domain={[0, 10000]}
-                ticks={[0, 2500, 5000, 7500, 10000]}
+                domain={[0, 20000]}
+                ticks={[0, 5000, 10000, 15000, 20000]}
                 label={{ value: 'Number of 2s', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -1436,16 +1433,12 @@ function ClaimsAnalytics() {
                   return null;
                 }}
               />
-              <Legend />
-              <Line 
-                type="monotone"
+              <Bar 
                 dataKey="mini_app_valid_claims" 
                 name="2s (Valid Claims)" 
-                stroke="#815AC6"
-                strokeWidth={2}
-                dot={{ fill: '#815AC6' }}
+                fill="#815AC6"
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -1469,8 +1462,8 @@ function ClaimsAnalytics() {
                 label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
               />
               <YAxis 
-                domain={[0, 10000]}
-                ticks={[0, 2500, 5000, 7500, 10000]}
+                domain={[0, 20000]}
+                ticks={[0, 5000, 10000, 15000, 20000]}
                 label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
               />
               <Tooltip 
@@ -1499,7 +1492,6 @@ function ClaimsAnalytics() {
                   return null;
                 }}
               />
-              <Legend />
               <Bar 
                 dataKey="mini_app_spam_claims" 
                 name="0s" 
