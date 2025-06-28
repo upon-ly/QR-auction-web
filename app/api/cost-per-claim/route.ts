@@ -131,7 +131,8 @@ export async function GET(request: Request) {
       .select(`
         auction_id,
         claim_source,
-        spam_label
+        spam_label,
+        neynar_user_score
       `)
       .gte('auction_id', earliestAuctionId);
 
@@ -145,6 +146,8 @@ export async function GET(request: Request) {
 
     // Aggregate click data by auction_id and source
     const clickMap = new Map();
+    const neynarScoreData = new Map();
+    
     clickData?.forEach(click => {
       const auctionId = click.auction_id;
       if (!clickMap.has(auctionId)) {
@@ -155,8 +158,17 @@ export async function GET(request: Request) {
           mini_app_spam: 0,
           mini_app_valid: 0 
         });
+        neynarScoreData.set(auctionId, {
+          score_0_20: 0,
+          score_20_40: 0,
+          score_40_60: 0,
+          score_60_80: 0,
+          score_80_100: 0,
+          score_unknown: 0
+        });
       }
       const counts = clickMap.get(auctionId);
+      const scoreData = neynarScoreData.get(auctionId);
       counts.total++;
       if (click.claim_source === 'web') {
         counts.web++;
@@ -170,6 +182,21 @@ export async function GET(request: Request) {
           counts.mini_app_valid++;
         }
         // If spam_label is null, it's neither counted as spam nor valid
+        
+        // Count Neynar score distribution
+        if (click.neynar_user_score === null || click.neynar_user_score === undefined) {
+          scoreData.score_unknown++;
+        } else if (click.neynar_user_score < 0.2) {
+          scoreData.score_0_20++;
+        } else if (click.neynar_user_score < 0.4) {
+          scoreData.score_20_40++;
+        } else if (click.neynar_user_score < 0.6) {
+          scoreData.score_40_60++;
+        } else if (click.neynar_user_score < 0.8) {
+          scoreData.score_60_80++;
+        } else {
+          scoreData.score_80_100++;
+        }
       }
     });
 
@@ -184,6 +211,14 @@ export async function GET(request: Request) {
         mini_app: 0,
         mini_app_spam: 0,
         mini_app_valid: 0 
+      };
+      const scoreDistribution = neynarScoreData.get(auction_id) || {
+        score_0_20: 0,
+        score_20_40: 0,
+        score_40_60: 0,
+        score_60_80: 0,
+        score_80_100: 0,
+        score_unknown: 0
       };
       const click_count = clickCounts.total;
       const web_click_count = clickCounts.web;
@@ -230,6 +265,12 @@ export async function GET(request: Request) {
         mini_app_click_count,
         mini_app_spam_claims,
         mini_app_valid_claims,
+        neynar_score_0_20: scoreDistribution.score_0_20,
+        neynar_score_20_40: scoreDistribution.score_20_40,
+        neynar_score_40_60: scoreDistribution.score_40_60,
+        neynar_score_60_80: scoreDistribution.score_60_80,
+        neynar_score_80_100: scoreDistribution.score_80_100,
+        neynar_score_unknown: scoreDistribution.score_unknown,
         cost_per_click,
         qr_price_usd,
         qr_reward_per_claim,

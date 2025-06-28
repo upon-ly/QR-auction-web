@@ -1357,6 +1357,121 @@ function ClaimsAnalytics() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Mini App Claims: Neynar User Score Distribution</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={filteredData}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                domain={[0, 10000]}
+                ticks={[0, 2500, 5000, 7500, 10000]}
+                label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload.reduce((acc, item) => ({
+                      ...acc,
+                      [item.dataKey as string]: item.value || 0
+                    }), {} as any);
+                    
+                    const total = data.neynar_score_0_20 + data.neynar_score_20_40 + 
+                                data.neynar_score_40_60 + data.neynar_score_60_80 + 
+                                data.neynar_score_80_100 + data.neynar_score_unknown;
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                        <p className="font-semibold mb-2">Auction #{label}</p>
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          Low (0-0.2): {data.neynar_score_0_20}
+                        </p>
+                        <p className="text-sm text-orange-600 dark:text-orange-400">
+                          Medium-Low (0.2-0.4): {data.neynar_score_20_40}
+                        </p>
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                          Medium (0.4-0.6): {data.neynar_score_40_60}
+                        </p>
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          Medium-High (0.6-0.8): {data.neynar_score_60_80}
+                        </p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                          High (0.8-1.0): {data.neynar_score_80_100}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Unknown: {data.neynar_score_unknown}
+                        </p>
+                        <p className="text-sm font-semibold mt-2 border-t pt-2">
+                          Total: {total}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend />
+              <Bar 
+                dataKey="neynar_score_0_20" 
+                name="Low (0-0.2)" 
+                fill="#ef4444"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="neynar_score_20_40" 
+                name="Medium-Low (0.2-0.4)" 
+                fill="#f97316"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="neynar_score_40_60" 
+                name="Medium (0.4-0.6)" 
+                fill="#eab308"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="neynar_score_60_80" 
+                name="Medium-High (0.6-0.8)" 
+                fill="#22c55e"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="neynar_score_80_100" 
+                name="High (0.8-1.0)" 
+                fill="#3b82f6"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="neynar_score_unknown" 
+                name="Unknown" 
+                fill="#9ca3af"
+                stackId="a"
+              >
+                <LabelList 
+                  dataKey="mini_app_click_count"
+                  position="top"
+                  formatter={(value: number) => value > 0 ? value.toLocaleString() : ''}
+                  fill="#666"
+                  fontSize={14}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
         <h4 className="text-lg font-medium mb-4">Cost Per Claim by Auction</h4>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">

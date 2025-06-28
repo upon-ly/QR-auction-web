@@ -10,6 +10,12 @@ type CostPerClaimData = {
   mini_app_click_count: number;
   mini_app_spam_claims: number;
   mini_app_valid_claims: number;
+  neynar_score_0_20: number;
+  neynar_score_20_40: number;
+  neynar_score_40_60: number;
+  neynar_score_60_80: number;
+  neynar_score_80_100: number;
+  neynar_score_unknown: number;
   cost_per_click: number;
   qr_price_usd: number;
   qr_reward_per_claim: number;
