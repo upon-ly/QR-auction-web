@@ -218,8 +218,8 @@ export async function POST(request: NextRequest) {
 
             console.log(`🚫 INELIGIBLE WELCOME CLAIM: ${privyId} - ${errorCode}`);
             return NextResponse.json({ 
-                error: errorCode,
-                message: errorMessage,
+                code: errorCode,
+                error: errorMessage,
                 tx_hash: claim.tx_hash
             }, { status: 400 });
         }
