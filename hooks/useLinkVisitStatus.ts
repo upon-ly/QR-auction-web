@@ -25,7 +25,7 @@ export function useLinkVisitStatus(auctionId: number | null) {
       // Detect if we're in a mini-app
       const isMiniApp = await frameSdk.isInMiniApp();
       
-      let params: Record<string, string> = {
+      const params: Record<string, string> = {
         auctionId: auctionId.toString()
       };
 
@@ -39,7 +39,7 @@ export function useLinkVisitStatus(auctionId: number | null) {
       } else if (authenticated && user) {
         // Web context - use ETH address
         const walletAddress = user.wallet?.address || 
-          user.linkedAccounts?.find(acc => acc.type === 'wallet')?.address;
+          user.linkedAccounts?.find((acc: { type: string }) => acc.type === 'wallet')?.address;
         
         if (walletAddress) {
           params.ethAddress = walletAddress;
