@@ -770,7 +770,7 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                Click to claim 1,000 $QR!
+                {isWebContext ? "Click to claim 1,000 $QR!" : "Check out today's winner!"}
               </motion.h2>
             )}
             
