@@ -75,7 +75,7 @@ function getClientIP(headersList: ReadonlyHeaders): string | null {
 export default async function RedirectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: string }>;
+  searchParams: Promise<{ source?: string; fid?: string; username?: string; address?: string }>;
 }) {
   const params = await searchParams;
   
@@ -162,16 +162,30 @@ export default async function RedirectPage({
       const userAgent = headersList.get('user-agent') || '';
       const referrer = headersList.get('referer') || '';
 
+      // Build the tracking record with optional user data
+      const trackingData: any = {
+        auction_id: currentTokenId - 1,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        referrer: referrer,
+        click_source: clickSource
+      };
+
+      // Add user data if provided (from mini-app)
+      if (params.fid) {
+        trackingData.fid = parseInt(params.fid);
+      }
+      if (params.username) {
+        trackingData.username = params.username;
+      }
+      if (params.address) {
+        trackingData.eth_address = params.address;
+      }
+
       // Insert the click tracking record
       const { error } = await supabase
         .from('redirect_click_tracking')
-        .insert({
-          auction_id: currentTokenId - 1,
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          referrer: referrer,
-          click_source: clickSource
-        });
+        .insert(trackingData);
 
       if (error) {
         console.error('Error tracking click:', error);

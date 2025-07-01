@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
+import { useRedirectClickTracking } from '@/hooks/useRedirectClickTracking';
 import { LinkVisitClaimPopup } from '@/components/LinkVisitClaimPopup';
 import { usePopupCoordinator } from './PopupCoordinator';
 import { createClient } from "@supabase/supabase-js";
@@ -15,6 +16,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
 
 // Define context type
 interface LinkVisitContextType {
@@ -224,6 +226,37 @@ export function LinkVisitProvider({
     isLoading, 
     frameContext: eligibilityFrameContext
   } = useLinkVisitEligibility(eligibilityAuctionId, isWebContext);
+  
+  // Check if user has visited the redirect link (only check after we know the latest won auction)
+  const { data: redirectClickData, isLoading: isRedirectClickLoading } = useRedirectClickTracking(
+    latestWonAuctionId // Use latestWonAuctionId directly, not eligibilityAuctionId
+  );
+  
+  // Direct database check for mini-app users using eligibility frame context
+  const [hasVisitedRedirect, setHasVisitedRedirect] = useState(false);
+  
+  useEffect(() => {
+    async function checkRedirectVisit() {
+      if (!latestWonAuctionId || !eligibilityFrameContext?.user?.fid || isWebContext) {
+        return;
+      }
+      
+      try {
+        // Call our API endpoint to check redirect clicks
+        const response = await fetch(`/api/link-visit/check-visited?auctionId=${latestWonAuctionId}&fid=${eligibilityFrameContext.user.fid}`);
+        const result = await response.json();
+          
+        if (result.success && result.data?.hasVisited) {
+          setHasVisitedRedirect(true);
+        }
+      } catch {
+        // Silently fail - user will see "Today's winner" button
+      }
+    }
+    
+    checkRedirectVisit();
+  }, [latestWonAuctionId, eligibilityFrameContext?.user?.fid, isWebContext]);
+  
   
   // ALWAYS use the latestWonAuctionId for claim operations - never fall back to current auction
   // This prevents gaming by manually visiting future auction URLs
@@ -476,7 +509,7 @@ export function LinkVisitProvider({
     if (!hasClaimed && manualHasClaimedLatest !== true) {
       setHasCheckedEligibility(false);
     }
-  }, [hasClicked, hasClaimed, manualHasClaimedLatest]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, redirectClickData?.hasVisited]);
   
   // NEW: Check if user is Twitter/Farcaster but needs wallet for claiming
   const isTwitterUserNeedsWallet = useMemo(() => {
@@ -694,6 +727,11 @@ export function LinkVisitProvider({
       return;
     }
     
+    // CRITICAL: Wait for redirect click data to load
+    if (isRedirectClickLoading) {
+      return;
+    }
+    
     // Only check once and when data is loaded
     if (hasCheckedEligibility || isLoading || isCheckingLatestAuction) {
       return;
@@ -761,7 +799,7 @@ export function LinkVisitProvider({
         setHasCheckedEligibility(true);
       }
     }
-  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup, redirectClickData?.hasVisited, isRedirectClickLoading]);
   
   // NEW: Track when Privy modal is active to prevent popup interference
   const [isPrivyModalActive, setIsPrivyModalActive] = useState(false);
@@ -813,7 +851,7 @@ export function LinkVisitProvider({
       value={{
         showClaimPopup,
         setShowClaimPopup,
-        hasClicked,
+        hasClicked: hasClicked || redirectClickData?.hasVisited || hasVisitedRedirect,
         hasClaimed: manualHasClaimedLatest === true || hasClaimed, // Use combined claim status
         isLoading,
         auctionId,
@@ -832,17 +870,21 @@ export function LinkVisitProvider({
     >
       {children}
       
-      <LinkVisitClaimPopup
-        isOpen={showClaimPopup}
-        onClose={handleClose}
-        hasClicked={hasClicked}
-        winningUrl={latestWinningUrl || winningUrl}
-        winningImage={latestWinningImage || winningImage}
-        auctionId={claimAuctionId || 0}
-        onClaim={handleClaim}
-        isPrivyModalActive={isPrivyModalActive}
-        isTwitterUserNeedsWallet={isTwitterUserNeedsWallet}
-      />
+      
+      {/* Only render popup when we have the latest won auction ID and redirect data is loaded */}
+      {latestWonAuctionId !== null && !isRedirectClickLoading && (
+        <LinkVisitClaimPopup
+          isOpen={showClaimPopup}
+          onClose={handleClose}
+          hasClicked={hasClicked || redirectClickData?.hasVisited || hasVisitedRedirect}
+          winningUrl={latestWinningUrl || winningUrl}
+          winningImage={latestWinningImage || winningImage}
+          auctionId={latestWonAuctionId}
+          onClaim={handleClaim}
+          isPrivyModalActive={isPrivyModalActive}
+          isTwitterUserNeedsWallet={isTwitterUserNeedsWallet}
+        />
+      )}
     </LinkVisitContext.Provider>
   );
 } 

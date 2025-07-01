@@ -114,10 +114,6 @@ export function LinkVisitClaimPopup({
       localStorage.removeItem(CLICK_STATE_KEY);
     }
   }, []);
-
-  // Check both hook state and localStorage for click status
-  const hasClickedAny = hasClicked || getClickedFromStorage();
-  
   
   const { login } = useLogin({
     onComplete: () => {
@@ -173,6 +169,12 @@ export function LinkVisitClaimPopup({
   
   // Use the auction image hook to check if it's a video with URL fallback
   const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
+  
+  // Check hook state and localStorage for click status
+  // Note: hasClicked prop already includes redirect click data from LinkVisitProvider
+  const hasClickedAny = hasClicked || getClickedFromStorage();
+  
+  
   
   // Load social links from database
   const { socialLinks } = useSocialLinks();
@@ -238,8 +240,10 @@ export function LinkVisitClaimPopup({
         } else {
           // Mini-app flow: visit -> claim -> success (skip captcha)
           if (hasClickedAny) {
-            // Clear the click state when entering claim state
-            clearClickedFromStorage();
+            // Clear the click state when entering claim state only if from localStorage
+            if (getClickedFromStorage()) {
+              clearClickedFromStorage();
+            }
             return 'claim';
           } else {
             return 'visit';
@@ -247,7 +251,7 @@ export function LinkVisitClaimPopup({
         }
       });
     }
-  }, [isOpen, hasClicked, hasClickedAny, isWebContext, authenticated, claimState, hasClaimed, clearClickedFromStorage]);
+  }, [isOpen, hasClicked, hasClickedAny, isWebContext, authenticated, claimState, hasClaimed, clearClickedFromStorage, getClickedFromStorage]);
 
   // Handle automatic state transition when authentication changes
   useEffect(() => {
@@ -289,6 +293,17 @@ export function LinkVisitClaimPopup({
       }
     }
   }, [hasClickedAny, isWebContext, claimState, hasClaimed, clearClickedFromStorage]);
+  
+  // IMPORTANT: Re-evaluate state when hasClicked prop changes (includes redirect tracking)
+  useEffect(() => {
+    if (isOpen && hasClicked && claimState === 'visit') {
+      if (hasClaimed) {
+        setClaimState('already_claimed');
+      } else {
+        setClaimState('claim');
+      }
+    }
+  }, [isOpen, hasClicked, claimState, hasClaimed]);
 
   // NEW: Handle real-time claim status changes when popup is already open
   useEffect(() => {
@@ -500,7 +515,37 @@ export function LinkVisitClaimPopup({
         }
       } else {
         // Mini-app context: use frameSdk (existing logic)
-        const trackedUrl = `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?source=${encodeURIComponent(CLICK_SOURCES.POPUP_IMAGE)}`;
+        let trackedUrl = `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?source=${encodeURIComponent(CLICK_SOURCES.POPUP_IMAGE)}`;
+        
+        // Add user data to the redirect URL for tracking
+        try {
+          const context = await frameSdk.getContext();
+          if (context?.user) {
+            // Get wallet address from frame SDK
+            let walletAddress = '';
+            try {
+              const isWalletConnected = await frameSdk.isWalletConnected();
+              if (isWalletConnected) {
+                const accounts = await frameSdk.connectWallet();
+                if (accounts.length > 0) {
+                  walletAddress = accounts[0];
+                }
+              }
+            } catch (e) {
+              console.error('Error getting wallet address:', e);
+            }
+            
+            const params = new URLSearchParams({
+              source: CLICK_SOURCES.POPUP_IMAGE,
+              fid: context.user.fid?.toString() || '',
+              username: context.user.username || '',
+              address: walletAddress
+            });
+            trackedUrl = `${process.env.NEXT_PUBLIC_HOST_URL}/redirect?${params.toString()}`;
+          }
+        } catch (err) {
+          console.error('Error getting frame context:', err);
+        }
         
         try {
           await frameSdk.redirectToUrl(trackedUrl);
