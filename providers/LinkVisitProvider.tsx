@@ -872,19 +872,18 @@ export function LinkVisitProvider({
       
       
       {/* Only render popup when we have the latest won auction ID and redirect data is loaded */}
-      {latestWonAuctionId !== null && !isRedirectClickLoading && (
         <LinkVisitClaimPopup
           isOpen={showClaimPopup}
           onClose={handleClose}
           hasClicked={hasClicked || redirectClickData?.hasVisited || hasVisitedRedirect}
           winningUrl={latestWinningUrl || winningUrl}
           winningImage={latestWinningImage || winningImage}
-          auctionId={latestWonAuctionId}
+          auctionId={latestWonAuctionId || 0}
           onClaim={handleClaim}
           isPrivyModalActive={isPrivyModalActive}
           isTwitterUserNeedsWallet={isTwitterUserNeedsWallet}
         />
-      )}
+      )
     </LinkVisitContext.Provider>
   );
 } 
