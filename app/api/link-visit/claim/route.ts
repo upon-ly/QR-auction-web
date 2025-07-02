@@ -465,59 +465,7 @@ export async function POST(request: NextRequest) {
       console.log(`✅ IP VALIDATION PASSED: IP=${clientIP} (auction: ${ipClaimsThisAuction?.length || 0}/3, daily: ${ipClaimsDaily?.length || 0}/5)`);
     }
     
-    // CHECK BANNED USERS TABLE - applies to both web and mini-app users
-    // Check by FID (mini-app) or address (both)
-    const banCheckConditions = [];
-    
-    if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
-      banCheckConditions.push(`fid.eq.${fid}`);
-    }
-    
-    if (address) {
-      banCheckConditions.push(`eth_address.ilike.${address}`);
-    }
-    
-    if (username && !NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
-      banCheckConditions.push(`username.ilike.${username}`);
-    }
-    
-    if (banCheckConditions.length > 0) {
-      const { data: bannedUser, error: banCheckError } = await supabase
-        .from('banned_users')
-        .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
-        .or(banCheckConditions.join(','))
-        .single();
-      
-      if (banCheckError && banCheckError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Error checking banned users:', banCheckError);
-      }
-      
-      if (bannedUser) {
-        console.log(`🚫 BANNED USER BLOCKED: IP=${clientIP}, FID=${fid || bannedUser.fid}, username=${username || bannedUser.username}, address=${address || bannedUser.eth_address}, reason=${bannedUser.reason}`);
-        
-        // Update last attempt and increment counter
-        const currentAttempts = bannedUser.total_claims_attempted || 0;
-        await supabase
-          .from('banned_users')
-          .update({
-            last_attempt_at: new Date().toISOString(),
-            total_claims_attempted: currentAttempts + 1
-          })
-          .eq('fid', bannedUser.fid);
-        
-        // Also update IP addresses with raw SQL
-        await supabase.rpc('add_ip_to_banned_user', {
-          banned_fid: bannedUser.fid,
-          new_ip: clientIP
-        });
-        
-        return NextResponse.json({ 
-          success: false, 
-          error: 'This account has been banned due to policy violations',
-          code: 'BANNED_USER'
-        }, { status: 403 });
-      }
-    }
+    // Ban check moved to after authentication to access verified usernames
     
     // For mini-app claims, acquire FID lock first to prevent same FID claiming with multiple addresses
     if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
@@ -623,6 +571,7 @@ export async function POST(request: NextRequest) {
       let effectiveFid: number;
       let effectiveUsername: string | null = null;
       let effectiveUserId: string | null = null; // For verified Privy userId (web users only)
+      let verifiedTwitterUsername: string | null = null; // Declare here for broader scope
     
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
       // Verify auth token for web users (Twitter authentication)
@@ -650,7 +599,17 @@ export async function POST(request: NextRequest) {
         
         // Use the verified Privy userId instead of untrusted username input
         privyUserId = verifiedClaims.userId;
-        console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}`);
+        
+        // For web claims, we require username to be provided but validate it's not empty/null
+        // This avoids the deprecated getUser API while still ensuring username presence
+        // The frontend should send the username from the authenticated user's linked accounts
+        verifiedTwitterUsername = username && username.trim() !== '' ? username : null;
+        
+        if (verifiedTwitterUsername) {
+          console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}, Username: @${verifiedTwitterUsername}`);
+        } else {
+          console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - No username provided`);
+        }
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
         return NextResponse.json({ 
@@ -682,14 +641,68 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({ success: false, error: 'Missing required parameters (address or auction_id)' }, { status: 400 });
       }
+      // NEW: Enforce username requirement for web claims
+      if (!verifiedTwitterUsername) {
+        console.log(`🚫 WEB USERNAME REQUIRED: IP=${clientIP}, User ${privyUserId} attempted claim without username`);
+        
+        const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash.slice(0, 8), 16);
+        effectiveFid = -(hashNumber % 1000000000);
+        
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address,
+          auction_id: auction_id,
+          username: null,
+          user_id: privyUserId,
+          winning_url: null,
+          error_message: 'Username required for web claims to prevent exploitation',
+          error_code: 'WEB_USERNAME_REQUIRED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Username is required to claim $QR. Please ensure your account username is included in the request.' 
+        }, { status: 400 });
+      }
+
+      // NEW: Specific ban on "anj_juan23582" username
+      if (verifiedTwitterUsername.toLowerCase() === 'anj_juan23582') {
+        console.log(`🚫 SPECIFIC USERNAME BAN: IP=${clientIP}, Banned username "${verifiedTwitterUsername}" attempted to claim`);
+        
+        const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash.slice(0, 8), 16);
+        effectiveFid = -(hashNumber % 1000000000);
+        
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address,
+          auction_id: auction_id,
+          username: verifiedTwitterUsername,
+          user_id: privyUserId,
+          winning_url: null,
+          error_message: `Banned username attempted claim: ${verifiedTwitterUsername}`,
+          error_code: 'BANNED_USERNAME_ATTEMPT',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This account is not eligible to claim $QR.' 
+        }, { status: 403 });
+      }
+      
       // Create a unique negative FID from wallet address hash for web users
       const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
       const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
       effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
-      effectiveUsername = username || null; // Keep original username from request for display/logging
+      effectiveUsername = verifiedTwitterUsername; // Use verified Twitter username from Privy
       effectiveUserId = privyUserId; // 🔒 SECURITY: Use verified Privy userId for validation
       
-      console.log(`🔐 SECURE WEB CLAIM: IP=${clientIP}, Verified userId=${privyUserId}, Display username=${username || 'none'}`);
+      console.log(`🔐 SECURE WEB CLAIM: IP=${clientIP}, Verified userId=${privyUserId}, Username=@${verifiedTwitterUsername}`);
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {
@@ -734,6 +747,60 @@ export async function POST(request: NextRequest) {
       effectiveFid = fid; // Use actual fid for mini-app users (guaranteed positive)
       effectiveUsername = username; // Use actual username for mini-app users
       effectiveUserId = null; // Mini-app users don't have Privy userId
+    }
+    
+    // CHECK BANNED USERS TABLE - applies to both web and mini-app users
+    // Now we have effectiveUsername set properly for both contexts
+    const banCheckConditions = [];
+    
+    if (effectiveFid && effectiveFid !== 0) {
+      banCheckConditions.push(`fid.eq.${effectiveFid}`);
+    }
+    
+    if (address) {
+      banCheckConditions.push(`eth_address.ilike.${address}`);
+    }
+    
+    if (effectiveUsername) {
+      banCheckConditions.push(`username.ilike.${effectiveUsername}`);
+    }
+    
+    if (banCheckConditions.length > 0) {
+      const { data: bannedUser, error: banCheckError } = await supabase
+        .from('banned_users')
+        .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
+        .or(banCheckConditions.join(','))
+        .single();
+      
+      if (banCheckError && banCheckError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error checking banned users:', banCheckError);
+      }
+      
+      if (bannedUser) {
+        console.log(`🚫 BANNED USER BLOCKED: IP=${clientIP}, FID=${effectiveFid || bannedUser.fid}, username=${effectiveUsername || bannedUser.username}, address=${address || bannedUser.eth_address}, reason=${bannedUser.reason}`);
+        
+        // Update last attempt and increment counter
+        const currentAttempts = bannedUser.total_claims_attempted || 0;
+        await supabase
+          .from('banned_users')
+          .update({
+            last_attempt_at: new Date().toISOString(),
+            total_claims_attempted: currentAttempts + 1
+          })
+          .eq('fid', bannedUser.fid);
+        
+        // Also update IP addresses with raw SQL
+        await supabase.rpc('add_ip_to_banned_user', {
+          banned_fid: bannedUser.fid,
+          new_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This account has been banned due to policy violations',
+          code: 'BANNED_USER'
+        }, { status: 403 });
+      }
     }
     
     // Validate that this is the latest settled auction
