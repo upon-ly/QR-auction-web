@@ -108,8 +108,8 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
   
   // Build query key based on context
   const queryKey = isWebContext
-    ? linkVisitKeys.byUser(auctionId, effectiveWalletAddress || getTwitterUsername() || 'unknown')
-    : linkVisitKeys.byUser(auctionId, frameContext?.user?.fid?.toString() || 'unknown');
+    ? linkVisitKeys.byUser(auctionId, getTwitterUsername() || effectiveWalletAddress || 'unknown')
+    : linkVisitKeys.byUser(auctionId, frameContext?.user?.username || frameContext?.user?.fid?.toString() || 'unknown');
   
   // Query function to check link visit status
   const checkVisitStatus = async (): Promise<{ hasClicked: boolean; hasClaimed: boolean }> => {
