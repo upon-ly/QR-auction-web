@@ -1544,6 +1544,91 @@ export async function POST(request: NextRequest) {
       // REMOVED: Overly aggressive auto-ban check that was banning legitimate users
       // Auto-ban only happens when we detect actual exploitation (duplicate blockchain transactions)
       
+      // NEW AUTO-BAN CHECK: Web users claiming with same username but different addresses FOR THE SAME AUCTION
+      if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
+        console.log(`🔍 Checking for multiple claims by username: ${effectiveUsername} for auction ${auction_id}`);
+        
+        // Check how many successful claims this username has made for THIS SPECIFIC AUCTION
+        const { data: usernameClaimsData, error: usernameClaimsError } = await supabase
+          .from('link_visit_claims')
+          .select('id, eth_address, auction_id, claimed_at, tx_hash')
+          .eq('username', effectiveUsername)
+          .eq('auction_id', auction_id) // Only check current auction
+          .in('claim_source', NON_FC_CLAIM_SOURCES)
+          .not('tx_hash', 'is', null)
+          .not('claimed_at', 'is', null)
+          .order('claimed_at', { ascending: false });
+        
+        if (usernameClaimsError) {
+          console.error('Error checking username claims for auto-ban:', usernameClaimsError);
+        } else if (usernameClaimsData && usernameClaimsData.length >= 2) {
+          // Check if this is a 3rd+ claim with a DIFFERENT address for the same auction
+          const uniqueAddresses = new Set(usernameClaimsData.map(claim => claim.eth_address.toLowerCase()));
+          uniqueAddresses.add(address.toLowerCase()); // Add current address
+          
+          if (uniqueAddresses.size > 2) {
+            console.log(`🚨 AUTO-BAN TRIGGERED: Username "${effectiveUsername}" attempting ${uniqueAddresses.size}rd unique address claim for auction ${auction_id}`);
+            console.log(`🚨 Previous addresses used: ${Array.from(uniqueAddresses).slice(0, -1).join(', ')}`);
+            console.log(`🚨 Attempting new address: ${address}`);
+            
+            try {
+              // Ban this user immediately for exploiting multiple addresses on same auction
+              const { error: banError } = await supabase
+                .from('banned_users')
+                .insert({
+                  fid: effectiveFid,
+                  username: effectiveUsername,
+                  eth_address: address,
+                  reason: `Auto-banned: Web user claimed auction ${auction_id} with ${uniqueAddresses.size} different addresses (limit: 2)`,
+                  created_at: new Date().toISOString(),
+                  banned_by: 'multi_address_detector',
+                  auto_banned: true,
+                  total_claims_attempted: usernameClaimsData.length + 1,
+                  duplicate_transactions: usernameClaimsData.map(c => c.tx_hash),
+                  total_tokens_received: usernameClaimsData.length * 1000, // Only count successful claims
+                  ban_metadata: {
+                    trigger: 'multiple_addresses_same_username_same_auction',
+                    auction_id: auction_id,
+                    unique_addresses: Array.from(uniqueAddresses),
+                    address_count: uniqueAddresses.size,
+                    successful_claims: usernameClaimsData.map(c => ({
+                      address: c.eth_address,
+                      claimed_at: c.claimed_at,
+                      tx_hash: c.tx_hash
+                    })),
+                    attempted_address: address,
+                    note: `Web user "${effectiveUsername}" exploited auction ${auction_id} by claiming with ${uniqueAddresses.size} different addresses`
+                  }
+                })
+                .select();
+              
+              if (banError && banError.code !== '23505') { // Ignore if already banned
+                console.error('Error auto-banning user for multiple addresses:', banError);
+              } else {
+                console.log(`✅ User "${effectiveUsername}" banned for using ${uniqueAddresses.size} different addresses on auction ${auction_id}`);
+                
+                // Return error to block this claim
+                return NextResponse.json({ 
+                  success: false, 
+                  error: 'This account has been banned for violating usage policies',
+                  code: 'AUTO_BANNED_MULTIPLE_ADDRESSES'
+                }, { status: 403 });
+              }
+            } catch (banError) {
+              console.error('Error in auto-ban process:', banError);
+              // Still block the claim even if ban insertion fails
+              return NextResponse.json({ 
+                success: false, 
+                error: 'Account suspended for policy violations',
+                code: 'MULTIPLE_ADDRESS_VIOLATION'
+              }, { status: 403 });
+            }
+          } else {
+            console.log(`✅ Username "${effectiveUsername}" has ${usernameClaimsData.length} claims for auction ${auction_id} with ${uniqueAddresses.size} unique addresses (within limit)`);
+          }
+        }
+      }
+      
       // CRITICAL: Release locks ONLY after successful database insert
       // This prevents other requests from proceeding until the claim is recorded
       if (lockKey) {
