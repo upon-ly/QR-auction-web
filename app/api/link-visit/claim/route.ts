@@ -627,15 +627,10 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (getUserError) {
-          console.log(`⚠️ Could not fetch user data with idToken, falling back to request username:`, getUserError);
-          // Fallback: use username from request if provided
-          verifiedTwitterUsername = username && username.trim() !== '' ? username : null;
-          
-          if (verifiedTwitterUsername) {
-            console.log(`✅ WEB AUTH (fallback): IP=${clientIP}, Verified Privy User: ${privyUserId}, Username: @${verifiedTwitterUsername}`);
-          } else {
-            console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - No username available`);
-          }
+          console.log(`⚠️ Could not fetch user data with idToken:`, getUserError);
+          // NO FALLBACK - username must come from Privy's verified data
+          verifiedTwitterUsername = null;
+          console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - Could not verify Twitter username from Privy`);
         }
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
