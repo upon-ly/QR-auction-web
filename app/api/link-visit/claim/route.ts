@@ -140,7 +140,10 @@ async function logFailedTransaction(params: {
       'WEB_VALIDATION_ERROR',      // Missing parameters for web users
       'MINIAPP_VALIDATION_ERROR',  // Missing parameters for mini-app users
       'INVALID_MINIAPP_FID',       // Invalid FID values
-      'WEB_AUTH_ERROR'             // Invalid Privy authentication tokens
+      'WEB_AUTH_ERROR',            // Invalid Privy authentication tokens
+      'WEB_USERNAME_REQUIRED',     // Missing username for web claims
+      'BANNED_USERNAME_ATTEMPT',   // Banned username attempted claim
+      'BANNED_USER'                // User is banned
     ];
     
     // Only log to database if this will be queued for retry
@@ -586,10 +589,15 @@ export async function POST(request: NextRequest) {
       
       const authToken = authHeader.substring(7); // Remove 'Bearer ' prefix
       
+      // Check if we have an ID token in the request headers or cookies
+      const idToken = request.headers.get('x-privy-id-token') || 
+                     request.cookies.get('privy-id-token')?.value ||
+                     authToken; // Try using the auth token as ID token
+      
       // Verify the Privy auth token and extract userId
       let privyUserId: string;
       try {
-        // Verify the auth token with Privy's API
+        // First verify the auth token
         const verifiedClaims = await privyClient.verifyAuthToken(authToken);
         
         // Check if the token is valid and user is authenticated
@@ -597,18 +605,36 @@ export async function POST(request: NextRequest) {
           throw new Error('No user ID in token claims');
         }
         
-        // Use the verified Privy userId instead of untrusted username input
+        // Use the verified Privy userId
         privyUserId = verifiedClaims.userId;
         
-        // For web claims, we require username to be provided but validate it's not empty/null
-        // This avoids the deprecated getUser API while still ensuring username presence
-        // The frontend should send the username from the authenticated user's linked accounts
-        verifiedTwitterUsername = username && username.trim() !== '' ? username : null;
-        
-        if (verifiedTwitterUsername) {
-          console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}, Username: @${verifiedTwitterUsername}`);
-        } else {
-          console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - No username provided`);
+        // Try to get full user data using idToken (not rate-limited)
+        try {
+          const user = await privyClient.getUser({ idToken });
+          
+          // Extract Twitter username from linked accounts
+          if (user.linkedAccounts) {
+            const twitterAccount = user.linkedAccounts.find((account) => 
+              account.type === 'twitter_oauth'
+            );
+            
+            if (twitterAccount && 'username' in twitterAccount) {
+              verifiedTwitterUsername = twitterAccount.username;
+              console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}, Twitter: @${verifiedTwitterUsername}`);
+            } else {
+              console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} has no Twitter account linked`);
+            }
+          }
+        } catch (getUserError) {
+          console.log(`⚠️ Could not fetch user data with idToken, falling back to request username:`, getUserError);
+          // Fallback: use username from request if provided
+          verifiedTwitterUsername = username && username.trim() !== '' ? username : null;
+          
+          if (verifiedTwitterUsername) {
+            console.log(`✅ WEB AUTH (fallback): IP=${clientIP}, Verified Privy User: ${privyUserId}, Username: @${verifiedTwitterUsername}`);
+          } else {
+            console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - No username available`);
+          }
         }
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);
