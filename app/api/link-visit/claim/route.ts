@@ -591,9 +591,9 @@ export async function POST(request: NextRequest) {
       const authToken = authHeader.substring(7); // Remove 'Bearer ' prefix
       
       // Check if we have an ID token in the request headers or cookies
+      // ID token is required to avoid rate limits when fetching user data
       const idToken = request.headers.get('x-privy-id-token') || 
-                     request.cookies.get('privy-id-token')?.value ||
-                     authToken; // Try using the auth token as ID token
+                     request.cookies.get('privy-id-token')?.value;
       
       // Verify the Privy auth token and extract userId
       let privyUserId: string;
@@ -609,28 +609,38 @@ export async function POST(request: NextRequest) {
         // Use the verified Privy userId
         privyUserId = verifiedClaims.userId;
         
-        // Try to get full user data using idToken (not rate-limited)
+        // Try to get full user data using idToken (to avoid rate limits)
         try {
-          const user = await privyClient.getUser({ idToken });
-          
-          // Extract Twitter username from linked accounts
-          if (user.linkedAccounts) {
-            const twitterAccount = user.linkedAccounts.find((account) => 
-              account.type === 'twitter_oauth'
-            );
+          if (!idToken) {
+            console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, No ID token provided - cannot verify Twitter username`);
+            // NO FALLBACK - we require verified Twitter username from Privy
+            verifiedTwitterUsername = null;
+          } else {
+            // This method verifies the token and returns the user object without rate limits
+            const user = await privyClient.getUser({ idToken });
             
-            if (twitterAccount && 'username' in twitterAccount) {
-              verifiedTwitterUsername = twitterAccount.username;
-              console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}, Twitter: @${verifiedTwitterUsername}`);
+            // Extract Twitter username from linked accounts
+            if (user && user.linkedAccounts) {
+              const twitterAccount = user.linkedAccounts.find((account) => 
+                account.type === 'twitter_oauth'
+              );
+              
+              if (twitterAccount && 'username' in twitterAccount) {
+                verifiedTwitterUsername = twitterAccount.username;
+                console.log(`✅ WEB AUTH: IP=${clientIP}, Verified Privy User: ${privyUserId}, Twitter: @${verifiedTwitterUsername}`);
+              } else {
+                console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} has no Twitter account linked`);
+                verifiedTwitterUsername = null;
+              }
             } else {
-              console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} has no Twitter account linked`);
+              console.log(`⚠️ WEB AUTH: IP=${clientIP}, Could not retrieve user data from ID token`);
+              verifiedTwitterUsername = null;
             }
           }
         } catch (getUserError) {
-          console.log(`⚠️ Could not fetch user data with idToken:`, getUserError);
-          // NO FALLBACK - username must come from Privy's verified data
+          console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Failed to verify user with ID token:`, getUserError);
+          // NO FALLBACK - username must be verified through Privy to prevent duplicates
           verifiedTwitterUsername = null;
-          console.log(`⚠️ WEB AUTH: IP=${clientIP}, User ${privyUserId} - Could not verify Twitter username from Privy`);
         }
       } catch (error) {
         console.log(`🚫 WEB AUTH ERROR: IP=${clientIP}, Invalid auth token:`, error);

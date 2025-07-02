@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLinkVisitEligibility } from './useLinkVisitEligibility';
 import { frameSdk } from '@/lib/frame-sdk-singleton';
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useIdentityToken } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 
@@ -12,6 +12,7 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
 
   // Web-specific hooks
   const { authenticated, user, getAccessToken } = usePrivy();
+  const { identityToken } = useIdentityToken();
   const { address } = useAccount();
   const { client: smartWalletClient } = useSmartWallets();
   
@@ -229,7 +230,8 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': process.env.NEXT_PUBLIC_LINK_CLICK_API_KEY || '',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+          ...(identityToken ? { 'x-privy-id-token': identityToken } : {})
         },
         body: JSON.stringify({
           fid: webFid,
