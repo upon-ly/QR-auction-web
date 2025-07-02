@@ -127,6 +127,7 @@ async function logFailedTransaction(params: {
 }) {
   try {
     // Check if this error is retryable BEFORE logging to database
+    // These errors will NOT be logged to the failure table or queued for retry
     const nonRetryableErrors = [
       'DUPLICATE_CLAIM', 
       'DUPLICATE_CLAIM_FID', 
@@ -776,48 +777,37 @@ export async function POST(request: NextRequest) {
     }
     
     // CHECK BANNED USERS TABLE - applies to both web and mini-app users
-    // Now we have effectiveUsername set properly for both contexts
-    const banCheckConditions = [];
+    // Enhanced username checking with multiple approaches for better coverage
+    console.log(`🔍 BAN CHECK: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address}`);
     
-    if (effectiveFid && effectiveFid !== 0) {
-      banCheckConditions.push(`fid.eq.${effectiveFid}`);
-    }
-    
-    if (address) {
-      banCheckConditions.push(`eth_address.ilike.${address}`);
-    }
-    
-    if (effectiveUsername) {
-      banCheckConditions.push(`username.ilike.${effectiveUsername}`);
-    }
-    
-    if (banCheckConditions.length > 0) {
-      const { data: bannedUser, error: banCheckError } = await supabase
+    // Check 1: By FID (only for mini-app users with real Farcaster FIDs)
+    if (effectiveFid && effectiveFid > 0) {
+      const { data: bannedByFid, error: fidBanError } = await supabase
         .from('banned_users')
         .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
-        .or(banCheckConditions.join(','))
-        .single();
+        .eq('fid', effectiveFid)
+        .maybeSingle();
       
-      if (banCheckError && banCheckError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Error checking banned users:', banCheckError);
+      if (fidBanError) {
+        console.error('Error checking banned users by FID:', fidBanError);
       }
       
-      if (bannedUser) {
-        console.log(`🚫 BANNED USER BLOCKED: IP=${clientIP}, FID=${effectiveFid || bannedUser.fid}, username=${effectiveUsername || bannedUser.username}, address=${address || bannedUser.eth_address}, reason=${bannedUser.reason}`);
+      if (bannedByFid) {
+        console.log(`🚫 BANNED USER BLOCKED BY FID: IP=${clientIP}, FID=${effectiveFid}, banned_username=${bannedByFid.username}, reason=${bannedByFid.reason}`);
         
         // Update last attempt and increment counter
-        const currentAttempts = bannedUser.total_claims_attempted || 0;
+        const currentAttempts = bannedByFid.total_claims_attempted || 0;
         await supabase
           .from('banned_users')
           .update({
             last_attempt_at: new Date().toISOString(),
             total_claims_attempted: currentAttempts + 1
           })
-          .eq('fid', bannedUser.fid);
+          .eq('fid', bannedByFid.fid);
         
         // Also update IP addresses with raw SQL
         await supabase.rpc('add_ip_to_banned_user', {
-          banned_fid: bannedUser.fid,
+          banned_fid: bannedByFid.fid,
           new_ip: clientIP
         });
         
@@ -828,6 +818,98 @@ export async function POST(request: NextRequest) {
         }, { status: 403 });
       }
     }
+    
+    // Check 2: By Username (case-insensitive, with and without @ prefix)
+    if (effectiveUsername) {
+      const usernameVariants = [
+        effectiveUsername.toLowerCase(),
+        effectiveUsername.toLowerCase().replace(/^@/, ''), // Remove @ if present
+        `@${effectiveUsername.toLowerCase().replace(/^@/, '')}`, // Add @ if not present
+        effectiveUsername // Original case
+      ];
+      
+      console.log(`🔍 Checking username variants: ${usernameVariants.join(', ')}`);
+      
+      for (const usernameVariant of usernameVariants) {
+        const { data: bannedByUsername, error: usernameBanError } = await supabase
+          .from('banned_users')
+          .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
+          .ilike('username', usernameVariant)
+          .maybeSingle();
+        
+        if (usernameBanError) {
+          console.error(`Error checking banned users by username "${usernameVariant}":`, usernameBanError);
+          continue;
+        }
+        
+        if (bannedByUsername) {
+          console.log(`🚫 BANNED USER BLOCKED BY USERNAME: IP=${clientIP}, username=${effectiveUsername}, banned_as=${bannedByUsername.username}, FID=${bannedByUsername.fid}, reason=${bannedByUsername.reason}`);
+          
+          // Update last attempt and increment counter
+          const currentAttempts = bannedByUsername.total_claims_attempted || 0;
+          await supabase
+            .from('banned_users')
+            .update({
+              last_attempt_at: new Date().toISOString(),
+              total_claims_attempted: currentAttempts + 1
+            })
+            .eq('fid', bannedByUsername.fid);
+          
+          // Also update IP addresses with raw SQL
+          await supabase.rpc('add_ip_to_banned_user', {
+            banned_fid: bannedByUsername.fid,
+            new_ip: clientIP
+          });
+          
+          return NextResponse.json({ 
+            success: false, 
+            error: 'This account has been banned due to policy violations',
+            code: 'BANNED_USER'
+          }, { status: 403 });
+        }
+      }
+    }
+    
+    // Check 3: By ETH Address (case-insensitive)
+    if (address) {
+      const { data: bannedByAddress, error: addressBanError } = await supabase
+        .from('banned_users')
+        .select('fid, username, eth_address, reason, created_at, auto_banned, total_claims_attempted')
+        .ilike('eth_address', address)
+        .maybeSingle();
+      
+      if (addressBanError) {
+        console.error('Error checking banned users by address:', addressBanError);
+      }
+      
+      if (bannedByAddress) {
+        console.log(`🚫 BANNED USER BLOCKED BY ADDRESS: IP=${clientIP}, address=${address}, banned_username=${bannedByAddress.username}, FID=${bannedByAddress.fid}, reason=${bannedByAddress.reason}`);
+        
+        // Update last attempt and increment counter
+        const currentAttempts = bannedByAddress.total_claims_attempted || 0;
+        await supabase
+          .from('banned_users')
+          .update({
+            last_attempt_at: new Date().toISOString(),
+            total_claims_attempted: currentAttempts + 1
+          })
+          .eq('fid', bannedByAddress.fid);
+        
+        // Also update IP addresses with raw SQL
+        await supabase.rpc('add_ip_to_banned_user', {
+          banned_fid: bannedByAddress.fid,
+          new_ip: clientIP
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This account has been banned due to policy violations',
+          code: 'BANNED_USER'
+        }, { status: 403 });
+      }
+    }
+    
+    console.log(`✅ BAN CHECK PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - No bans found`);
     
     // Validate that this is the latest settled auction
     try {
