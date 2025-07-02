@@ -707,7 +707,7 @@ export function LinkVisitClaimPopup({
   };
   
   return (
-    <Dialog open={isOpen && !isWebContext} onOpenChange={(open) => {
+    <Dialog open={isOpen} onOpenChange={(open) => {
       // Only prevent closing during active wallet connection process
       if (!open && claimState === 'connecting' && isConnecting) {
         return;
