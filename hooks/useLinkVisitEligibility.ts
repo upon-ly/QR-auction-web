@@ -312,7 +312,7 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             auction_id: auctionId,
             eth_address: effectiveWalletAddress,
             claimed_at: new Date().toISOString(),
-            amount: 1000,
+            amount: 500, // 500 QR for web users
             tx_hash: txHash,
             success: !!txHash,
             claim_source: 'web',
@@ -333,7 +333,7 @@ export function useLinkVisitEligibility(auctionId: number, isWebContext: boolean
             auction_id: auctionId,
             eth_address: effectiveWalletAddress,
             claimed_at: new Date().toISOString(),
-            amount: 1000,
+            amount: 1000, // 1000 QR for mini-app users
             tx_hash: txHash,
             success: !!txHash,
             claim_source: 'mini_app',

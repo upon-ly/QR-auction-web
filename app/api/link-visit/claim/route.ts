@@ -1125,11 +1125,13 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
     
-    // Define airdrop amount (1000 QR tokens)
+    // Define airdrop amount based on claim source
+    // Web users get 500 QR, mini app users get 1000 QR
     // Assuming 18 decimals for the QR token
-    const airdropAmount = ethers.parseUnits('1000', 18);
+    const claimAmount = NON_FC_CLAIM_SOURCES.includes(claim_source || '') ? '500' : '1000';
+    const airdropAmount = ethers.parseUnits(claimAmount, 18);
     
-    console.log(`Preparing airdrop of 1,000 QR tokens to ${address}`);
+    console.log(`Preparing airdrop of ${claimAmount} QR tokens to ${address}`);
     
       // Create contract instances using the dynamic contract from wallet pool
       const airdropContract = new ethers.Contract(
@@ -1411,7 +1413,7 @@ export async function POST(request: NextRequest) {
           eth_address: address, 
           link_visited_at: new Date().toISOString(), // Ensure we mark it as visited
           claimed_at: new Date().toISOString(),
-          amount: 1000, // 1,000 QR tokens
+          amount: parseInt(claimAmount), // 500 or 1000 QR tokens based on source
           tx_hash: receipt.hash,
           success: true,
           username: effectiveUsername, // Display username (from request for mini-app, null for web)
@@ -1505,7 +1507,7 @@ export async function POST(request: NextRequest) {
           .update({
             eth_address: address,
             claimed_at: new Date().toISOString(),
-            amount: 1000, // 1,000 QR tokens
+            amount: parseInt(claimAmount), // 500 or 1000 QR tokens based on source
             tx_hash: receipt.hash,
             success: true,
             username: effectiveUsername, // Display username (from request for mini-app, null for web)

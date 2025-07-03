@@ -435,7 +435,7 @@ export function LinkVisitClaimPopup({
       
       // Track successful token claim with X Pixel
       trackEvent('Lead', {
-        value: 1000,
+        value: isWebContext ? 500 : 1000,
         currency: 'QR',
         content_name: `Token Claim - Auction ${auctionId}`,
         content_category: 'QR Token Claim',
@@ -443,7 +443,7 @@ export function LinkVisitClaimPopup({
         token_type: 'QR'
       });
       
-      toast.success('1,000 $QR has been sent to your wallet.', {
+      toast.success(`${isWebContext ? '500' : '1,000'} $QR has been sent to your wallet.`, {
         style: {
           background: 'var(--primary)',
           color: 'var(--primary-foreground)',
@@ -582,7 +582,7 @@ export function LinkVisitClaimPopup({
     setClaimState('connecting');
     
     // Show persistent toast with updated message
-    const toastId = toast.info('Sign in with X (Twitter) to claim 1,000 $QR!', {
+    const toastId = toast.info('Sign in with X (Twitter) to claim 500 $QR!', {
       duration: Infinity, // Persistent until manually dismissed
     });
     setPersistentToastId(toastId);
@@ -707,7 +707,7 @@ export function LinkVisitClaimPopup({
   };
   
   return (
-    <Dialog open={isOpen && !isWebContext} onOpenChange={(open) => {
+    <Dialog open={isOpen} onOpenChange={(open) => {
       // Only prevent closing during active wallet connection process
       if (!open && claimState === 'connecting' && isConnecting) {
         return;
@@ -815,7 +815,7 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                {"Click to claim 1,000 $QR!"}
+                {isWebContext ? "Click to claim 500 $QR!" : "Click to claim 1,000 $QR!"}
               </motion.h2>
             )}
             
@@ -827,7 +827,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.2 }}
                   className="text-xl font-bold text-foreground"
                 >
-                  Claim 1,000 $QR
+                  Claim {isWebContext ? '500' : '1,000'} $QR
                 </motion.h2>
               </>
             )}
@@ -917,7 +917,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  1,000 $QR sent to your wallet.
+                  {isWebContext ? '500' : '1,000'} $QR sent to your wallet.
                 </motion.p>
                 
                 <motion.div
