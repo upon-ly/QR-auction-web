@@ -454,7 +454,7 @@ function FarcasterNotifications() {
         setNotification(prev => ({
           ...prev,
           title: title,
-          body: 'Click here to check out the winning link and claim 1,000 $QR',
+          body: 'Click here to check out today\'s winning link and claim your $QR reward',
           target_url: 'https://qrcoin.fun'
         }));
       }
@@ -464,7 +464,7 @@ function FarcasterNotifications() {
       setNotification(prev => ({
         ...prev,
         title: 'New Winner Announced!',
-        body: 'Click here to check out the winning link and claim 1,000 $QR',
+        body: 'Click here to check out the winning link and claim your $QR reward',
         target_url: 'https://qrcoin.fun'
       }));
     }
