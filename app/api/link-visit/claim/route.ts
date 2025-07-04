@@ -699,7 +699,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Missing required parameters (address or auction_id)' }, { status: 400 });
       }
       // NEW: Enforce username requirement for web claims
-      if (!verifiedTwitterUsername) {
+      if (claim_source === 'web' && !verifiedTwitterUsername)
         console.log(`🚫 WEB USERNAME REQUIRED: IP=${clientIP}, User ${privyUserId} attempted claim without username`);
         
         const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
@@ -726,7 +726,7 @@ export async function POST(request: NextRequest) {
       }
 
       // NEW: Specific ban on "anj_juan23582" username
-      if (verifiedTwitterUsername.toLowerCase() === 'anj_juan23582') {
+      if (verifiedTwitterUsername && verifiedTwitterUsername.toLowerCase() === 'anj_juan23582') {
         console.log(`🚫 SPECIFIC USERNAME BAN: IP=${clientIP}, Banned username "${verifiedTwitterUsername}" attempted to claim`);
         
         const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
@@ -1153,7 +1153,7 @@ export async function POST(request: NextRequest) {
     // Define airdrop amount based on claim source
     // Web users get 500 QR, mini app users get 1000 QR
     // Assuming 18 decimals for the QR token
-    const claimAmount = NON_FC_CLAIM_SOURCES.includes(claim_source || '') ? '500' : '1000';
+    const claimAmount = claim_source === 'web' ? '500' : '1000';
     const airdropAmount = ethers.parseUnits(claimAmount, 18);
     
     console.log(`Preparing airdrop of ${claimAmount} QR tokens to ${address}`);
