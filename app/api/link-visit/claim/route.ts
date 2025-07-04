@@ -318,16 +318,26 @@ async function logFailedTransaction(params: {
 async function executeWithRetry<T>(
   operation: (attempt: number) => Promise<T>,
   maxRetries: number = 3,
-  initialDelayMs: number = 1000
+  initialDelayMs: number = 1000,
+  txHashCallback?: (hash: string) => void
 ): Promise<T> {
   let attempt = 0;
   let lastError: Error | unknown;
+  let lastTxHash: string | undefined;
 
   while (attempt <= maxRetries) {
     try {
       return await operation(attempt);
     } catch (error) {
       lastError = error;
+      
+      // Extract transaction hash if available for tracking
+      if (error && typeof error === 'object' && 'hash' in error) {
+        lastTxHash = (error as { hash?: string }).hash;
+        if (txHashCallback && lastTxHash) {
+          txHashCallback(lastTxHash);
+        }
+      }
       
       // Check if this is a retryable error
       const isRetryable = error instanceof Error && (
@@ -338,6 +348,21 @@ async function executeWithRetry<T>(
         error.message?.includes('network error') ||
         error.message?.includes('transaction execution reverted')
       );
+      
+      // For timeout errors, check if the transaction actually succeeded
+      if (error instanceof Error && error.message?.includes('timeout') && lastTxHash) {
+        console.log(`Transaction timed out, checking on-chain status for tx: ${lastTxHash}`);
+        try {
+          const provider = new ethers.JsonRpcProvider(RPC_URL);
+          const txReceipt = await provider.getTransactionReceipt(lastTxHash);
+          if (txReceipt && txReceipt.status === 1) {
+            console.log(`Transaction ${lastTxHash} actually succeeded on-chain despite timeout`);
+            return txReceipt as T;
+          }
+        } catch (checkError) {
+          console.error('Error checking transaction status:', checkError);
+        }
+      }
       
       // Don't retry if error is not retryable
       if (!isRetryable || attempt >= maxRetries) {
@@ -1194,7 +1219,7 @@ export async function POST(request: NextRequest) {
           // Add timeout wrapper around the wait to prevent Vercel timeouts
           const approvalPromise = approveTx.wait();
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Approval transaction timeout after 55 seconds')), 55000)
+            setTimeout(() => reject(new Error('Approval transaction timeout after 45 seconds')), 45000)
           );
           
           try {
@@ -1324,8 +1349,10 @@ export async function POST(request: NextRequest) {
     console.log('Executing airdrop...');
     
     // Execute the airdrop with retry logic
+    let submittedTxHash: string | undefined;
+    
     try {
-      // Wrap the transaction in the retry function
+      // Wrap the transaction in the retry function with tx hash tracking
       const receipt = await executeWithRetry(async (attempt) => {
         // Get fresh nonce each time
         const nonce = await provider.getTransactionCount(adminWallet.address, 'latest');
@@ -1351,12 +1378,16 @@ export async function POST(request: NextRequest) {
           );
           
           console.log(`Airdrop tx submitted: ${tx.hash}`);
+          submittedTxHash = tx.hash; // Store the hash
           
           // Add timeout wrapper around the wait to prevent Vercel timeouts
+          // Reduced timeout to 45 seconds to leave room for database operations
           const airdropPromise = tx.wait();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Airdrop transaction timeout after 55 seconds')), 55000)
-          );
+          const timeoutPromise = new Promise((_, reject) => {
+            const timeoutError = new Error('Airdrop transaction timeout after 45 seconds');
+            (timeoutError as { hash?: string }).hash = tx.hash; // Attach hash to error
+            setTimeout(() => reject(timeoutError), 45000);
+          });
           
           const receipt = await Promise.race([airdropPromise, timeoutPromise]) as Awaited<ReturnType<typeof airdropContract.airdropERC20>>;
           console.log(`Airdrop confirmed in block ${receipt.blockNumber}`);
@@ -1371,7 +1402,7 @@ export async function POST(request: NextRequest) {
             : 'Unknown transaction error';
           
           const errorCode = (txError as { code?: string }).code;
-          const txHash = (txError as { hash?: string }).hash;
+          const txHash = submittedTxHash || (txError as { hash?: string }).hash;
           
           // Only log to database if this is the final attempt or a non-retryable error
           const isRetryable = txErrorMessage.includes('replacement fee too low') ||
@@ -1402,6 +1433,8 @@ export async function POST(request: NextRequest) {
           
           throw txError; // Re-throw for retry mechanism
         }
+      }, 2, 1000, (hash) => {
+        submittedTxHash = hash; // Update the hash if provided by callback
       });
       
       // Insert a new record, don't upsert over existing record
