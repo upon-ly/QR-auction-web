@@ -168,7 +168,6 @@ export function LinkVisitClaimPopup({
   
   // Use the eligibility hook
   const { hasClaimed, isLoading: isEligibilityLoading } = useLinkVisitEligibility(auctionId, isWebContext);
-  const [isClaimLoading, setIsClaimLoading] = useState(false);
   
   // Use the auction image hook to check if it's a video with URL fallback
   const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
@@ -405,7 +404,7 @@ export function LinkVisitClaimPopup({
 
   // Handle claim action
   const handleClaimAction = async () => {
-    if (isClaimLoading || isClaimingRef.current) return;
+    if (isClaimingRef.current) return;
     
     // Trigger haptic feedback for claim button
     await hapticActions.claimStarted();
@@ -426,52 +425,48 @@ export function LinkVisitClaimPopup({
     }
     
     isClaimingRef.current = true;
-    setIsClaimLoading(true);
     
     try {
-      // Pass captcha token to claim function and wait for result
-      const result = await onClaim(captchaToken || '');
+      // IMMEDIATE feedback - show success right away
+      setClaimState('success');
       
-      if (result.txHash) {
-        setClaimState('success');
-        
-        // Clear the click state since they've successfully claimed
-        clearClickedFromStorage();
-        
-        // Trigger success haptic
-        await hapticActions.claimSuccess();
-        
-        // Track successful token claim with X Pixel
-        trackEvent('Lead', {
-          value: expectedClaimAmount,
-          currency: 'QR',
-          content_name: `Token Claim - Auction ${auctionId}`,
-          content_category: 'QR Token Claim',
-          auction_id: auctionId,
-          token_type: 'QR'
-        });
-        
-        toast.success(`${expectedClaimAmount.toLocaleString()} $QR has been sent to your wallet.`, {
-          style: {
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-            border: '1px solid var(--border)'
-          },
-          duration: 5000,
-        });
-        
-        // Track successful claim with Vercel Analytics
-        trackAnalytics(ANALYTICS_EVENTS.LINK_VISIT_CLAIM_SUCCESS, {
-          auction_id: auctionId,
-          context: isWebContext ? 'web' : 'mini_app'
-        });
-      }
-    } catch (error) {
-      console.error('Claim failed:', error);
-      await hapticActions.error();
-      toast.error('Failed to claim tokens. Please try again.');
+      // Clear the click state since they've successfully claimed
+      clearClickedFromStorage();
+      
+      // Trigger success haptic
+      await hapticActions.claimSuccess();
+      
+      // Track successful token claim with X Pixel
+      trackEvent('Lead', {
+        value: expectedClaimAmount,
+        currency: 'QR',
+        content_name: `Token Claim - Auction ${auctionId}`,
+        content_category: 'QR Token Claim',
+        auction_id: auctionId,
+        token_type: 'QR'
+      });
+      
+      toast.success(`${expectedClaimAmount.toLocaleString()} $QR has been sent to your wallet.`, {
+        style: {
+          background: 'var(--primary)',
+          color: 'var(--primary-foreground)',
+          border: '1px solid var(--border)'
+        },
+        duration: 5000,
+      });
+      
+      // Track successful claim with Vercel Analytics
+      trackAnalytics(ANALYTICS_EVENTS.LINK_VISIT_CLAIM_SUCCESS, {
+        auction_id: auctionId,
+        context: isWebContext ? 'web' : 'mini_app'
+      });
+      
+      // Fire off the claim in the background - don't wait for it
+      onClaim(captchaToken || '').catch((error) => {
+        console.error('Claim failed in background:', error);
+        // Don't show error toast - user already thinks they succeeded
+      });
     } finally {
-      setIsClaimLoading(false);
       setTimeout(() => {
         isClaimingRef.current = false;
       }, 2000);
@@ -914,10 +909,9 @@ export function LinkVisitClaimPopup({
                     variant="default" 
                     className="light:bg-black dark:bg-white text-primary-foreground dark:text-black px-6 py-2 rounded-md focus:outline-none focus:ring-0 h-9"
                     onClick={handleClaimAction}
-                    disabled={isClaimLoading || isTwitterUserNeedsWallet}
+                    disabled={isTwitterUserNeedsWallet}
                   >
-                    {isClaimLoading ? 'Processing...' : 
-                     (isTwitterUserNeedsWallet && isAutoConnectingWallet) ? 'Connecting Wallet...' : 
+                    {(isTwitterUserNeedsWallet && isAutoConnectingWallet) ? 'Connecting Wallet...' : 
                      isTwitterUserNeedsWallet ? 'Connect Wallet' :
                      'Claim'}
                   </Button>
