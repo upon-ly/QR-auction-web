@@ -61,6 +61,41 @@ function formatTimestamp(): string {
   return new Date().toISOString();
 }
 
+// Function to fetch user data with Neynar score
+export async function fetchUserWithScore(fid: number): Promise<{ 
+  neynarScore?: number; 
+  username?: string;
+  displayName?: string;
+  error?: string;
+}> {
+  try {
+    const client = getNeynarClient();
+    
+    console.log(`[FetchUserScore] Fetching user data for FID ${fid}`);
+    
+    const { users } = await client.fetchBulkUsers({ fids: [fid] });
+    
+    if (!users || users.length === 0) {
+      console.log(`[FetchUserScore] No user found for FID ${fid}`);
+      return { error: 'User not found' };
+    }
+    
+    const user = users[0];
+    const neynarScore = user.experimental?.neynar_user_score;
+    
+    console.log(`[FetchUserScore] FID ${fid}: username=${user.username}, score=${neynarScore}`);
+    
+    return {
+      neynarScore: neynarScore || 0, // Default to 0 if no score
+      username: user.username,
+      displayName: user.display_name
+    };
+  } catch (error) {
+    console.error(`[FetchUserScore] Error fetching user data for FID ${fid}:`, error);
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 // Server-side function to send a notification to a single user
 export async function sendNotification({
   fid,

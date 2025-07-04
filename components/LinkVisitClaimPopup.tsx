@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import confetti from 'canvas-confetti';
 import { frameSdk } from '@/lib/frame-sdk-singleton';
 import { toast } from "sonner";
-import { useLinkVisitClaim } from '@/hooks/useLinkVisitClaim';
 import { useLinkVisitEligibility } from '@/hooks/useLinkVisitEligibility';
 import { useAuctionImage } from '@/hooks/useAuctionImage';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
@@ -29,6 +28,8 @@ interface LinkVisitClaimPopupProps {
   onClaim: (captchaToken: string) => Promise<{ txHash?: string }>;
   isPrivyModalActive: boolean;
   isTwitterUserNeedsWallet: boolean;
+  expectedClaimAmount: number;
+  isCheckingAmount: boolean;
 }
 
 // Custom dialog overlay with standard z-index
@@ -85,7 +86,9 @@ export function LinkVisitClaimPopup({
   auctionId,
   onClaim,
   isPrivyModalActive,
-  isTwitterUserNeedsWallet
+  isTwitterUserNeedsWallet,
+  expectedClaimAmount,
+  isCheckingAmount
 }: LinkVisitClaimPopupProps) {
   // Web context detection
   const [isWebContext, setIsWebContext] = useState(false);
@@ -163,9 +166,9 @@ export function LinkVisitClaimPopup({
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showCaptcha, setShowCaptcha] = useState(false);
   
-  // Use the claim hook and eligibility hook
-  const { isClaimLoading } = useLinkVisitClaim(auctionId, isWebContext);
+  // Use the eligibility hook
   const { hasClaimed, isLoading: isEligibilityLoading } = useLinkVisitEligibility(auctionId, isWebContext);
+  const [isClaimLoading, setIsClaimLoading] = useState(false);
   
   // Use the auction image hook to check if it's a video with URL fallback
   const { data: auctionImageData } = useAuctionImage(auctionId, winningUrl);
@@ -423,45 +426,52 @@ export function LinkVisitClaimPopup({
     }
     
     isClaimingRef.current = true;
+    setIsClaimLoading(true);
     
     try {
-      setClaimState('success');
+      // Pass captcha token to claim function and wait for result
+      const result = await onClaim(captchaToken || '');
       
-      // Clear the click state since they've successfully claimed
-      clearClickedFromStorage();
-      
-      // Trigger success haptic
-      await hapticActions.claimSuccess();
-      
-      // Track successful token claim with X Pixel
-      trackEvent('Lead', {
-        value: isWebContext ? 500 : 1000,
-        currency: 'QR',
-        content_name: `Token Claim - Auction ${auctionId}`,
-        content_category: 'QR Token Claim',
-        auction_id: auctionId,
-        token_type: 'QR'
-      });
-      
-      toast.success(`${isWebContext ? '500' : '1,000'} $QR has been sent to your wallet.`, {
-        style: {
-          background: 'var(--primary)',
-          color: 'var(--primary-foreground)',
-          border: '1px solid var(--border)'
-        },
-        duration: 5000,
-      });
-      
-      // Track successful claim with Vercel Analytics
-      trackAnalytics(ANALYTICS_EVENTS.LINK_VISIT_CLAIM_SUCCESS, {
-        auction_id: auctionId,
-        context: isWebContext ? 'web' : 'mini_app'
-      });
-      
-      // Pass captcha token to claim function (empty string for authenticated users)
-      onClaim(captchaToken || '').catch(() => {
-      });
+      if (result.txHash) {
+        setClaimState('success');
+        
+        // Clear the click state since they've successfully claimed
+        clearClickedFromStorage();
+        
+        // Trigger success haptic
+        await hapticActions.claimSuccess();
+        
+        // Track successful token claim with X Pixel
+        trackEvent('Lead', {
+          value: expectedClaimAmount,
+          currency: 'QR',
+          content_name: `Token Claim - Auction ${auctionId}`,
+          content_category: 'QR Token Claim',
+          auction_id: auctionId,
+          token_type: 'QR'
+        });
+        
+        toast.success(`${expectedClaimAmount.toLocaleString()} $QR has been sent to your wallet.`, {
+          style: {
+            background: 'var(--primary)',
+            color: 'var(--primary-foreground)',
+            border: '1px solid var(--border)'
+          },
+          duration: 5000,
+        });
+        
+        // Track successful claim with Vercel Analytics
+        trackAnalytics(ANALYTICS_EVENTS.LINK_VISIT_CLAIM_SUCCESS, {
+          auction_id: auctionId,
+          context: isWebContext ? 'web' : 'mini_app'
+        });
+      }
+    } catch (error) {
+      console.error('Claim failed:', error);
+      await hapticActions.error();
+      toast.error('Failed to claim tokens. Please try again.');
     } finally {
+      setIsClaimLoading(false);
       setTimeout(() => {
         isClaimingRef.current = false;
       }, 2000);
@@ -581,8 +591,8 @@ export function LinkVisitClaimPopup({
     setIsConnecting(true);
     setClaimState('connecting');
     
-    // Show persistent toast with updated message
-    const toastId = toast.info('Sign in with X (Twitter) to claim 500 $QR!', {
+    // Show persistent toast with dynamic amount
+    const toastId = toast.info(expectedClaimAmount > 0 ? `Sign in with X (Twitter) to claim ${expectedClaimAmount.toLocaleString()} $QR!` : 'Sign in with X (Twitter) to claim $QR!', {
       duration: Infinity, // Persistent until manually dismissed
     });
     setPersistentToastId(toastId);
@@ -632,7 +642,7 @@ export function LinkVisitClaimPopup({
     
     if (isWebContext) {
       // Web context: Twitter/X share with quote tweet
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`just got paid ${expectedClaimAmount.toLocaleString()} $QR to check out today's winner @qrcoindotfun`);
       
       // Use dynamic quote tweet URL from database
       const tweetToQuote = socialLinks.quoteTweetUrl;
@@ -642,7 +652,7 @@ export function LinkVisitClaimPopup({
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
       // Mini-app context: Warpcast share (existing logic)
-      const shareText = encodeURIComponent(`just got paid 1,000 $QR to check out today's winner @qrcoindotfun`);
+      const shareText = encodeURIComponent(`just got paid ${expectedClaimAmount.toLocaleString()} $QR to check out today's winner @qrcoindotfun`);
       const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
       
       let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
@@ -815,7 +825,10 @@ export function LinkVisitClaimPopup({
                 transition={{ delay: 0.2 }}
                 className="text-xl font-bold text-foreground"
               >
-                {isWebContext ? "Click to claim 500 $QR!" : "Click to claim 1,000 $QR!"}
+                {isCheckingAmount || expectedClaimAmount === 0 ? 
+                  'Click to claim $QR!' : 
+                  `Click to claim ${expectedClaimAmount.toLocaleString()} $QR!`
+                }
               </motion.h2>
             )}
             
@@ -827,7 +840,10 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.2 }}
                   className="text-xl font-bold text-foreground"
                 >
-                  Claim {isWebContext ? '500' : '1,000'} $QR
+                  {isCheckingAmount || expectedClaimAmount === 0 ? 
+                    'Claim $QR' : 
+                    `Claim ${expectedClaimAmount.toLocaleString()} $QR`
+                  }
                 </motion.h2>
               </>
             )}
@@ -917,7 +933,7 @@ export function LinkVisitClaimPopup({
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground mb-5"
                 >
-                  {isWebContext ? '500' : '1,000'} $QR sent to your wallet.
+                  {expectedClaimAmount.toLocaleString()} $QR sent to your wallet.
                 </motion.p>
                 
                 <motion.div

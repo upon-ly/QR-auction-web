@@ -94,6 +94,10 @@ export function LinkVisitProvider({
   // NEW: Flag to prevent multiple wallet connection calls
   const [hasTriggeredWalletConnection, setHasTriggeredWalletConnection] = useState(false);
   
+  // NEW: Track if user has dismissed the popup in this session
+  const [hasUserDismissedPopup, setHasUserDismissedPopup] = useState(false);
+  const [lastDismissedAuctionId, setLastDismissedAuctionId] = useState<number | null>(null);
+  
   // Web-specific state
   const { authenticated, user } = usePrivy();
   const { address: walletAddress } = useAccount();
@@ -261,7 +265,7 @@ export function LinkVisitProvider({
   // ALWAYS use the latestWonAuctionId for claim operations - never fall back to current auction
   // This prevents gaming by manually visiting future auction URLs
   const claimAuctionId = latestWonAuctionId;
-  const { claimTokens } = useLinkVisitClaim(claimAuctionId || 0, isWebContext);
+  const { claimTokens, expectedClaimAmount, isCheckingAmount } = useLinkVisitClaim(claimAuctionId || 0, isWebContext);
 
   // Explicit function to check claim status directly from database
   const checkClaimStatusForLatestAuction = useCallback(async () => {
@@ -511,6 +515,14 @@ export function LinkVisitProvider({
     }
   }, [hasClicked, hasClaimed, manualHasClaimedLatest, redirectClickData?.hasVisited]);
   
+  // Reset dismissal flag when auction changes
+  useEffect(() => {
+    if (latestWonAuctionId && lastDismissedAuctionId !== null && latestWonAuctionId !== lastDismissedAuctionId) {
+      setHasUserDismissedPopup(false);
+      setLastDismissedAuctionId(null);
+    }
+  }, [latestWonAuctionId, lastDismissedAuctionId]);
+  
   // NEW: Check if user is Twitter/Farcaster but needs wallet for claiming
   const isTwitterUserNeedsWallet = useMemo(() => {
     if (!isWebContext || !authenticated || !user?.linkedAccounts) return false;
@@ -567,7 +579,7 @@ export function LinkVisitProvider({
           });
           // Don't clear flow state yet - wait for wallet to connect
         } else if (hasTriggeredWalletConnection && isTwitterUserNeedsWallet) {
-        } else if (latestWonAuctionId && !manualHasClaimedLatest) {
+        } else if (latestWonAuctionId && !manualHasClaimedLatest && !hasUserDismissedPopup) {
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
@@ -577,7 +589,7 @@ export function LinkVisitProvider({
         }
       }, 1000);
     }
-  }, [authenticated, isTwitterUserNeedsWallet, latestWonAuctionId, manualHasClaimedLatest, isWebContext, getFlowState, clearFlowState, requestPopup, connectWallet, hasTriggeredWalletConnection]);
+  }, [authenticated, isTwitterUserNeedsWallet, latestWonAuctionId, manualHasClaimedLatest, isWebContext, getFlowState, clearFlowState, requestPopup, connectWallet, hasTriggeredWalletConnection, hasUserDismissedPopup]);
 
   // Reset wallet connection flag when not in claiming flow
   useEffect(() => {
@@ -598,7 +610,7 @@ export function LinkVisitProvider({
       
       // Small delay to ensure everything is ready
       setTimeout(() => {
-        if (latestWonAuctionId && !manualHasClaimedLatest) {
+        if (latestWonAuctionId && !manualHasClaimedLatest && !hasUserDismissedPopup) {
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
@@ -610,7 +622,7 @@ export function LinkVisitProvider({
         clearFlowState();
       }, 1000); // Increased delay to ensure wallet state is fully updated
     }
-  }, [isWebContext, authenticated, isTwitterUserNeedsWallet, effectiveWalletAddress, latestWonAuctionId, manualHasClaimedLatest, getFlowState, clearFlowState, requestPopup]);
+  }, [isWebContext, authenticated, isTwitterUserNeedsWallet, effectiveWalletAddress, latestWonAuctionId, manualHasClaimedLatest, getFlowState, clearFlowState, requestPopup, hasUserDismissedPopup]);
 
   // NEW: Additional fallback - listen for any wallet address changes when in claiming flow
   useEffect(() => {
@@ -623,7 +635,7 @@ export function LinkVisitProvider({
       
       // Small delay and then check if we should show the popup
       setTimeout(() => {
-        if (latestWonAuctionId && !manualHasClaimedLatest && !isPopupActive('linkVisit')) {
+        if (latestWonAuctionId && !manualHasClaimedLatest && !isPopupActive('linkVisit') && !hasUserDismissedPopup) {
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
@@ -632,7 +644,7 @@ export function LinkVisitProvider({
         }
       }, 2000);
     }
-  }, [effectiveWalletAddress, isWebContext, authenticated, showClaimPopup, latestWonAuctionId, manualHasClaimedLatest, getFlowState, clearFlowState, requestPopup, isPopupActive]);
+  }, [effectiveWalletAddress, isWebContext, authenticated, showClaimPopup, latestWonAuctionId, manualHasClaimedLatest, getFlowState, clearFlowState, requestPopup, isPopupActive, hasUserDismissedPopup]);
   
   // Listen for trigger from other popups closing
   useEffect(() => {
@@ -641,6 +653,11 @@ export function LinkVisitProvider({
       // NEW: Skip trigger if there's an active claiming flow - let flow state logic handle it
       const flowState = getFlowState();
       if (flowState === 'claiming') {
+        return;
+      }
+      
+      // Don't show popup if user has already dismissed it
+      if (hasUserDismissedPopup) {
         return;
       }
       
@@ -700,7 +717,7 @@ export function LinkVisitProvider({
     
     window.addEventListener('triggerLinkVisitPopup', handleTrigger);
     return () => window.removeEventListener('triggerLinkVisitPopup', handleTrigger);
-  }, [manualHasClaimedLatest, latestWonAuctionId, effectiveWalletAddress, isLoading, explicitlyCheckedClaim, requestPopup, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasClaimed, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState]);
+  }, [manualHasClaimedLatest, latestWonAuctionId, effectiveWalletAddress, isLoading, explicitlyCheckedClaim, requestPopup, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasClaimed, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, hasUserDismissedPopup]);
   
   // Show popup when user can interact with it (auto-show if eligible)
   useEffect(() => {
@@ -709,6 +726,11 @@ export function LinkVisitProvider({
     // NEW: Skip auto-show if there's an active claiming flow - let flow state logic handle it
     const flowState = getFlowState();
     if (flowState === 'claiming') {
+      return;
+    }
+    
+    // Don't show popup if user has already dismissed it
+    if (hasUserDismissedPopup) {
       return;
     }
     
@@ -799,7 +821,7 @@ export function LinkVisitProvider({
         setHasCheckedEligibility(true);
       }
     }
-  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup, redirectClickData?.hasVisited, isRedirectClickLoading]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup, redirectClickData?.hasVisited, isRedirectClickLoading, hasUserDismissedPopup]);
   
   // NEW: Track when Privy modal is active to prevent popup interference
   const [isPrivyModalActive, setIsPrivyModalActive] = useState(false);
@@ -834,6 +856,9 @@ export function LinkVisitProvider({
     // Update our manual tracking state after claim
     if (result.txHash) {
       setManualHasClaimedLatest(true);
+      // Reset dismissal flag on successful claim so user can see popup for next auction
+      setHasUserDismissedPopup(false);
+      setLastDismissedAuctionId(null);
     }
     
     return result;
@@ -844,6 +869,9 @@ export function LinkVisitProvider({
     setShowClaimPopup(false);
     releasePopup('linkVisit');
     clearFlowState();
+    // Mark that user has dismissed the popup
+    setHasUserDismissedPopup(true);
+    setLastDismissedAuctionId(latestWonAuctionId);
   };
 
   return (
@@ -882,6 +910,8 @@ export function LinkVisitProvider({
           onClaim={handleClaim}
           isPrivyModalActive={isPrivyModalActive}
           isTwitterUserNeedsWallet={isTwitterUserNeedsWallet}
+          expectedClaimAmount={expectedClaimAmount}
+          isCheckingAmount={isCheckingAmount}
         />
       )
     </LinkVisitContext.Provider>

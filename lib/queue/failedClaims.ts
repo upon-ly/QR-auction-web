@@ -23,6 +23,7 @@ export async function queueFailedClaim(failureRecord: {
   winning_url?: string | null;
   option_type?: string;
   signer_uuid?: string;
+  claim_source?: string;
 }) {
   // Determine claim type
   let claimType: string;

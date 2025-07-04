@@ -106,6 +106,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
 import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
+import { getClaimAmountForAddress } from '@/lib/wallet-balance-checker';
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -124,6 +125,7 @@ async function logFailedTransaction(params: {
   network_status?: string;
   retry_count?: number;
   client_ip?: string;
+  claim_source?: string;
 }) {
   try {
     // Check if this error is retryable BEFORE logging to database
@@ -286,7 +288,8 @@ async function logFailedTransaction(params: {
         gas_limit: params.gas_limit || null,
         network_status: params.network_status || null,
         retry_count: params.retry_count || 0,
-        client_ip: clientIP
+        client_ip: clientIP,
+        claim_source: params.claim_source || 'mini_app'
       })
       .select('id')
       .single();
@@ -307,6 +310,7 @@ async function logFailedTransaction(params: {
       username: params.username as string | null,
       user_id: params.user_id as string | null,
       winning_url: params.winning_url as string | null,
+      claim_source: params.claim_source || 'mini_app',
     });
     console.log(`📋 QUEUED FOR RETRY: Failure ID=${data.id}`);
   } catch (logError) {
@@ -445,7 +449,8 @@ export async function POST(request: NextRequest) {
           error_message: `IP ${clientIP} exceeded per-auction limit: ${ipClaimsThisAuction.length}/3 claims`,
           error_code: 'IP_AUCTION_LIMIT_EXCEEDED',
           request_data: { ...requestData, clientIP } as Record<string, unknown>,
-          client_ip: clientIP
+          client_ip: clientIP,
+          claim_source
         });
         
         return NextResponse.json({ 
@@ -482,7 +487,8 @@ export async function POST(request: NextRequest) {
           error_message: `IP ${clientIP} exceeded daily limit (${ipClaimsDaily.length}/5 claims in 24h)`,
           error_code: 'IP_DAILY_LIMIT_EXCEEDED',
           request_data: { ...requestData, clientIP } as Record<string, unknown>,
-          client_ip: clientIP
+          client_ip: clientIP,
+          claim_source
         });
         
         return NextResponse.json({ 
@@ -601,6 +607,7 @@ export async function POST(request: NextRequest) {
       let effectiveUsername: string | null = null;
       let effectiveUserId: string | null = null; // For verified Privy userId (web users only)
       let verifiedTwitterUsername: string | null = null; // Declare here for broader scope
+      let privyUserId: string = ''; // Declare here for broader scope
     
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
       // Verify auth token for web users (Twitter authentication)
@@ -621,7 +628,6 @@ export async function POST(request: NextRequest) {
                      request.cookies.get('privy-id-token')?.value;
       
       // Verify the Privy auth token and extract userId
-      let privyUserId: string;
       try {
         // First verify the auth token
         const verifiedClaims = await privyClient.verifyAuthToken(authToken);
@@ -693,7 +699,8 @@ export async function POST(request: NextRequest) {
           error_message: 'Missing required parameters for web user (address or auction_id)',
           error_code: 'WEB_VALIDATION_ERROR',
           request_data: { ...requestData, clientIP } as Record<string, unknown>,
-          client_ip: clientIP
+          client_ip: clientIP,
+          claim_source
         });
         
         return NextResponse.json({ success: false, error: 'Missing required parameters (address or auction_id)' }, { status: 400 });
@@ -702,13 +709,13 @@ export async function POST(request: NextRequest) {
       if (claim_source === 'web' && !verifiedTwitterUsername) {
         console.log(`🚫 WEB USERNAME REQUIRED: IP=${clientIP}, User ${privyUserId} attempted claim without username`);
         
-        const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
-        const hashNumber = parseInt(addressHash.slice(0, 8), 16);
+        const addressHash = address?.slice(2).toLowerCase() || ''; // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash.slice(0, 8) || '0', 16);
         effectiveFid = -(hashNumber % 1000000000);
         
         await logFailedTransaction({
           fid: effectiveFid,
-          eth_address: address,
+          eth_address: address || 'unknown',
           auction_id: auction_id,
           username: null,
           user_id: privyUserId,
@@ -729,13 +736,13 @@ export async function POST(request: NextRequest) {
       if (verifiedTwitterUsername && verifiedTwitterUsername.toLowerCase() === 'anj_juan23582') {
         console.log(`🚫 SPECIFIC USERNAME BAN: IP=${clientIP}, Banned username "${verifiedTwitterUsername}" attempted to claim`);
         
-        const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
-        const hashNumber = parseInt(addressHash.slice(0, 8), 16);
+        const addressHash = address?.slice(2).toLowerCase() || ''; // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash.slice(0, 8) || '0', 16);
         effectiveFid = -(hashNumber % 1000000000);
         
         await logFailedTransaction({
           fid: effectiveFid,
-          eth_address: address,
+          eth_address: address || 'unknown',
           auction_id: auction_id,
           username: verifiedTwitterUsername,
           user_id: privyUserId,
@@ -753,9 +760,13 @@ export async function POST(request: NextRequest) {
       }
       
       // Create a unique negative FID from wallet address hash for web users
-      const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
-      const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
-      effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
+      if (address) {
+        const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
+        const hashNumber = parseInt(addressHash.slice(0, 8), 16); // Take first 8 hex chars
+        effectiveFid = -(hashNumber % 1000000000); // Make it negative and limit size
+      } else {
+        effectiveFid = -1; // Fallback for missing address
+      }
       effectiveUsername = verifiedTwitterUsername; // Use verified Twitter username from Privy
       effectiveUserId = privyUserId; // 🔒 SECURITY: Use verified Privy userId for validation
       
@@ -1150,12 +1161,49 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
     
-    // Define airdrop amount based on claim source
-    // Web users get 500 QR, mini app users get 1000 QR
-    // Assuming 18 decimals for the QR token
-    const claimAmount = claim_source === 'web' ? '500' : '1000';
-    const airdropAmount = ethers.parseUnits(claimAmount, 18);
+    // Define airdrop amount based on claim source and user score
+    let claimAmount: string;
+    let neynarScore: number | undefined;
     
+    if (claim_source === 'web' || claim_source === 'mobile') {
+      // Web/mobile users: check Neynar score first if FID available, then wallet holdings
+      try {
+        // For web users, we might have a FID if they've linked Farcaster
+        let fidForScore: number | undefined;
+        if (effectiveFid && effectiveFid > 0) {
+          fidForScore = effectiveFid;
+        }
+        
+        const dynamicAmount = await getClaimAmountForAddress(
+          address,
+          claim_source,
+          ALCHEMY_API_KEY,
+          fidForScore
+        );
+        claimAmount = dynamicAmount.toString();
+        console.log(`💰 Dynamic claim amount for ${claim_source} user ${address}: ${claimAmount} QR`);
+      } catch (error) {
+        console.error('Error checking claim amount, using default:', error);
+        claimAmount = '500'; // Fallback to original amount
+      }
+    } else {
+      // Mini-app users: use unified function that checks Neynar score
+      try {
+        const dynamicAmount = await getClaimAmountForAddress(
+          address || '',
+          claim_source || 'mini_app',
+          ALCHEMY_API_KEY,
+          effectiveFid
+        );
+        claimAmount = dynamicAmount.toString();
+        console.log(`💰 Mini-app claim amount for FID ${effectiveFid}: ${claimAmount} QR`);
+      } catch (error) {
+        console.error('Error determining mini-app claim amount:', error);
+        claimAmount = '100'; // Fallback to default
+      }
+    }
+    
+    const airdropAmount = ethers.parseUnits(claimAmount, 18);
     console.log(`Preparing airdrop of ${claimAmount} QR tokens to ${address}`);
     
       // Create contract instances using the dynamic contract from wallet pool
@@ -1446,14 +1494,15 @@ export async function POST(request: NextRequest) {
           eth_address: address, 
           link_visited_at: new Date().toISOString(), // Ensure we mark it as visited
           claimed_at: new Date().toISOString(),
-          amount: parseInt(claimAmount), // 500 or 1000 QR tokens based on source
+          amount: parseInt(claimAmount), // Variable QR tokens based on source and score
           tx_hash: receipt.hash,
           success: true,
           username: effectiveUsername, // Display username (from request for mini-app, null for web)
           user_id: effectiveUserId, // Verified Privy userId (for web users only, null for mini-app)
           winning_url: winningUrl,
           claim_source: claim_source || 'mini_app',
-          client_ip: clientIP // Track IP for successful claims
+          client_ip: clientIP, // Track IP for successful claims
+          neynar_user_score: neynarScore !== undefined ? neynarScore : null // Store the Neynar score
         });
         
       if (insertError) {
@@ -1540,14 +1589,15 @@ export async function POST(request: NextRequest) {
           .update({
             eth_address: address,
             claimed_at: new Date().toISOString(),
-            amount: parseInt(claimAmount), // 500 or 1000 QR tokens based on source
+            amount: parseInt(claimAmount), // Variable QR tokens based on source and score
             tx_hash: receipt.hash,
             success: true,
             username: effectiveUsername, // Display username (from request for mini-app, null for web)
             user_id: effectiveUserId, // Verified Privy userId (for web users only, null for mini-app)
             winning_url: winningUrl,
             claim_source: claim_source || 'mini_app',
-            client_ip: clientIP // Track IP for successful claims
+            client_ip: clientIP, // Track IP for successful claims
+            neynar_user_score: neynarScore !== undefined ? neynarScore : null // Store the Neynar score
           })
           .match({
             fid: effectiveFid,
@@ -1729,7 +1779,8 @@ export async function POST(request: NextRequest) {
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,
         network_status: 'failed',
-        client_ip: clientIP
+        client_ip: clientIP,
+        claim_source
       });
       
       return NextResponse.json({ 
@@ -1763,7 +1814,8 @@ export async function POST(request: NextRequest) {
         error_code: 'WALLET_OPERATION_ERROR',
         request_data: requestData as Record<string, unknown>,
         network_status: 'wallet_error',
-        client_ip: clientIP
+        client_ip: clientIP,
+        claim_source
       });
       
       return NextResponse.json({ 
@@ -1819,7 +1871,8 @@ export async function POST(request: NextRequest) {
         error_code: errorCode,
         request_data: requestData as Record<string, unknown>,
         network_status: 'unexpected_error',
-        client_ip: clientIP
+        client_ip: clientIP,
+        claim_source: requestData.claim_source || 'mini_app'
       });
     } catch (logError) {
       console.error('Failed to log unexpected error:', logError);
