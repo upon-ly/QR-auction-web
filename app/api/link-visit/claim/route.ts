@@ -699,7 +699,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Missing required parameters (address or auction_id)' }, { status: 400 });
       }
       // NEW: Enforce username requirement for web claims
-      if (claim_source === 'web' && !verifiedTwitterUsername)
+      if (claim_source === 'web' && !verifiedTwitterUsername) {
         console.log(`🚫 WEB USERNAME REQUIRED: IP=${clientIP}, User ${privyUserId} attempted claim without username`);
         
         const addressHash = address.slice(2).toLowerCase(); // Remove 0x and lowercase
