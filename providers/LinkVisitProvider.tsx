@@ -17,6 +17,10 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Global variable to track if popup has been shown in this page session
+// This persists across component remounts but resets on page refresh
+let hasShownPopupThisPageSession = false;
+
 
 // Define context type
 interface LinkVisitContextType {
@@ -96,7 +100,6 @@ export function LinkVisitProvider({
   
   // NEW: Track if user has dismissed the popup in this session
   const [hasUserDismissedPopup, setHasUserDismissedPopup] = useState(false);
-  const [lastDismissedAuctionId, setLastDismissedAuctionId] = useState<number | null>(null);
   
   // Web-specific state
   const { authenticated, user } = usePrivy();
@@ -515,13 +518,6 @@ export function LinkVisitProvider({
     }
   }, [hasClicked, hasClaimed, manualHasClaimedLatest, redirectClickData?.hasVisited]);
   
-  // Reset dismissal flag when auction changes
-  useEffect(() => {
-    if (latestWonAuctionId && lastDismissedAuctionId !== null && latestWonAuctionId !== lastDismissedAuctionId) {
-      setHasUserDismissedPopup(false);
-      setLastDismissedAuctionId(null);
-    }
-  }, [latestWonAuctionId, lastDismissedAuctionId]);
   
   // NEW: Check if user is Twitter/Farcaster but needs wallet for claiming
   const isTwitterUserNeedsWallet = useMemo(() => {
@@ -583,6 +579,7 @@ export function LinkVisitProvider({
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
+            hasShownPopupThisPageSession = true; // Set global flag
           }
           // Clear the flow state after handling
           clearFlowState();
@@ -614,6 +611,7 @@ export function LinkVisitProvider({
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
+            hasShownPopupThisPageSession = true; // Set global flag
           } else {
           }
         } else {
@@ -639,6 +637,7 @@ export function LinkVisitProvider({
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
+            hasShownPopupThisPageSession = true; // Set global flag
           }
           clearFlowState();
         }
@@ -695,6 +694,7 @@ export function LinkVisitProvider({
             const granted = requestPopup('linkVisit');
             if (granted) {
               setShowClaimPopup(true);
+              hasShownPopupThisPageSession = true; // Set global flag
             }
           } else {
           }
@@ -708,6 +708,7 @@ export function LinkVisitProvider({
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
+            hasShownPopupThisPageSession = true; // Set global flag
           }
         } else {
         }
@@ -726,6 +727,11 @@ export function LinkVisitProvider({
     // NEW: Skip auto-show if there's an active claiming flow - let flow state logic handle it
     const flowState = getFlowState();
     if (flowState === 'claiming') {
+      return;
+    }
+    
+    // Check global flag to prevent showing popup multiple times in the same page session
+    if (hasShownPopupThisPageSession) {
       return;
     }
     
@@ -782,6 +788,7 @@ export function LinkVisitProvider({
             const granted = requestPopup('linkVisit');
             if (granted) {
               setShowClaimPopup(true);
+              hasShownPopupThisPageSession = true; // Set global flag
             }
             setHasCheckedEligibility(true);
           }, 2500);
@@ -809,6 +816,7 @@ export function LinkVisitProvider({
           const granted = requestPopup('linkVisit');
           if (granted) {
             setShowClaimPopup(true);
+            hasShownPopupThisPageSession = true; // Set global flag
           }
           setHasCheckedEligibility(true);
         }, 1000);
@@ -858,7 +866,6 @@ export function LinkVisitProvider({
       setManualHasClaimedLatest(true);
       // Reset dismissal flag on successful claim so user can see popup for next auction
       setHasUserDismissedPopup(false);
-      setLastDismissedAuctionId(null);
     }
     
     return result;
@@ -871,7 +878,6 @@ export function LinkVisitProvider({
     clearFlowState();
     // Mark that user has dismissed the popup
     setHasUserDismissedPopup(true);
-    setLastDismissedAuctionId(latestWonAuctionId);
   };
 
   return (
