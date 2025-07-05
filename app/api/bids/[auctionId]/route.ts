@@ -1,6 +1,7 @@
 import { createPublicClient, http } from 'viem'
 import { base } from 'viem/chains'
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 // TODO: add caching (either on vercel with `use cache` or with upstash redis)
 export async function GET(request: Request, { params }: { params: Promise<{ auctionId: number }> }) {
@@ -11,9 +12,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ auct
 	}
 	
 	const publicClient = createPublicClient({
-        chain: base,
-        transport: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
-    })
+		chain: base,
+		transport: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
+	})
+
+
+	const supabase = createClient(
+		process.env.NEXT_PUBLIC_SUPABASE_URL!,
+		process.env.SUPABASE_SERVICE_ROLE_KEY!
+	);
+	
+	const { data: auctionImageData } = await supabase
+		.from('auction_image_overrides')
+		.select('auction_id, image_url, is_video')
+		.eq('auction_id', auctionId)
+		.maybeSingle();
+
 
     const logs = await publicClient.getContractEvents({
         address: process.env.NEXT_PUBLIC_QRAuctionV3 as `0x${string}`,
@@ -126,6 +140,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ auct
 			  ? `@${farcasterData.username}`
 			  : `${typedLog.args.bidder.slice(0, 6)}...${typedLog.args.bidder.slice(-4)}`,
                 icon: typedLog.args.name ? `https://unavatar.io/x/${typedLog.args.name}` : farcasterData?.avatarUrl || null,
+		image: auctionImageData?.image_url || null,
                 url: typedLog.args.urlString,
                 amount: Number(typedLog.args.amount / BigInt(10 ** 6)),
             }
