@@ -551,6 +551,12 @@ export async function POST(req: NextRequest) {
       // Transaction succeeded - record claim
       console.log(`Airdrop successful with TX: ${txReceipt.hash}`);
       
+      // Determine proper claim source based on available data
+      const determinedClaimSource = failure.claim_source || 
+        (failure.fid && failure.fid > 0 ? 'mini_app' : 'web');
+      
+      console.log(`📝 CLAIM SOURCE DETERMINATION: original=${failure.claim_source}, fid=${failure.fid}, determined=${determinedClaimSource}`);
+      
       // Record in link_visit_claims table
       const { error: insertError } = await supabase
         .from('link_visit_claims')
@@ -566,7 +572,7 @@ export async function POST(req: NextRequest) {
           username: failure.username || null,
           user_id: failure.user_id || null,
           winning_url: failure.winning_url || `https://qrcoin.fun/auction/${failure.auction_id}`,
-          claim_source: failure.claim_source || 'mini_app',
+          claim_source: determinedClaimSource,
           client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
         });
       
@@ -656,7 +662,7 @@ export async function POST(req: NextRequest) {
             success: true,
             username: failure.username || null,
             user_id: failure.user_id || null,
-            claim_source: failure.claim_source || 'mini_app',
+            claim_source: determinedClaimSource,
             client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
           })
           .match({
