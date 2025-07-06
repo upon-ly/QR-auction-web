@@ -132,7 +132,9 @@ export async function GET(request: Request) {
         auction_id,
         claim_source,
         spam_label,
-        neynar_user_score
+        neynar_user_score,
+        amount,
+        success
       `)
       .gte('auction_id', earliestAuctionId);
 
@@ -147,6 +149,7 @@ export async function GET(request: Request) {
     // Aggregate click data by auction_id and source
     const clickMap = new Map();
     const neynarScoreData = new Map();
+    const qrAmountData = new Map(); // Track total QR distributed per auction
     
     clickData?.forEach(click => {
       const auctionId = click.auction_id;
@@ -166,10 +169,22 @@ export async function GET(request: Request) {
           score_80_100: 0,
           score_unknown: 0
         });
+        qrAmountData.set(auctionId, {
+          totalQR: 0,
+          successfulClaims: 0
+        });
       }
       const counts = clickMap.get(auctionId);
       const scoreData = neynarScoreData.get(auctionId);
+      const qrData = qrAmountData.get(auctionId);
+      
       counts.total++;
+      
+      // Track QR amounts for successful claims
+      if (click.success === true && click.amount) {
+        qrData.totalQR += click.amount;
+        qrData.successfulClaims++;
+      }
       if (click.claim_source === 'web') {
         counts.web++;
       }
@@ -231,21 +246,9 @@ export async function GET(request: Request) {
       // Get QR price for this auction (default to 0.01 if not found)
       const qr_price_usd = qrPriceMap.get(auction_id) || 0.01;
       
-      // QR reward per claim based on auction ID
-      let qr_reward_per_claim: number;
-      if (auction_id === 71) {
-        qr_reward_per_claim = 5000;
-      } else if (auction_id >= 72 && auction_id <= 76) {
-        qr_reward_per_claim = 2000;
-      } else if (auction_id >= 77 && auction_id <= 95) {
-        qr_reward_per_claim = 1000;
-      } else if (auction_id >= 96 && auction_id <= 107) {
-        qr_reward_per_claim = 420;
-      } else if (auction_id >= 108) {
-        qr_reward_per_claim = 1000;
-      } else {
-        qr_reward_per_claim = 0; // Default for auctions before 71
-      }
+      // Calculate actual QR reward per claim from real data
+      const qrData = qrAmountData.get(auction_id) || { totalQR: 0, successfulClaims: 0 };
+      const qr_reward_per_claim = qrData.successfulClaims > 0 ? qrData.totalQR / qrData.successfulClaims : 0;
       
       // Calculate QR reward value in USD
       const qr_reward_value_usd = qr_reward_per_claim * qr_price_usd;

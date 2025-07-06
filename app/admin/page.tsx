@@ -1114,12 +1114,125 @@ function ClicksAnalytics() {
   );
 }
 
+// Hook for Daily Link Visit Expenses
+function useAuctionLinkVisitExpenses(qrPriceOverrides?: { [auctionId: number]: number }) {
+  const { address } = useAccount();
+  const [data, setData] = useState<{
+    auctionExpenses: any[];
+    rewardTierBreakdowns: any[];
+    summary: any;
+    isLoading: boolean;
+    error: Error | null;
+  }>({
+    auctionExpenses: [],
+    rewardTierBreakdowns: [],
+    summary: null,
+    isLoading: true,
+    error: null
+  });
+
+  useEffect(() => {
+    if (!address) return;
+
+    const fetchData = async () => {
+      try {
+        // Build query params for QR price overrides
+        const params = new URLSearchParams();
+        if (qrPriceOverrides) {
+          params.append('qrPriceOverrides', JSON.stringify(qrPriceOverrides));
+        }
+        
+        const url = `/api/admin/daily-link-visit-expenses${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${address}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const resultData = await response.json();
+        setData({
+          auctionExpenses: resultData.data.auctionExpenses,
+          rewardTierBreakdowns: resultData.data.rewardTierBreakdowns,
+          summary: resultData.data.summary,
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        console.error('Error fetching daily link visit expenses:', error);
+        setData(prev => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error : new Error('An unknown error occurred')
+        }));
+      }
+    };
+
+    fetchData();
+  }, [address, qrPriceOverrides]);
+
+  return data;
+}
+
 // Claims Analytics Component (uses cost per claim data)
 function ClaimsAnalytics() {
   const { auctionData, stats, isLoading, error, updateQRPrice } = useCostPerClaim();
   
+  // Create QR price overrides from cost-per-claim data
+  const qrPriceOverrides = useMemo(() => {
+    const overrides: { [auctionId: number]: number } = {};
+    auctionData.forEach(item => {
+      overrides[item.auction_id] = item.qr_price_usd;
+    });
+    return overrides;
+  }, [auctionData]);
+  
+  const auctionExpensesData = useAuctionLinkVisitExpenses(qrPriceOverrides);
+  const { address } = useAccount();
+  
   const [editingQRPrice, setEditingQRPrice] = useState<number | null>(null);
   const [qrPriceInput, setQrPriceInput] = useState<string>("");
+  
+  // State for manual QR price editing
+  const [editingAuctionPrice, setEditingAuctionPrice] = useState<number | null>(null);
+  const [auctionPriceInput, setAuctionPriceInput] = useState<string>("");
+  
+  // Handle bar chart click to edit QR price
+  const handleBarClick = (data: any) => {
+    const auctionId = data.activeLabel;
+    const existingPrice = auctionExpensesData.auctionExpenses.find(
+      item => item.auction_id === parseInt(auctionId)
+    )?.qr_price_usd;
+    
+    setEditingAuctionPrice(parseInt(auctionId));
+    setAuctionPriceInput(existingPrice?.toString() || "");
+  };
+
+  // Handle price update
+  const handlePriceUpdate = async () => {
+    if (!editingAuctionPrice || !auctionPriceInput) return;
+    
+    try {
+      const newPrice = parseFloat(auctionPriceInput);
+      if (isNaN(newPrice) || newPrice < 0) {
+        alert('Please enter a valid positive number');
+        return;
+      }
+      
+      await updateQRPrice(editingAuctionPrice, newPrice);
+      setEditingAuctionPrice(null);
+      setAuctionPriceInput("");
+      
+      // Refresh the auction expenses data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating QR price:', error);
+      alert('Failed to update QR price');
+    }
+  };
 
   // Filter data to only show auctions with claims (71 onwards)
   const filteredData = useMemo(() => {
@@ -1203,6 +1316,290 @@ function ClaimsAnalytics() {
       {/* Wallet Balances Section */}
       <div className="mb-8">
         <WalletBalancesSection />
+      </div>
+
+      {/* Auction Link Visit Expenses Section */}
+      <div className="mb-8">
+
+        {auctionExpensesData.isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-[200px] w-full" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Array(4).fill(0).map((_, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      <Skeleton className="h-4 w-32" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      <Skeleton className="h-8 w-20" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ) : auctionExpensesData.error ? (
+          <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error Loading Auction Expenses</h3>
+            <p className="text-red-700 dark:text-red-400">
+              There was an error loading the auction link visit expenses data. Please try again later.
+            </p>
+          </div>
+        ) : (
+          <>
+
+            {/* Auction Expenses Chart */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+              <h4 className="text-lg font-medium mb-4">
+                Claim Expenses by Auction
+                <span className="text-sm text-gray-500 ml-2">(Uses Reward column prices)</span>
+              </h4>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={auctionExpensesData.auctionExpenses}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="auction_id" 
+                      label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+                    />
+                    <YAxis 
+                      label={{ value: 'USD', angle: -90, position: 'insideLeft' }} 
+                    />
+                    <Tooltip 
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                              <p className="font-semibold mb-2">Auction #{label}</p>
+                              <p className="text-sm text-gray-500 mb-2">{data.date}</p>
+                              <p className="text-sm text-blue-600 dark:text-blue-400">
+                                Web Claims: {data.web_claims} ({data.web_total_qr.toLocaleString()} $QR)
+                              </p>
+                              <p className="text-sm text-green-600 dark:text-green-400">
+                                Mini-App Claims: {data.miniapp_claims} ({data.miniapp_total_qr.toLocaleString()} $QR)
+                              </p>
+                              <p className="text-sm font-semibold mt-2 border-t pt-2">
+                                Total: {formatCurrency(data.total_expense_usd)}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="total_expense_usd" 
+                      name="Auction Expense (USD)" 
+                      fill="#8884d8"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Reward Tier Breakdown Chart */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+              <h4 className="text-lg font-medium mb-4">Reward Tier Breakdown by Auction</h4>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={auctionExpensesData.rewardTierBreakdowns}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="auction_id" 
+                      label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+                    />
+                    <YAxis 
+                      label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
+                    />
+                    <Tooltip 
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          const total = data.web_100_qr_claims + data.web_500_qr_claims + 
+                                       data.miniapp_100_qr_claims + data.miniapp_1000_qr_claims +
+                                       data.legacy_420_qr_claims + data.legacy_2000_qr_claims + data.legacy_5000_qr_claims;
+                          
+                          const isLegacyAuction = parseInt(label) <= 118;
+                          
+                          return (
+                            <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                              <p className="font-semibold mb-2">
+                                Auction #{label}
+                                {isLegacyAuction && <span className="text-xs text-gray-500 ml-2">(Legacy)</span>}
+                              </p>
+                              <p className="text-sm text-gray-500 mb-2">{data.date}</p>
+                              
+                              {isLegacyAuction ? (
+                                // For legacy auctions (≤118), only show legacy amounts
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-2">Static Claim Amounts:</p>
+                                  {data.web_100_qr_claims > 0 && (
+                                    <p className="text-sm text-orange-600 dark:text-orange-400">
+                                      100 $QR: {data.web_100_qr_claims + data.miniapp_100_qr_claims}
+                                    </p>
+                                  )}
+                                  {data.web_500_qr_claims > 0 && (
+                                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                                      500 $QR: {data.web_500_qr_claims}
+                                    </p>
+                                  )}
+                                  {data.miniapp_1000_qr_claims > 0 && (
+                                    <p className="text-sm text-green-600 dark:text-green-400">
+                                      1000 $QR: {data.miniapp_1000_qr_claims}
+                                    </p>
+                                  )}
+                                  {data.legacy_420_qr_claims > 0 && (
+                                    <p className="text-sm text-purple-600 dark:text-purple-400">
+                                      420 $QR: {data.legacy_420_qr_claims}
+                                    </p>
+                                  )}
+                                  {data.legacy_2000_qr_claims > 0 && (
+                                    <p className="text-sm text-indigo-600 dark:text-indigo-400">
+                                      2000 $QR: {data.legacy_2000_qr_claims}
+                                    </p>
+                                  )}
+                                  {data.legacy_5000_qr_claims > 0 && (
+                                    <p className="text-sm text-red-600 dark:text-red-400">
+                                      5000 $QR: {data.legacy_5000_qr_claims}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                // For current auctions (>118), show web/miniapp breakdown
+                                <div>
+                                  <p className="text-sm text-orange-600 dark:text-orange-400">
+                                    Web 100 $QR: {data.web_100_qr_claims}
+                                  </p>
+                                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                                    Web 500 $QR: {data.web_500_qr_claims}
+                                  </p>
+                                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                                    Mini-App 100 $QR: {data.miniapp_100_qr_claims}
+                                  </p>
+                                  <p className="text-sm text-green-600 dark:text-green-400">
+                                    Mini-App 1000 $QR: {data.miniapp_1000_qr_claims}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              <p className="text-sm font-semibold mt-2 border-t pt-2">
+                                Total: {total}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="web_100_qr_claims" 
+                      name="Web 100 $QR" 
+                      fill="#f97316"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="web_500_qr_claims" 
+                      name="Web 500 $QR" 
+                      fill="#3b82f6"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="miniapp_100_qr_claims" 
+                      name="Mini-App 100 $QR" 
+                      fill="#eab308"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="miniapp_1000_qr_claims" 
+                      name="Mini-App 1000 $QR" 
+                      fill="#22c55e"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="legacy_420_qr_claims" 
+                      name="Legacy 420 $QR" 
+                      fill="#a855f7"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="legacy_2000_qr_claims" 
+                      name="Legacy 2000 $QR" 
+                      fill="#6366f1"
+                      stackId="a"
+                    />
+                    <Bar 
+                      dataKey="legacy_5000_qr_claims" 
+                      name="Legacy 5000 $QR" 
+                      fill="#ef4444"
+                      stackId="a"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* QR Price Edit Modal */}
+        {editingAuctionPrice && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 w-96">
+              <h3 className="text-lg font-medium mb-4">Edit QR Price for Auction #{editingAuctionPrice}</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">QR Price (USD)</label>
+                  <input
+                    type="number"
+                    step="0.00001"
+                    value={auctionPriceInput}
+                    onChange={(e) => setAuctionPriceInput(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                    placeholder="0.01"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => {
+                      setEditingAuctionPrice(null);
+                      setAuctionPriceInput("");
+                    }}
+                    className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePriceUpdate}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update Price
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
@@ -1780,7 +2177,7 @@ function ClaimsAnalytics() {
                       '-'
                     )}
                   </td>
-                  <td className="text-right p-3">{item.qr_reward_per_claim.toLocaleString()}</td>
+                  <td className="text-right p-3">{Math.round(item.qr_reward_per_claim).toLocaleString()}</td>
                   <td className="text-right p-3">
                     {item.click_count > 0 ? formatCurrency(item.click_count * item.qr_reward_value_usd) : '-'}
                   </td>
