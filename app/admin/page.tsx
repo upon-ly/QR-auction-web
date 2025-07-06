@@ -1318,6 +1318,80 @@ function ClaimsAnalytics() {
         <WalletBalancesSection />
       </div>
 
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <h4 className="text-lg font-medium mb-4">Claim Count by Auction</h4>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={filteredData}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="auction_id" 
+                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
+              />
+              <YAxis 
+                domain={[0, 20000]}
+                ticks={[0, 5000, 10000, 15000, 20000]}
+                label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const webClaims = payload[0]?.value || 0;
+                    const miniAppClaims = payload[1]?.value || 0;
+                    const total = Number(webClaims) + Number(miniAppClaims);
+                    
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                        <p className="font-semibold mb-2">Auction #{label}</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                          Web Claims: {Number(webClaims).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          Mini App Claims: {Number(miniAppClaims).toLocaleString()}
+                        </p>
+                        <p className="text-sm font-semibold mt-2 border-t pt-2">
+                          Total: {total.toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend />
+              <Bar 
+                dataKey="web_click_count" 
+                name="Web Claims" 
+                fill="#3b82f6"
+                stackId="a"
+              />
+              <Bar 
+                dataKey="mini_app_click_count" 
+                name="Mini App Claims" 
+                fill="#10b981"
+                stackId="a"
+              >
+                <LabelList 
+                  dataKey="click_count"
+                  position="top"
+                  formatter={(value: number) => value.toLocaleString()}
+                  fill="#666"
+                  fontSize={14}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Auction Link Visit Expenses Section */}
       <div className="mb-8">
 
@@ -1600,80 +1674,6 @@ function ClaimsAnalytics() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-        <h4 className="text-lg font-medium mb-4">Claim Count by Auction</h4>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={filteredData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="auction_id" 
-                label={{ value: 'Auction ID', position: 'insideBottomRight', offset: -10 }} 
-              />
-              <YAxis 
-                domain={[0, 20000]}
-                ticks={[0, 5000, 10000, 15000, 20000]}
-                label={{ value: 'Number of Claims', angle: -90, position: 'insideLeft' }} 
-              />
-              <Tooltip 
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    const webClaims = payload[0]?.value || 0;
-                    const miniAppClaims = payload[1]?.value || 0;
-                    const total = Number(webClaims) + Number(miniAppClaims);
-                    
-                    return (
-                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
-                        <p className="font-semibold mb-2">Auction #{label}</p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
-                          Web Claims: {Number(webClaims).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-green-600 dark:text-green-400">
-                          Mini App Claims: {Number(miniAppClaims).toLocaleString()}
-                        </p>
-                        <p className="text-sm font-semibold mt-2 border-t pt-2">
-                          Total: {total.toLocaleString()}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Legend />
-              <Bar 
-                dataKey="web_click_count" 
-                name="Web Claims" 
-                fill="#3b82f6"
-                stackId="a"
-              />
-              <Bar 
-                dataKey="mini_app_click_count" 
-                name="Mini App Claims" 
-                fill="#10b981"
-                stackId="a"
-              >
-                <LabelList 
-                  dataKey="click_count"
-                  position="top"
-                  formatter={(value: number) => value.toLocaleString()}
-                  fill="#666"
-                  fontSize={14}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
