@@ -31,7 +31,7 @@ export const SCORE_BASED_CLAIM_AMOUNTS: ClaimAmountConfig[] = [
   {
     tier: 'medium',
     minScore: 0.4,
-    maxScore: 0.6,
+    maxScore: 0.59999,
     amount: 100,
     description: 'Medium quality user'
   },

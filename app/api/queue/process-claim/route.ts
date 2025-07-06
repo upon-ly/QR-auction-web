@@ -6,6 +6,7 @@ import AirdropABI from '@/abi/Airdrop.json';
 import { updateRetryStatus, redis } from '@/lib/queue/failedClaims';
 import { Receiver } from '@upstash/qstash';
 import { getWalletPool } from '@/lib/wallet-pool';
+import { getClaimAmountForAddress } from '@/lib/wallet-balance-checker';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -369,6 +370,45 @@ export async function POST(req: NextRequest) {
         currentAttempt: attempt
       });
       
+      // Determine claim amount based on claim source FIRST (before any token checks)
+      let claimAmount: string;
+      let neynarScore: number | undefined;
+      
+      // Determine claim amount based on claim source (same logic as main claim route)
+      if (claimSource === 'web' || claimSource === 'mobile') {
+        // Web/mobile users: wallet holdings only (no Neynar scores)
+        try {
+          const claimResult = await getClaimAmountForAddress(
+            failure.eth_address,
+            claimSource,
+            ALCHEMY_API_KEY,
+            undefined // No FID for web users - they don't get Neynar scores
+          );
+          claimAmount = claimResult.amount.toString();
+          neynarScore = undefined; // Web users don't get Neynar scores
+          console.log(`💰 QUEUE: Dynamic claim amount for ${claimSource} user ${failure.eth_address}: ${claimAmount} QR`);
+        } catch (error) {
+          console.error('QUEUE: Error checking claim amount, using default:', error);
+          claimAmount = '500'; // Fallback to web default
+        }
+      } else {
+        // Mini-app users: use unified function that checks Neynar score
+        try {
+          const claimResult = await getClaimAmountForAddress(
+            failure.eth_address || '',
+            claimSource || 'mini_app',
+            ALCHEMY_API_KEY,
+            failure.fid
+          );
+          claimAmount = claimResult.amount.toString();
+          neynarScore = claimResult.neynarScore;
+          console.log(`💰 QUEUE: Mini-app claim amount for FID ${failure.fid}: ${claimAmount} QR, Neynar score: ${neynarScore}`);
+        } catch (error) {
+          console.error('QUEUE: Error determining mini-app claim amount:', error);
+          claimAmount = '100'; // Fallback to mini-app default
+        }
+      }
+      
       // Check wallet balances
       const ethBalance = await provider.getBalance(adminWallet.address);
       if (ethBalance < ethers.parseEther("0.001")) {
@@ -400,7 +440,7 @@ export async function POST(req: NextRequest) {
       
       // Check token balance
       const tokenBalance = await qrTokenContract.balanceOf(adminWallet.address);
-      if (tokenBalance < ethers.parseUnits('1000', 18)) {
+      if (tokenBalance < ethers.parseUnits(claimAmount, 18)) {
         // Update retry status
         await updateRetryStatus(failureId, {
           status: 'failed',
@@ -416,7 +456,7 @@ export async function POST(req: NextRequest) {
       
       // Check allowance
       const allowance = await qrTokenContract.allowance(adminWallet.address, DYNAMIC_AIRDROP_CONTRACT);
-      if (allowance < ethers.parseUnits('1000', 18)) {
+      if (allowance < ethers.parseUnits(claimAmount, 18)) {
         console.log('Approving tokens for airdrop contract...');
         
         // Increase gas price by 30%
@@ -434,8 +474,7 @@ export async function POST(req: NextRequest) {
         console.log('Token approval confirmed');
       }
       
-      // Prepare airdrop data
-      const airdropAmount = ethers.parseUnits('1000', 18);
+      const airdropAmount = ethers.parseUnits(claimAmount, 18);
       const airdropContent = [{
         recipient: failure.eth_address,
         amount: airdropAmount
@@ -571,14 +610,15 @@ export async function POST(req: NextRequest) {
           eth_address: failure.eth_address,
           link_visited_at: new Date().toISOString(),
           claimed_at: new Date().toISOString(),
-          amount: 1000,
+          amount: parseInt(claimAmount),
           tx_hash: txReceipt.hash,
           success: true,
           username: failure.username || null,
           user_id: failure.user_id || null,
           winning_url: failure.winning_url || `https://qrcoin.fun/auction/${failure.auction_id}`,
           claim_source: determinedClaimSource,
-          client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
+          client_ip: failure.client_ip || 'queue_retry', // Track original IP or mark as retry
+          neynar_user_score: neynarScore !== undefined ? neynarScore : null
         });
       
       if (insertError) {
@@ -662,13 +702,14 @@ export async function POST(req: NextRequest) {
           .update({
             eth_address: failure.eth_address,
             claimed_at: new Date().toISOString(),
-            amount: 1000,
+            amount: parseInt(claimAmount),
             tx_hash: txReceipt.hash,
             success: true,
             username: failure.username || null,
             user_id: failure.user_id || null,
             claim_source: determinedClaimSource,
-            client_ip: failure.client_ip || 'queue_retry' // Track original IP or mark as retry
+            client_ip: failure.client_ip || 'queue_retry', // Track original IP or mark as retry
+            neynar_user_score: neynarScore !== undefined ? neynarScore : null
           })
           .match({
             fid: failure.fid,
