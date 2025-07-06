@@ -552,10 +552,15 @@ export async function POST(req: NextRequest) {
       console.log(`Airdrop successful with TX: ${txReceipt.hash}`);
       
       // Determine proper claim source based on available data
-      const determinedClaimSource = failure.claim_source || 
-        (failure.fid && failure.fid > 0 ? 'mini_app' : 'web');
+      // Always validate claim source based on FID - negative FIDs are web users
+      let determinedClaimSource: string;
+      if (failure.fid && failure.fid > 0) {
+        determinedClaimSource = 'mini_app';
+      } else {
+        determinedClaimSource = 'web';
+      }
       
-      console.log(`📝 CLAIM SOURCE DETERMINATION: original=${failure.claim_source}, fid=${failure.fid}, determined=${determinedClaimSource}`);
+      console.log(`📝 CLAIM SOURCE DETERMINATION: original=${failure.claim_source}, fid=${failure.fid}, determined=${determinedClaimSource} (corrected based on FID)`);
       
       // Record in link_visit_claims table
       const { error: insertError } = await supabase
