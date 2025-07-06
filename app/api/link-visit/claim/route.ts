@@ -1166,21 +1166,16 @@ export async function POST(request: NextRequest) {
     let neynarScore: number | undefined;
     
     if (claim_source === 'web' || claim_source === 'mobile') {
-      // Web/mobile users: check Neynar score first if FID available, then wallet holdings
+      // Web/mobile users: wallet holdings only (no Neynar scores)
       try {
-        // For web users, we might have a FID if they've linked Farcaster
-        let fidForScore: number | undefined;
-        if (effectiveFid && effectiveFid > 0) {
-          fidForScore = effectiveFid;
-        }
-        
-        const dynamicAmount = await getClaimAmountForAddress(
+        const claimResult = await getClaimAmountForAddress(
           address,
           claim_source,
           ALCHEMY_API_KEY,
-          fidForScore
+          undefined // No FID for web users - they don't get Neynar scores
         );
-        claimAmount = dynamicAmount.toString();
+        claimAmount = claimResult.amount.toString();
+        neynarScore = undefined; // Web users don't get Neynar scores
         console.log(`💰 Dynamic claim amount for ${claim_source} user ${address}: ${claimAmount} QR`);
       } catch (error) {
         console.error('Error checking claim amount, using default:', error);
@@ -1189,14 +1184,15 @@ export async function POST(request: NextRequest) {
     } else {
       // Mini-app users: use unified function that checks Neynar score
       try {
-        const dynamicAmount = await getClaimAmountForAddress(
+        const claimResult = await getClaimAmountForAddress(
           address || '',
           claim_source || 'mini_app',
           ALCHEMY_API_KEY,
           effectiveFid
         );
-        claimAmount = dynamicAmount.toString();
-        console.log(`💰 Mini-app claim amount for FID ${effectiveFid}: ${claimAmount} QR`);
+        claimAmount = claimResult.amount.toString();
+        neynarScore = claimResult.neynarScore;
+        console.log(`💰 Mini-app claim amount for FID ${effectiveFid}: ${claimAmount} QR, Neynar score: ${neynarScore}`);
       } catch (error) {
         console.error('Error determining mini-app claim amount:', error);
         claimAmount = '100'; // Fallback to default

@@ -7,7 +7,7 @@ import { isRateLimited } from '@/lib/simple-rate-limit';
 const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || '';
 
 // Simple in-memory deduplication cache
-const pendingRequests = new Map<string, Promise<number>>();
+const pendingRequests = new Map<string, Promise<{ amount: number; neynarScore?: number }>>();
 
 export async function POST(request: NextRequest) {
   // Get client IP for rate limiting
@@ -37,17 +37,17 @@ export async function POST(request: NextRequest) {
     // Check if we already have a pending request for this exact combination
     if (pendingRequests.has(cacheKey)) {
       console.log(`🔄 Deduplicating request for ${cacheKey}`);
-      const amount = await pendingRequests.get(cacheKey)!;
+      const claimResult = await pendingRequests.get(cacheKey)!;
       return NextResponse.json({ 
         success: true, 
-        amount,
+        amount: claimResult.amount,
         source: claimSource || 'web',
         deduplicated: true
       });
     }
     
     // Create a new promise for this request
-    const amountPromise = getClaimAmountForAddress(
+    const claimPromise = getClaimAmountForAddress(
       address,
       claimSource || 'web',
       ALCHEMY_API_KEY,
@@ -55,22 +55,22 @@ export async function POST(request: NextRequest) {
     );
     
     // Store the promise in our cache
-    pendingRequests.set(cacheKey, amountPromise);
+    pendingRequests.set(cacheKey, claimPromise);
     
     // Clean up the cache after the request completes
-    amountPromise.finally(() => {
+    claimPromise.finally(() => {
       // Remove from cache after a short delay to catch immediate duplicates
       setTimeout(() => {
         pendingRequests.delete(cacheKey);
       }, 100);
     });
     
-    // Wait for the amount
-    const amount = await amountPromise;
+    // Wait for the result
+    const claimResult = await claimPromise;
     
     return NextResponse.json({ 
       success: true, 
-      amount,
+      amount: claimResult.amount,
       source: claimSource || 'web'
     });
     
