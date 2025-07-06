@@ -77,15 +77,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error checking claim amount:', error);
     
-    // Return default amount on error
+    // Return 0 to indicate unknown amount - UI should show generic message
     const claimSource = 'web'; // Default to web if we can't determine
-    const defaultAmount = ['web', 'mobile'].includes(claimSource) ? 500 : 1000;
+    const defaultAmount = 0; // Don't show misleading amounts when there's an error
     
     return NextResponse.json({ 
       success: true, 
       amount: defaultAmount,
       source: claimSource,
-      defaulted: true // Indicate we're using default due to error
+      defaulted: true, // Indicate we're using default due to error
+      errorMessage: error instanceof Error ? error.message : String(error)
     });
   }
 }

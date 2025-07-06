@@ -16,6 +16,7 @@ import { useAuctionMetrics } from "@/hooks/useAuctionMetrics";
 import { TestimonialsAdmin } from "./testimonials";
 import { EngagementManager } from "@/components/admin/EngagementManager";
 import { PostAuctionChecklist } from "@/components/admin/PostAuctionChecklist";
+import { ClaimAmountsManager } from "@/components/admin/ClaimAmountsManager";
 import {
   BarChart, 
   Bar, 
@@ -1179,7 +1180,7 @@ function useAuctionLinkVisitExpenses(qrPriceOverrides?: { [auctionId: number]: n
 
 // Claims Analytics Component (uses cost per claim data)
 function ClaimsAnalytics() {
-  const { auctionData, stats, isLoading, error, updateQRPrice } = useCostPerClaim();
+  const { auctionData, isLoading, error, updateQRPrice } = useCostPerClaim();
   
   // Create QR price overrides from cost-per-claim data
   const qrPriceOverrides = useMemo(() => {
@@ -2115,7 +2116,7 @@ function ClaimsAnalytics() {
                           type="number"
                           value={qrPriceInput}
                           onChange={(e) => setQrPriceInput(e.target.value)}
-                          onKeyPress={async (e) => {
+                          onKeyDown={async (e) => {
                             if (e.key === 'Enter') {
                               try {
                                 await updateQRPrice(item.auction_id, parseFloat(qrPriceInput));
@@ -2266,6 +2267,7 @@ export default function AdminDashboard() {
             <TabsList className="mb-6 flex flex-wrap h-auto">
             <TabsTrigger value="claims" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Claims</TabsTrigger>
               <TabsTrigger value="clicks" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clicks</TabsTrigger>
+              <TabsTrigger value="claim-amounts" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Claim Amounts</TabsTrigger>
               <TabsTrigger value="auctions" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Auctions (TBU)</TabsTrigger>
               <TabsTrigger value="clanker" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">Clanker (TBU)</TabsTrigger>
               <TabsTrigger value="farcaster" className="px-[14.5px] border-r border-gray-200 dark:border-gray-700">FC notifs</TabsTrigger>
@@ -2282,6 +2284,11 @@ export default function AdminDashboard() {
             {/* Claims Dashboard */}
             <TabsContent value="claims">
               <ClaimsAnalytics />
+            </TabsContent>
+
+            {/* Claim Amounts Configuration */}
+            <TabsContent value="claim-amounts">
+              <ClaimAmountsManager />
             </TabsContent>
 
             {/* Auctions Analytics Dashboard (formerly Subgraph Analytics) */}
