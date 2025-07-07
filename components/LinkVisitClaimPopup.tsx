@@ -713,26 +713,26 @@ export function LinkVisitClaimPopup({
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-      // Only prevent closing during active wallet connection process
-      if (!open && claimState === 'connecting' && isConnecting) {
-        return;
-      }
-      
-      // Only prevent closing if Privy modal is actively showing (not just flagged)
-      if (!open && isPrivyModalActive && isConnecting) {
-        return;
-      }
-      
-      // NEW: Prevent closing if Twitter user is connecting wallet in claim state
-      if (!open && claimState === 'claim' && isTwitterUserNeedsWallet && isAutoConnectingWallet) {
-        return;
-      }
-      
-      // Allow normal closing for all other cases
-      if (!open) {
-        onClose();
-      }
-    }} modal={true}>
+        // Only prevent closing during active wallet connection process
+        if (!open && claimState === 'connecting' && isConnecting) {
+          return;
+        }
+        
+        // Only prevent closing if Privy modal is actively showing (not just flagged)
+        if (!open && isPrivyModalActive && isConnecting) {
+          return;
+        }
+        
+        // NEW: Prevent closing if Twitter user is connecting wallet in claim state
+        if (!open && claimState === 'claim' && isTwitterUserNeedsWallet && isAutoConnectingWallet) {
+          return;
+        }
+        
+        // Allow normal closing for all other cases
+        if (!open) {
+          onClose();
+        }
+      }} modal={true}>
       <CustomDialogContent className="p-0 overflow-hidden">
         <div className="flex flex-col items-center justify-center text-center">
           {claimState === 'success' ? (

@@ -4,11 +4,10 @@ import { getClaimAmountByScoreAsync } from './claim-amounts';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Chain configurations - Only Base chain
 const CHAIN_CONFIGS = {
@@ -232,19 +231,70 @@ export async function determineClaimAmount(
 }
 
 /**
+ * Check if a FID has a spam label of value 2 (high quality user override)
+ * @param fid - The Farcaster ID to check
+ * @returns true if the user has spam label value 2
+ */
+async function hasHighQualitySpamLabel(fid: number): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('spam_labels')
+      .select('label_value')
+      .eq('fid', fid)
+      .eq('label_type', 'spam')
+      .eq('label_value', 2)
+      .limit(1);
+    
+    if (error) {
+      console.error('Error checking spam labels:', error);
+      return false;
+    }
+    
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Error checking spam labels:', error);
+    return false;
+  }
+}
+
+/**
  * Get claim amount for a specific claim source and address
  * This is a wrapper that handles the claim source logic
  * Now with Neynar score override for all users
+ * Also includes spam label override - users with spam label value 2 get top rewards
  */
 export async function getClaimAmountForAddress(
   address: string,
   claimSource: string,
   alchemyApiKey: string,
   fid?: number
-): Promise<{ amount: number; neynarScore?: number }> {
-  // First, check if we have a FID and can get Neynar score
+): Promise<{ amount: number; neynarScore?: number; hasSpamLabelOverride?: boolean }> {
+  // First, check if we have a FID and can check for spam label override
   if (fid && fid > 0) {
     try {
+      // Check if user has high quality spam label (value 2)
+      const hasSpamOverride = await hasHighQualitySpamLabel(fid);
+      
+      // If user has spam label 2, they get top rewards regardless of Neynar score
+      if (hasSpamOverride) {
+        console.log(`🏆 FID ${fid} has spam label value 2 - awarding top tier rewards (1000 QR) regardless of Neynar score`);
+        
+        // Still fetch Neynar score for logging/tracking purposes
+        let neynarScore: number | undefined;
+        try {
+          const userData = await fetchUserWithScore(fid);
+          if (userData.neynarScore !== undefined && !userData.error) {
+            neynarScore = userData.neynarScore;
+            console.log(`📊 (For reference: Neynar score is ${neynarScore})`);
+          }
+        } catch (error) {
+          console.error('Error fetching Neynar score:', error);
+        }
+        
+        return { amount: 1000, neynarScore, hasSpamLabelOverride: true };
+      }
+      
+      // No spam override, check Neynar score as usual
       const userData = await fetchUserWithScore(fid);
       if (userData.neynarScore !== undefined && !userData.error) {
         // Use Neynar score to determine amount (async version for database)

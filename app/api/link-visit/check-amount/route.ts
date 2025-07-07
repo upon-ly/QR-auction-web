@@ -7,7 +7,7 @@ import { isRateLimited } from '@/lib/simple-rate-limit';
 const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || '';
 
 // Simple in-memory deduplication cache
-const pendingRequests = new Map<string, Promise<{ amount: number; neynarScore?: number }>>();
+const pendingRequests = new Map<string, Promise<{ amount: number; neynarScore?: number; hasSpamLabelOverride?: boolean }>>();
 
 export async function POST(request: NextRequest) {
   // Get client IP for rate limiting
@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
         success: true, 
         amount: claimResult.amount,
         source: claimSource || 'web',
-        deduplicated: true
+        deduplicated: true,
+        neynarScore: claimResult.neynarScore,
+        hasSpamLabelOverride: claimResult.hasSpamLabelOverride
       });
     }
     
@@ -71,7 +73,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       amount: claimResult.amount,
-      source: claimSource || 'web'
+      source: claimSource || 'web',
+      neynarScore: claimResult.neynarScore,
+      hasSpamLabelOverride: claimResult.hasSpamLabelOverride
     });
     
   } catch (error) {
