@@ -36,11 +36,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all claim amount configurations
+    // Fetch all claim amount configurations with custom ordering
     const { data, error } = await supabase
       .from('claim_amount_configs')
       .select('*')
-      .order('category', { ascending: true });
+      .order('category', { ascending: true })
+      .order('min_score', { ascending: false, nullsFirst: false })
+      .order('amount', { ascending: false });
 
     if (error) {
       console.error('Error fetching claim amounts:', error);

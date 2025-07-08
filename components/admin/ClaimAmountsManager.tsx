@@ -139,10 +139,24 @@ export function ClaimAmountsManager() {
     }
   };
 
-  // Group configs by type
-  const neynarConfigs = claimAmounts.filter(c => c.category.startsWith('neynar_'));
-  const walletConfigs = claimAmounts.filter(c => c.category.startsWith('wallet_'));
-  const defaultConfig = claimAmounts.find(c => c.category === 'default');
+  // Group configs by type and apply custom sorting
+  const neynarConfigs = claimAmounts
+    .filter((c: ClaimAmountConfig) => c.category.startsWith('neynar_'))
+    .sort((a: ClaimAmountConfig, b: ClaimAmountConfig) => {
+      // Sort by min_score descending (highest score groups first)
+      const aScore = a.min_score ?? 0;
+      const bScore = b.min_score ?? 0;
+      return bScore - aScore;
+    });
+    
+  const walletConfigs = claimAmounts
+    .filter((c: ClaimAmountConfig) => c.category.startsWith('wallet_'))
+    .sort((a: ClaimAmountConfig, b: ClaimAmountConfig) => {
+      // Sort by amount descending (highest amounts first)
+      return b.amount - a.amount;
+    });
+    
+  const defaultConfig = claimAmounts.find((c: ClaimAmountConfig) => c.category === 'default');
 
   if (isLoading) {
     return (
