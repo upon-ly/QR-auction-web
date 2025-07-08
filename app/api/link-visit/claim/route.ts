@@ -1164,6 +1164,7 @@ export async function POST(request: NextRequest) {
     // Define airdrop amount based on claim source and user score
     let claimAmount: string;
     let neynarScore: number | undefined;
+    let spamLabel: boolean | null = null;
     
     if (claim_source === 'web' || claim_source === 'mobile') {
       // Web/mobile users: wallet holdings only (no Neynar scores)
@@ -1192,7 +1193,36 @@ export async function POST(request: NextRequest) {
         );
         claimAmount = claimResult.amount.toString();
         neynarScore = claimResult.neynarScore;
-        console.log(`💰 Mini-app claim amount for FID ${effectiveFid}: ${claimAmount} QR, Neynar score: ${neynarScore}`);
+        
+        // Handle spam label for mini-app users with FIDs
+        if (effectiveFid && effectiveFid > 0) {
+          if (claimResult.hasSpamLabelOverride) {
+            // hasSpamLabelOverride means they have label_value = 2 (not spam)
+            spamLabel = false;
+            console.log(`📊 FID ${effectiveFid} has spam override (label_value 2) → spam_label: false`);
+          } else {
+            // No override, check if they have any spam label
+            try {
+              const { data: spamLabelData, error: spamLabelError } = await supabase
+                .from('spam_labels')
+                .select('label_value')
+                .eq('fid', effectiveFid)
+                .maybeSingle();
+              
+              if (!spamLabelError && spamLabelData) {
+                // Convert label_value to boolean: 0 = true (spam), 2 = false (not spam)
+                spamLabel = spamLabelData.label_value === 0;
+                console.log(`📊 FID ${effectiveFid} has label_value ${spamLabelData.label_value} → spam_label: ${spamLabel}`);
+              } else {
+                console.log(`📊 FID ${effectiveFid} has no spam label data`);
+              }
+            } catch (error) {
+              console.error('Error checking spam labels:', error);
+            }
+          }
+        }
+        
+        console.log(`💰 Mini-app claim amount for FID ${effectiveFid}: ${claimAmount} QR, Neynar score: ${neynarScore}, spam_label: ${spamLabel}`);
       } catch (error) {
         console.error('Error determining mini-app claim amount:', error);
         claimAmount = '100'; // Fallback to default
@@ -1498,7 +1528,8 @@ export async function POST(request: NextRequest) {
           winning_url: winningUrl,
           claim_source: claim_source || 'mini_app',
           client_ip: clientIP, // Track IP for successful claims
-          neynar_user_score: neynarScore !== undefined ? neynarScore : null // Store the Neynar score
+          neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
+          spam_label: spamLabel // Store the spam label
         });
         
       if (insertError) {
@@ -1593,7 +1624,8 @@ export async function POST(request: NextRequest) {
             winning_url: winningUrl,
             claim_source: claim_source || 'mini_app',
             client_ip: clientIP, // Track IP for successful claims
-            neynar_user_score: neynarScore !== undefined ? neynarScore : null // Store the Neynar score
+            neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
+            spam_label: spamLabel // Store the spam label
           })
           .match({
             fid: effectiveFid,

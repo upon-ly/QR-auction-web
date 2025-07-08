@@ -388,6 +388,7 @@ export async function POST(req: NextRequest) {
       // Determine claim amount based on claim source FIRST (before any token checks)
       let claimAmount: string;
       let neynarScore: number | undefined;
+      let spamLabel: boolean | null = null;
       
       // Determine claim amount based on claim source (same logic as main claim route)
       if (claimSource === 'web' || claimSource === 'mobile') {
@@ -406,18 +407,47 @@ export async function POST(req: NextRequest) {
           console.error('QUEUE: Error checking claim amount, using default:', error);
           claimAmount = '500'; // Fallback to web default
         }
-      } else {
-        // Mini-app users: use unified function that checks Neynar score
-        try {
-          const claimResult = await getClaimAmountForAddress(
-            failure.eth_address || '',
-            claimSource || 'mini_app',
-            ALCHEMY_API_KEY,
-            failure.fid
-          );
-          claimAmount = claimResult.amount.toString();
-          neynarScore = claimResult.neynarScore;
-          console.log(`💰 QUEUE: Mini-app claim amount for FID ${failure.fid}: ${claimAmount} QR, Neynar score: ${neynarScore}`);
+              } else {
+          // Mini-app users: use unified function that checks Neynar score
+          try {
+            const claimResult = await getClaimAmountForAddress(
+              failure.eth_address || '',
+              claimSource || 'mini_app',
+              ALCHEMY_API_KEY,
+              failure.fid
+            );
+            claimAmount = claimResult.amount.toString();
+            neynarScore = claimResult.neynarScore;
+            
+            // Handle spam label for mini-app users with FIDs
+            if (failure.fid && failure.fid > 0) {
+              if (claimResult.hasSpamLabelOverride) {
+                // hasSpamLabelOverride means they have label_value = 2 (not spam)
+                spamLabel = false;
+                console.log(`📊 QUEUE: FID ${failure.fid} has spam override (label_value 2) → spam_label: false`);
+              } else {
+                // No override, check if they have any spam label
+                try {
+                  const { data: spamLabelData, error: spamLabelError } = await supabase
+                    .from('spam_labels')
+                    .select('label_value')
+                    .eq('fid', failure.fid)
+                    .maybeSingle();
+                  
+                  if (!spamLabelError && spamLabelData) {
+                    // Convert label_value to boolean: 0 = true (spam), 2 = false (not spam)
+                    spamLabel = spamLabelData.label_value === 0;
+                    console.log(`📊 QUEUE: FID ${failure.fid} has label_value ${spamLabelData.label_value} → spam_label: ${spamLabel}`);
+                  } else {
+                    console.log(`📊 QUEUE: FID ${failure.fid} has no spam label data`);
+                  }
+                } catch (error) {
+                  console.error('QUEUE: Error checking spam labels:', error);
+                }
+              }
+            }
+            
+            console.log(`💰 QUEUE: Mini-app claim amount for FID ${failure.fid}: ${claimAmount} QR, Neynar score: ${neynarScore}, spam_label: ${spamLabel}`);
         } catch (error) {
           console.error('QUEUE: Error determining mini-app claim amount:', error);
           claimAmount = '100'; // Fallback to mini-app default
@@ -635,7 +665,8 @@ export async function POST(req: NextRequest) {
           winning_url: failure.winning_url || `https://qrcoin.fun/auction/${failure.auction_id}`,
           claim_source: determinedClaimSource,
           client_ip: failure.client_ip || 'queue_retry', // Track original IP or mark as retry
-          neynar_user_score: neynarScore !== undefined ? neynarScore : null
+          neynar_user_score: neynarScore !== undefined ? neynarScore : null,
+          spam_label: spamLabel // Store the spam label
         });
       
       if (insertError) {
@@ -726,7 +757,8 @@ export async function POST(req: NextRequest) {
             user_id: failure.user_id || null,
             claim_source: determinedClaimSource,
             client_ip: failure.client_ip || 'queue_retry', // Track original IP or mark as retry
-            neynar_user_score: neynarScore !== undefined ? neynarScore : null
+            neynar_user_score: neynarScore !== undefined ? neynarScore : null,
+            spam_label: spamLabel // Store the spam label
           })
           .match({
             fid: failure.fid,
