@@ -302,11 +302,10 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
           try {
             const { sdk } = await import('@farcaster/frame-sdk');
             
-            // Try to get token - if user isn't authenticated, this will fail gracefully
-            const authResult = await sdk.quickAuth.getToken();
-            farcasterQuickAuthToken = authResult.token;
+            // Use cached token - no prompts, initialized during login
+            farcasterQuickAuthToken = sdk.quickAuth.token || null;
           } catch {
-            // This is expected if user hasn't authenticated with Quick Auth
+            // This is expected if Quick Auth is not available
             // Continue without Quick Auth token - fallback to existing validation
           }
         } catch (error) {

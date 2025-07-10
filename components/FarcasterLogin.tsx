@@ -83,6 +83,19 @@ export function FarcasterLogin() {
             
             console.log("Successfully logged in with Farcaster");
             
+            // Try to initialize Quick Auth token after successful login
+            try {
+              console.log("Attempting to initialize Quick Auth token");
+              const { sdk } = await import('@farcaster/frame-sdk');
+              const authResult = await sdk.quickAuth.getToken();
+              if (authResult?.token) {
+                console.log("Quick Auth token initialized successfully");
+              }
+            } catch (quickAuthError) {
+              console.warn("Quick Auth initialization failed:", quickAuthError);
+              // Don't block the login flow if Quick Auth fails
+            }
+            
             // Try to connect wallet after successful login
             try {
               console.log("Attempting to connect wallet automatically");
