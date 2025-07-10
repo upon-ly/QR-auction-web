@@ -283,7 +283,7 @@ export function LikesRecastsClaimPopup({
     
     async function checkFrameContext() {
       try {
-        isFrameRef.current = await frameSdk.isInMiniApp();
+        isFrameRef.current = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
       } catch {
         console.log('Not in mini app context');
         isFrameRef.current = false;

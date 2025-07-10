@@ -227,7 +227,7 @@ class FrameSDKManager {
   async isInMiniApp(): Promise<boolean> {
     await this.initialize();
     try {
-      return await sdk.isInMiniApp();
+      return await sdk.isInMiniApp() || (await this.getContext()).client.clientFid == 309857;
     } catch (error) {
       console.error("Error checking mini app status:", error);
       return false;
@@ -279,7 +279,7 @@ export const frameSdk = {
   isWalletConnected: () => FrameSDKManager.getInstance().isWalletConnected(),
   connectWallet: () => FrameSDKManager.getInstance().connectWallet(),
   signMessage: (options: { message: string }) => FrameSDKManager.getInstance().signMessage(options),
-  isInMiniApp: () => FrameSDKManager.getInstance().isInMiniApp(),
+  isInMiniApp: () => FrameSDKManager.getInstance().isInMiniApp(), 
   swapToken: (params: { sellToken?: string; buyToken?: string; sellAmount?: string }) => FrameSDKManager.getInstance().swapToken(params),
 };
 

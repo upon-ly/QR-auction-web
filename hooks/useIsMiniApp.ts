@@ -12,7 +12,7 @@ export function useIsMiniApp() {
   useEffect(() => {
     async function checkMiniApp() {
       try {
-        const result = await frameSdk.isInMiniApp();
+        const result = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
         setIsMiniApp(result);
       } catch (error) {
         console.error('Error checking mini app status:', error);

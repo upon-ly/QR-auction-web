@@ -144,7 +144,7 @@ export function LinkVisitClaimPopup({
   useEffect(() => {
     async function detectContext() {
       try {
-        const isMiniApp = await frameSdk.isInMiniApp();
+        const isMiniApp = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
         setIsWebContext(!isMiniApp);
       } catch {
         setIsWebContext(true);
@@ -346,7 +346,7 @@ export function LinkVisitClaimPopup({
   useEffect(() => {
     async function checkFrameContext() {
       try {
-        isFrameRef.current = await frameSdk.isInMiniApp();
+        isFrameRef.current = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
       } catch {
         isFrameRef.current = false;
       }

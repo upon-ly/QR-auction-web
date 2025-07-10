@@ -164,7 +164,7 @@ export function LinkVisitProvider({
       try {
         // Check if we're in a mini app
         const { frameSdk } = await import('@/lib/frame-sdk-singleton');
-        const isMiniApp = await frameSdk.isInMiniApp();
+        const isMiniApp = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
         setIsWebContext(!isMiniApp);
       } catch {
         // If check fails, we're in web context

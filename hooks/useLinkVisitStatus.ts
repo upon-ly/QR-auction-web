@@ -23,7 +23,7 @@ export function useLinkVisitStatus(auctionId: number | null) {
       }
 
       // Detect if we're in a mini-app
-      const isMiniApp = await frameSdk.isInMiniApp();
+      const isMiniApp = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
       
       const params: Record<string, string> = {
         auctionId: auctionId.toString()

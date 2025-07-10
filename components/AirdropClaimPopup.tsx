@@ -70,7 +70,7 @@ export function AirdropClaimPopup({ isOpen, onClose, onClaim, isEligible }: Aird
   useEffect(() => {
     async function checkFrameContext() {
       try {
-        isFrameRef.current = await frameSdk.isInMiniApp();
+        isFrameRef.current = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
         console.log("Frame context check:", isFrameRef.current ? "In mini app" : "Not in mini app");
       } catch (error) {
         console.error("Error checking mini app context:", error);
