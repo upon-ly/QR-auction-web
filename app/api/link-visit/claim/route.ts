@@ -390,6 +390,7 @@ export async function POST(request: NextRequest) {
   let requestData: Partial<LinkVisitRequestData> = {};
   let lockKey: string | undefined;
   let fidLockKey: string | undefined;
+  let usernameLockKey: string | undefined;
   let walletConfig: { wallet: ethers.Wallet; airdropContract: string; lockKey: string } | null = null;
   let walletPool: ReturnType<typeof getWalletPool> | null = null;
   
@@ -1073,6 +1074,73 @@ export async function POST(request: NextRequest) {
     
     console.log(`✅ CLEANUP COMPLETE: Ready to proceed with new claim`);
     
+    // For web users, acquire username lock to prevent race condition with same username
+    if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
+      usernameLockKey = `claim-username-lock:${effectiveUsername.toLowerCase()}:${auction_id}`;
+      
+      const usernameLockAcquired = await redis.set(usernameLockKey, Date.now().toString(), {
+        nx: true, // Only set if not exists
+        ex: 300   // 5 minutes to cover blockchain + DB operations
+      });
+      
+      if (!usernameLockAcquired) {
+        console.log(`🔒 USERNAME DUPLICATE BLOCKED: Username "${effectiveUsername}" already processing claim for auction ${auction_id}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'This username is already processing a claim. Please wait a moment and try again.',
+          code: 'USERNAME_CLAIM_IN_PROGRESS'
+        }, { status: 429 });
+      }
+      
+      console.log(`🔓 ACQUIRED USERNAME LOCK: "${effectiveUsername}" for auction ${auction_id}`);
+    }
+    
+    // PRE-TRANSACTION CHECK: Web users claiming with same username but different addresses
+    if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
+      console.log(`🔍 Checking for multiple claims by username: ${effectiveUsername} for auction ${auction_id}`);
+      
+      // Check how many successful claims this username has made for THIS SPECIFIC AUCTION
+      const { data: usernameClaimsData, error: usernameClaimsError } = await supabase
+        .from('link_visit_claims')
+        .select('id, eth_address, auction_id, claimed_at, tx_hash')
+        .eq('username', effectiveUsername)
+        .eq('auction_id', auction_id) // Only check current auction
+        .in('claim_source', NON_FC_CLAIM_SOURCES)
+        .not('tx_hash', 'is', null)
+        .not('claimed_at', 'is', null)
+        .order('claimed_at', { ascending: false });
+      
+      if (usernameClaimsError) {
+        console.error('Error checking username claims for pre-transaction validation:', usernameClaimsError);
+        return NextResponse.json({
+          success: false,
+          error: 'Database error when checking username claims'
+        }, { status: 500 });
+      } else if (usernameClaimsData && usernameClaimsData.length >= 1) {
+        // Check if this would be a 2nd+ claim with a DIFFERENT address for the same auction
+        const existingAddresses = usernameClaimsData.map(claim => claim.eth_address.toLowerCase());
+        const currentAddress = address.toLowerCase();
+        
+        // If this address is different from any existing claim address, block it
+        if (!existingAddresses.includes(currentAddress)) {
+          console.log(`🚫 PRE-TX BLOCK: Username "${effectiveUsername}" attempting 2nd claim with different address for auction ${auction_id}`);
+          console.log(`🚫 Previous address used: ${existingAddresses.join(', ')}`);
+          console.log(`🚫 Attempting new address: ${address}`);
+          
+          // Block this claim before any transaction occurs
+          return NextResponse.json({ 
+            success: false, 
+            error: 'This username has already claimed tokens for this auction with a different address',
+            code: 'USERNAME_ALREADY_CLAIMED'
+          }, { status: 400 });
+        } else {
+          console.log(`✅ Username "${effectiveUsername}" attempting to claim again with same address ${address} for auction ${auction_id} (duplicate address check will handle this)`);
+        }
+      } else {
+        console.log(`✅ Username "${effectiveUsername}" pre-transaction check passed - no previous claims found`);
+      }
+    }
+    
     // Initialize ethers provider and get wallet from pool
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     walletPool = getWalletPool(provider);
@@ -1659,93 +1727,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // REMOVED: Overly aggressive auto-ban check that was banning legitimate users
-      // Auto-ban only happens when we detect actual exploitation (duplicate blockchain transactions)
-      
-      // NEW AUTO-BAN CHECK: Web users claiming with same username but different addresses FOR THE SAME AUCTION
-      if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
-        console.log(`🔍 Checking for multiple claims by username: ${effectiveUsername} for auction ${auction_id}`);
-        
-        // Check how many successful claims this username has made for THIS SPECIFIC AUCTION
-        const { data: usernameClaimsData, error: usernameClaimsError } = await supabase
-          .from('link_visit_claims')
-          .select('id, eth_address, auction_id, claimed_at, tx_hash')
-          .eq('username', effectiveUsername)
-          .eq('auction_id', auction_id) // Only check current auction
-          .in('claim_source', NON_FC_CLAIM_SOURCES)
-          .not('tx_hash', 'is', null)
-          .not('claimed_at', 'is', null)
-          .order('claimed_at', { ascending: false });
-        
-        if (usernameClaimsError) {
-          console.error('Error checking username claims for auto-ban:', usernameClaimsError);
-        } else if (usernameClaimsData && usernameClaimsData.length >= 2) {
-          // Check if this is a 3rd+ claim with a DIFFERENT address for the same auction
-          const uniqueAddresses = new Set(usernameClaimsData.map(claim => claim.eth_address.toLowerCase()));
-          uniqueAddresses.add(address.toLowerCase()); // Add current address
-          
-          if (uniqueAddresses.size > 2) {
-            console.log(`🚨 AUTO-BAN TRIGGERED: Username "${effectiveUsername}" attempting ${uniqueAddresses.size}rd unique address claim for auction ${auction_id}`);
-            console.log(`🚨 Previous addresses used: ${Array.from(uniqueAddresses).slice(0, -1).join(', ')}`);
-            console.log(`🚨 Attempting new address: ${address}`);
-            
-            try {
-              // Ban this user immediately for exploiting multiple addresses on same auction
-              const { error: banError } = await supabase
-                .from('banned_users')
-                .insert({
-                  fid: effectiveFid,
-                  username: effectiveUsername,
-                  eth_address: address,
-                  reason: `Auto-banned: Web user claimed auction ${auction_id} with ${uniqueAddresses.size} different addresses (limit: 2)`,
-                  created_at: new Date().toISOString(),
-                  banned_by: 'multi_address_detector',
-                  auto_banned: true,
-                  total_claims_attempted: usernameClaimsData.length + 1,
-                  duplicate_transactions: usernameClaimsData.map(c => c.tx_hash),
-                  total_tokens_received: usernameClaimsData.length * 1000, // Only count successful claims
-                  ban_metadata: {
-                    trigger: 'multiple_addresses_same_username_same_auction',
-                    auction_id: auction_id,
-                    unique_addresses: Array.from(uniqueAddresses),
-                    address_count: uniqueAddresses.size,
-                    successful_claims: usernameClaimsData.map(c => ({
-                      address: c.eth_address,
-                      claimed_at: c.claimed_at,
-                      tx_hash: c.tx_hash
-                    })),
-                    attempted_address: address,
-                    note: `Web user "${effectiveUsername}" exploited auction ${auction_id} by claiming with ${uniqueAddresses.size} different addresses`
-                  }
-                })
-                .select();
-              
-              if (banError && banError.code !== '23505') { // Ignore if already banned
-                console.error('Error auto-banning user for multiple addresses:', banError);
-              } else {
-                console.log(`✅ User "${effectiveUsername}" banned for using ${uniqueAddresses.size} different addresses on auction ${auction_id}`);
-                
-                // Return error to block this claim
-                return NextResponse.json({ 
-                  success: false, 
-                  error: 'This account has been banned for violating usage policies',
-                  code: 'AUTO_BANNED_MULTIPLE_ADDRESSES'
-                }, { status: 403 });
-              }
-            } catch (banError) {
-              console.error('Error in auto-ban process:', banError);
-              // Still block the claim even if ban insertion fails
-              return NextResponse.json({ 
-                success: false, 
-                error: 'Account suspended for policy violations',
-                code: 'MULTIPLE_ADDRESS_VIOLATION'
-              }, { status: 403 });
-            }
-          } else {
-            console.log(`✅ Username "${effectiveUsername}" has ${usernameClaimsData.length} claims for auction ${auction_id} with ${uniqueAddresses.size} unique addresses (within limit)`);
-          }
-        }
-      }
+
       
       // CRITICAL: Release locks ONLY after successful database insert
       // This prevents other requests from proceeding until the claim is recorded
@@ -1764,6 +1746,15 @@ export async function POST(request: NextRequest) {
           console.log(`🔓 RELEASED FID LOCK (after DB): ${fidLockKey}`);
         } catch (lockError) {
           console.error('Error releasing FID lock:', lockError);
+        }
+      }
+      
+      if (usernameLockKey) {
+        try {
+          await redis.del(usernameLockKey);
+          console.log(`🔓 RELEASED USERNAME LOCK (after DB): ${usernameLockKey}`);
+        } catch (lockError) {
+          console.error('Error releasing username lock:', lockError);
         }
       }
       
@@ -1935,6 +1926,18 @@ export async function POST(request: NextRequest) {
         }
       } catch (lockError) {
         console.error('Error releasing FID lock:', lockError);
+      }
+    }
+    
+    if (usernameLockKey) {
+      try {
+        const lockExists = await redis.exists(usernameLockKey);
+        if (lockExists) {
+          await redis.del(usernameLockKey);
+          console.log(`🔓 RELEASED USERNAME LOCK (error path): ${usernameLockKey}`);
+        }
+      } catch (lockError) {
+        console.error('Error releasing username lock:', lockError);
       }
     }
   }
