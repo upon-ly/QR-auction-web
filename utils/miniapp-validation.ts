@@ -12,7 +12,7 @@ interface ValidationResult {
   error?: string;
 }
 
-export async function validateMiniAppUser(fid: number, username?: string, address?: string): Promise<ValidationResult> {
+export async function validateMiniAppUser(fid: number, username?: string, address?: string, isCoinbaseWallet: boolean = false): Promise<ValidationResult> {
   try {
     // Use Neynar API to verify user exists and get their verified addresses
     const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
@@ -50,17 +50,23 @@ export async function validateMiniAppUser(fid: number, username?: string, addres
 
     // Optional: Verify wallet address is verified for this FID if provided
     if (address) {
-      const verifiedAddresses = user.verified_addresses?.eth_addresses || [];
-      const normalizedAddress = address.toLowerCase();
-      const isAddressVerified = verifiedAddresses.some((addr: string) => addr.toLowerCase() === normalizedAddress);
-      
-      console.log(`FID ${fid} address verification: address=${address}, verified=${isAddressVerified}, verifiedAddresses=${verifiedAddresses.length}`);
-      
-      if (!isAddressVerified) {
-        return {
-          isValid: false,
-          error: 'Wallet address is not verified for this Farcaster account'
-        };
+      // BYPASS: Skip address verification for Coinbase Wallet clients
+      // Coinbase Wallet addresses are not automatically verified in Neynar
+      if (isCoinbaseWallet) {
+        // Bypass address verification for Coinbase Wallet (ephemeral addresses)
+      } else {
+        const verifiedAddresses = user.verified_addresses?.eth_addresses || [];
+        const normalizedAddress = address.toLowerCase();
+        const isAddressVerified = verifiedAddresses.some((addr: string) => addr.toLowerCase() === normalizedAddress);
+        
+        console.log(`FID ${fid} address verification: address=${address}, verified=${isAddressVerified}, verifiedAddresses=${verifiedAddresses.length}`);
+        
+        if (!isAddressVerified) {
+          return {
+            isValid: false,
+            error: 'Wallet address is not verified for this Farcaster account'
+          };
+        }
       }
     }
 
@@ -96,9 +102,9 @@ export async function validateMiniAppContext(fid: number): Promise<boolean> {
 }
 
 // Standalone function to verify if an address is verified for a specific FID
-export async function verifyFidOwnsAddress(fid: number, address: string): Promise<{ isValid: boolean; error?: string }> {
+export async function verifyFidOwnsAddress(fid: number, address: string, isCoinbaseWallet: boolean = false): Promise<{ isValid: boolean; error?: string }> {
   try {
-    const validation = await validateMiniAppUser(fid, undefined, address);
+    const validation = await validateMiniAppUser(fid, undefined, address, isCoinbaseWallet);
     return {
       isValid: validation.isValid,
       error: validation.error

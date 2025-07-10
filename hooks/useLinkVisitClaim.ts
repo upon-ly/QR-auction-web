@@ -289,6 +289,31 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
         return -(hashNumber % 1000000000);
       })() : frameContext?.user?.fid;
       
+      // Detect if this is a Coinbase Wallet client + get Quick Auth token (mini-app context only)
+      let clientFid: number | null = null;
+      let farcasterQuickAuthToken: string | null = null;
+      
+      if (!isWebContext && frameContext) {
+        try {
+          const fullFrameContext = await frameSdk.getContext();
+          clientFid = fullFrameContext?.client?.clientFid || null;
+          
+          // Get Farcaster Quick Auth token for additional security verification
+          try {
+            const { sdk } = await import('@farcaster/frame-sdk');
+            
+            // Try to get token - if user isn't authenticated, this will fail gracefully
+            const authResult = await sdk.quickAuth.getToken();
+            farcasterQuickAuthToken = authResult.token;
+          } catch {
+            // This is expected if user hasn't authenticated with Quick Auth
+            // Continue without Quick Auth token - fallback to existing validation
+          }
+        } catch (error) {
+          console.warn('Failed to get frame context for clientFid detection:', error);
+        }
+      }
+      
       // Get Privy auth token for web users to verify authentication
       let authToken: string | undefined;
       if (isWebContext && authenticated) {
@@ -316,7 +341,9 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
           username: twitterUsername,
           winning_url: lastVisitedUrl || `https://qrcoin.fun/auction/${auctionId}`,
           claim_source: isWebContext ? 'web' : 'mini_app',
-          captcha_token: captchaToken // Add captcha token
+          captcha_token: captchaToken, // Add captcha token
+          client_fid: clientFid, // Add client FID for Coinbase Wallet detection (existing bypass)
+          farcaster_quick_auth_token: farcasterQuickAuthToken // Add Quick Auth token for additional security
         }),
       });
 

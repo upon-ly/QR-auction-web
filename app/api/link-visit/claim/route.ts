@@ -7,12 +7,16 @@ import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 import { PrivyClient } from '@privy-io/server-auth';
 import { getWalletPool } from '@/lib/wallet-pool';
+import { createClient as createQuickAuthClient } from '@farcaster/quick-auth';
 
 // Initialize Privy client for server-side authentication
 const privyClient = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
   process.env.PRIVY_APP_SECRET || ''
 );
+
+// Initialize Farcaster Quick Auth client for JWT verification
+const quickAuthClient = createQuickAuthClient();
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -98,6 +102,8 @@ interface LinkVisitRequestData {
   winning_url?: string;
   claim_source?: string;
   captcha_token?: string; // Add captcha token
+  client_fid?: number | null; // Client FID for Coinbase Wallet detection (legacy bypass)
+  farcaster_quick_auth_token?: string | null; // Farcaster Quick Auth JWT for additional security
   [key: string]: unknown; // Allow other properties
 }
 
@@ -411,7 +417,7 @@ export async function POST(request: NextRequest) {
     
     // Parse request body to determine claim source for differentiated rate limiting
     requestData = await request.json() as LinkVisitRequestData;
-    const { fid, address, auction_id, username, winning_url, claim_source } = requestData;
+    const { fid, address, auction_id, username, winning_url, claim_source, client_fid, farcaster_quick_auth_token } = requestData;
     
     // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
     const rateLimit = NON_FC_CLAIM_SOURCES.includes(claim_source || '') ? 2 : 3;
@@ -609,6 +615,10 @@ export async function POST(request: NextRequest) {
       let effectiveUserId: string | null = null; // For verified Privy userId (web users only)
       let verifiedTwitterUsername: string | null = null; // Declare here for broader scope
       let privyUserId: string = ''; // Declare here for broader scope
+      
+      // SECURITY: Farcaster Quick Auth variables for mini-app verification
+      let quickAuthVerifiedFid: number | null = null;
+      let quickAuthValid = false;
     
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
       // Verify auth token for web users (Twitter authentication)
@@ -816,6 +826,36 @@ export async function POST(request: NextRequest) {
       effectiveFid = fid; // Use actual fid for mini-app users (guaranteed positive)
       effectiveUsername = username; // Use actual username for mini-app users
       effectiveUserId = null; // Mini-app users don't have Privy userId
+      
+      // SECURITY: Verify Farcaster Quick Auth token if provided
+      if (farcaster_quick_auth_token) {
+        try {
+          const payload = await quickAuthClient.verifyJwt({
+            token: farcaster_quick_auth_token,
+            domain: process.env.NEXT_PUBLIC_HOST_URL?.replace('https://', '') || 'localhost'
+          });
+          
+          quickAuthVerifiedFid = parseInt(String(payload.sub));
+          quickAuthValid = true;
+          
+          console.log(`✅ Quick Auth verified: FID=${quickAuthVerifiedFid}`);
+          
+          // SECURITY CHECK: Ensure the Quick Auth FID matches the claimed FID
+          if (quickAuthVerifiedFid !== fid) {
+            console.log(`🚫 FID mismatch: Quick Auth FID=${quickAuthVerifiedFid} vs claimed FID=${fid}`);
+            return NextResponse.json({ 
+              success: false, 
+              error: 'FID verification failed - token does not match claimed identity',
+              code: 'FID_MISMATCH'
+            }, { status: 400 });
+          }
+          
+          console.log(`🔒 Quick Auth FID verification passed for FID=${fid}`);
+        } catch (quickAuthError) {
+          console.error('Quick Auth verification failed:', quickAuthError);
+          // Continue with legacy validation as fallback
+        }
+      }
     }
     
     // CHECK BANNED USERS TABLE - applies to both web and mini-app users
@@ -1009,14 +1049,21 @@ export async function POST(request: NextRequest) {
     
     // Validate Mini App user and verify wallet address in one call (skip for web users)
     if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
-      console.log(`🔍 MINI-APP VALIDATION: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - validating via miniapp-validation.ts`);
+      // COINBASE WALLET DETECTION: Use both legacy client_fid and Quick Auth verification
+      let isCoinbaseWallet = false;
       
-      const userValidation = await validateMiniAppUser(effectiveFid, effectiveUsername || undefined, address);
+      // Method 1: Legacy client_fid detection (existing bypass)
+      const legacyCoinbaseDetection = client_fid === 309857;
+      
+      // Method 2: Quick Auth verified Coinbase Wallet (more secure)
+      const quickAuthCoinbaseDetection = quickAuthValid && quickAuthVerifiedFid === effectiveFid && client_fid === 309857;
+      
+      if (quickAuthCoinbaseDetection || legacyCoinbaseDetection) {
+        isCoinbaseWallet = true;
+      }
+      
+      const userValidation = await validateMiniAppUser(effectiveFid, effectiveUsername || undefined, address, isCoinbaseWallet);
       if (!userValidation.isValid) {
-        console.log(`🚫 MINI-APP VALIDATION FAILED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Error: ${userValidation.error}`);
-        
-        // Don't queue failed transactions for validation errors - just return error
-        // These are user errors, not system failures that need retry
         return NextResponse.json({ 
           success: false, 
           error: userValidation.error || 'Invalid user or spoofed request' 
