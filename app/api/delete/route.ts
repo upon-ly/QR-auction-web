@@ -16,8 +16,7 @@ export async function GET() {
   await supabase
     .from('welcome_claims')
     .delete()
-    .gt('claimed_at', new Date(new Date().setDate(new Date().getDate() - 1)).toISOString())
-    .or(`user_id.eq.did:privy:cmbjsk07z01h8l40meax6d101,user_id.eq.did:privy:cmacm8oks02j6js0mxlmqfvbh,user_id.eq.did:privy:cmcjm1gti01lcjy0loymqvqm5`);
+    .or(`privy_id.eq.did:privy:cmbjsk07z01h8l40meax6d101,privy_id.eq.did:privy:cmacm8oks02j6js0mxlmqfvbh,privy_id.eq.did:privy:cmcjm1gti01lcjy0loymqvqm5`);
     
   return new Response('Success');
 }
