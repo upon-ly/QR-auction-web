@@ -15,14 +15,14 @@
     "splashBackgroundColor": "#FFFFFF",
     "webhookUrl": "https://api.neynar.com/f/app/6bd400af-5bfb-4bb0-b848-1f0ddd68dd1f/event",
     "subtitle": "the onchain attention machine",
-    "description": "Get paid to get alpha with $QR",
+    "description": "Get paid to get alpha with QR",
     "screenshotUrls": ["https://qrcoin.fun/qr-screenshot-1.png","https://qrcoin.fun/qr-screenshot-2.png","https://qrcoin.fun/qr-screenshot-3.png"],
     "primaryCategory": "utility",
     "tags": ["earn","attention","alpha","discover","qr"],
     "heroImageUrl": "https://qrcoin.fun/qrLogo.png",
     "tagline": "Discover to earn every day",
-    "ogTitle": "$QR",
-    "ogDescription": "Get paid to get alpha with $QR",
+    "ogTitle": "QR",
+    "ogDescription": "Get paid to get alpha with QR",
     "ogImageUrl": "https://qrcoin.fun/opgIMage.png"
     }
 }
