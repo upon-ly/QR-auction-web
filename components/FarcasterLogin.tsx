@@ -43,11 +43,10 @@ export function FarcasterLogin() {
         
         const autoLogin = async () => {
           try {
-            // First check if we're in a frame environment
+            // First check if we're in a frame environment using reliable detection
             let isFrame = false;
             try {
-              const context = await frameSdk.getContext();
-              isFrame = !!(context && context.user);
+              isFrame = await frameSdk.isInMiniApp() || (await frameSdk.getContext()).client.clientFid == 309857;
               
               if (!isFrame) {
                 console.log("Not in a frame environment, skipping automatic login");
@@ -82,19 +81,6 @@ export function FarcasterLogin() {
             });
             
             console.log("Successfully logged in with Farcaster");
-            
-            // Try to initialize Quick Auth token after successful login
-            try {
-              console.log("Attempting to initialize Quick Auth token");
-              const { sdk } = await import('@farcaster/frame-sdk');
-              const authResult = await sdk.quickAuth.getToken();
-              if (authResult?.token) {
-                console.log("Quick Auth token initialized successfully");
-              }
-            } catch (quickAuthError) {
-              console.warn("Quick Auth initialization failed:", quickAuthError);
-              // Don't block the login flow if Quick Auth fails
-            }
             
             // Try to connect wallet after successful login
             try {
