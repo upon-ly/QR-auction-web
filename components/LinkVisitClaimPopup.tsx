@@ -646,11 +646,12 @@ export function LinkVisitClaimPopup({
       
       window.open(shareUrl, '_blank', 'noopener,noreferrer');
     } else {
+      const isCoinbaseWallet = (await frameSdk.getContext()).client.clientFid == 309857;
       // Mini-app context: Warpcast share (existing logic)
-      const shareText = encodeURIComponent(`just earned my daily $QR reward for checking out today's winner @qrcoindotfun`);
-      const embedUrl = encodeURIComponent(`https://qrcoin.fun/86`);
+      const shareText = isCoinbaseWallet ? encodeURIComponent(`just earned my daily $QR reward for checking out today's winner @qrcoindotfun`) : encodeURIComponent(`just earned my daily $QR reward for checking out today's winner @qrcoindotfun.farcaster.eth`);
+      const embedUrl = encodeURIComponent(`https://qrcoin.fun`);
       
-      let shareUrl = `https://warpcast.com/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
+      let shareUrl = `https://farcaster.xyz/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
       // Use dynamic quote cast URL from database
       const quoteCastUrl = socialLinks.quoteCastUrl;
