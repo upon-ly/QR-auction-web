@@ -3,12 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ethers } from 'ethers';
 import QRAuctionV3 from '@/abi/QRAuctionV3.json';
 
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 const RETRY_ENDPOINT_SECRET = process.env.RETRY_ENDPOINT_SECRET || 'retry-secret-key';
 const HOST_URL = process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000';
@@ -29,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Auction ID required' }, { status: 400 });
     }
 
-    if (!adminAddress || !ADMIN_ADDRESSES.includes(adminAddress.toLowerCase())) {
+    if (!adminAddress || !isAdminAddress(adminAddress)) {
       return NextResponse.json({ success: false, error: 'Unauthorized - Invalid admin address' }, { status: 401 });
     }
 
@@ -119,7 +114,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Auction ID required' }, { status: 400 });
     }
 
-    if (!adminAddress || !ADMIN_ADDRESSES.includes(adminAddress.toLowerCase())) {
+    if (!adminAddress || !isAdminAddress(adminAddress)) {
       return NextResponse.json({ success: false, error: 'Unauthorized - Invalid admin address' }, { status: 401 });
     }
 

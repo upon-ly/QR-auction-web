@@ -15,13 +15,7 @@ if (!supabaseServiceKey) {
   console.warn('SUPABASE_SERVICE_ROLE_KEY not found, falling back to anon key - database reads may fail due to RLS');
 }
 
-// Admin wallet addresses for authorization
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 // Define types for database tables
 interface Winner {
@@ -42,7 +36,7 @@ export async function GET(request: Request) {
     const walletAddress = authHeader?.replace('Bearer ', '').toLowerCase();
 
     // Check if the request is from an admin
-    if (!walletAddress || !ADMIN_ADDRESSES.includes(walletAddress)) {
+    if (!walletAddress || !isAdminAddress(walletAddress)) {
       return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { 
         status: 401,
         headers: { 'Content-Type': 'application/json' }
@@ -317,7 +311,7 @@ export async function POST(request: Request) {
     const walletAddress = authHeader?.replace('Bearer ', '').toLowerCase();
 
     // Check if the request is from an admin
-    if (!walletAddress || !ADMIN_ADDRESSES.includes(walletAddress)) {
+    if (!walletAddress || !isAdminAddress(walletAddress)) {
       return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { 
         status: 401,
         headers: { 'Content-Type': 'application/json' }

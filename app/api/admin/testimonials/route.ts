@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Admin addresses (should match the ones in admin page)
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 // Create Supabase client with service role key to bypass RLS
 const supabaseAdmin = createClient(
@@ -21,9 +15,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-function isAdmin(address: string): boolean {
-  return ADMIN_ADDRESSES.includes(address.toLowerCase());
-}
+// Admin check now handled by imported isAdminAddress function
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +23,7 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const address = authHeader?.replace('Bearer ', '');
     
-    if (!address || !isAdmin(address)) {
+    if (!address || !isAdminAddress(address)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -59,7 +51,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const address = authHeader?.replace('Bearer ', '');
     
-    if (!address || !isAdmin(address)) {
+    if (!address || !isAdminAddress(address)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -112,7 +104,7 @@ export async function PATCH(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const address = authHeader?.replace('Bearer ', '');
     
-    if (!address || !isAdmin(address)) {
+    if (!address || !isAdminAddress(address)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -148,7 +140,7 @@ export async function DELETE(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const address = authHeader?.replace('Bearer ', '');
     
-    if (!address || !isAdmin(address)) {
+    if (!address || !isAdminAddress(address)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

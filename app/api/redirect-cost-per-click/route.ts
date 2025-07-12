@@ -6,13 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// List of authorized admin addresses (lowercase for easy comparison)
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +15,7 @@ export async function GET(request: NextRequest) {
     const walletAddress = authHeader?.replace('Bearer ', '');
 
     // Check if the wallet address is authorized
-    if (!walletAddress || !ADMIN_ADDRESSES.includes(walletAddress.toLowerCase())) {
+    if (!walletAddress || !isAdminAddress(walletAddress)) {
       return NextResponse.json(
         { error: 'Unauthorized access' },
         { status: 403 }

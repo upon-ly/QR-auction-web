@@ -6,13 +6,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Admin addresses for authorization
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 interface AuctionExpenseData {
   auction_id: number;
@@ -56,7 +50,7 @@ export async function GET(request: NextRequest) {
     const address = authHeader.substring(7); // Remove 'Bearer ' prefix
     
     // Check if address is authorized
-    if (!ADMIN_ADDRESSES.includes(address.toLowerCase())) {
+    if (!isAdminAddress(address)) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 

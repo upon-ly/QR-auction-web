@@ -18,13 +18,7 @@ if (!supabaseServiceKey) {
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || '';
 const NEYNAR_API_URL = 'https://api.neynar.com/v2';
 
-// List of authorized admin addresses (lowercase for easy comparison)
-const ADMIN_ADDRESSES = [
-  "0xa8bea5bbf5fefd4bf455405be4bb46ef25f33467",
-  "0x09928cebb4c977c5e5db237a2a2ce5cd10497cb8",
-  "0x5b759ef9085c80cca14f6b54ee24373f8c765474",
-  "0xf7d4041e751e0b4f6ea72eb82f2b200d278704a4"
-];
+import { isAdminAddress } from '@/lib/constants';
 
 // Type for signer data
 interface Signer {
@@ -233,7 +227,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const address = authHeader?.replace('Bearer ', '');
     
-    if (!address || !ADMIN_ADDRESSES.includes(address.toLowerCase())) {
+    if (!address || !isAdminAddress(address)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
