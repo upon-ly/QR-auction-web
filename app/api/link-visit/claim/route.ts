@@ -7,6 +7,7 @@ import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 import { PrivyClient } from '@privy-io/server-auth';
 import { getWalletPool } from '@/lib/wallet-pool';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 // Initialize Privy client for server-side authentication
 const privyClient = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
@@ -146,7 +147,9 @@ async function logFailedTransaction(params: {
       'WEB_AUTH_ERROR',            // Invalid Privy authentication tokens
       'WEB_USERNAME_REQUIRED',     // Missing username for web claims
       'BANNED_USERNAME_ATTEMPT',   // Banned username attempted claim
-      'BANNED_USER'                // User is banned
+      'BANNED_USER',               // User is banned
+      'CAPTCHA_REQUIRED',          // Missing captcha for web users
+      'CAPTCHA_FAILED'             // Failed captcha verification
     ];
     
     // Only log to database if this will be queued for retry
@@ -773,6 +776,46 @@ export async function POST(request: NextRequest) {
       effectiveUserId = privyUserId; // 🔒 SECURITY: Use verified Privy userId for validation
       
       console.log(`🔐 SECURE WEB CLAIM: IP=${clientIP}, Verified userId=${privyUserId}, Username=@${verifiedTwitterUsername}`);
+      
+      // CAPTCHA VERIFICATION FOR WEB USERS
+      if (!captcha_token) {
+        console.log(`🚫 CAPTCHA MISSING: IP=${clientIP}, Web user attempted claim without captcha`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Captcha verification required',
+          code: 'CAPTCHA_REQUIRED'
+        }, { status: 400 });
+      }
+      
+      // Verify the captcha token
+      const captchaVerification = await verifyTurnstileToken(captcha_token, clientIP);
+      
+      if (!captchaVerification.success) {
+        console.log(`🚫 CAPTCHA FAILED: IP=${clientIP}, Error: ${captchaVerification.error}`);
+        
+        // Log captcha failure
+        await logFailedTransaction({
+          fid: effectiveFid,
+          eth_address: address || 'unknown',
+          auction_id: auction_id,
+          username: verifiedTwitterUsername,
+          user_id: privyUserId,
+          winning_url: null,
+          error_message: `Captcha verification failed: ${captchaVerification.error}`,
+          error_code: 'CAPTCHA_FAILED',
+          request_data: { ...requestData, clientIP } as Record<string, unknown>,
+          client_ip: clientIP,
+          claim_source
+        });
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: captchaVerification.error || 'Captcha verification failed',
+          code: 'CAPTCHA_FAILED'
+        }, { status: 400 });
+      }
+      
+      console.log(`✅ CAPTCHA VERIFIED: IP=${clientIP}, Web user captcha verification successful`);
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {

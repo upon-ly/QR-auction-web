@@ -164,7 +164,6 @@ export function LinkVisitClaimPopup({
   
   // Captcha state
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [showCaptcha, setShowCaptcha] = useState(false);
   
   // Use the eligibility hook
   const { hasClaimed, isLoading: isEligibilityLoading } = useLinkVisitEligibility(auctionId, isWebContext);
@@ -225,16 +224,16 @@ export function LinkVisitClaimPopup({
         if ((prevState === 'captcha' || prevState === 'claim') && authenticated) return prevState;
         
         if (isWebContext) {
-          // Web flow: visit -> (trigger wallet connection) -> claim -> success (skip captcha for authenticated users)
+          // Web flow: visit -> (trigger wallet connection) -> captcha -> claim -> success
           if (!authenticated) {
             return 'visit'; // Will trigger wallet connection after visiting
           } else if (hasClickedAny) {
             if (hasClaimed) {
               return 'already_claimed';
             } else {
-              // Clear the click state when entering claim state
-              clearClickedFromStorage();
-              return 'claim'; // Go directly to claim state for authenticated users
+              // Don't clear the click state when entering captcha state
+              // We'll clear it after claiming
+              return 'captcha'; // Go to captcha state for web users
             }
           } else {
             return 'visit';
@@ -258,16 +257,14 @@ export function LinkVisitClaimPopup({
   // Handle automatic state transition when authentication changes
   useEffect(() => {
     if (isWebContext && authenticated && !isEligibilityLoading) {
-      // If user is authenticated and we're in connecting state, move to claim (skip captcha)
+      // If user is authenticated and we're in connecting state, move to captcha
       if (claimState === 'connecting' && !isConnecting) {
         
         // Check if user has already claimed - if so, show already_claimed state
         if (hasClaimed) {
           setClaimState('already_claimed');
         } else {
-          // Clear the click state when transitioning to claim state
-          clearClickedFromStorage();
-          setClaimState('claim');
+          setClaimState('captcha');
         }
       }
       // If user is authenticated and has clicked (either from hook or localStorage), and we're still in visit state
@@ -275,9 +272,7 @@ export function LinkVisitClaimPopup({
         if (hasClaimed) {
           setClaimState('already_claimed');
         } else {
-          // Clear the click state when transitioning to claim state
-          clearClickedFromStorage();
-          setClaimState('claim');
+          setClaimState('captcha');
         }
       }
     }
@@ -302,7 +297,7 @@ export function LinkVisitClaimPopup({
       if (hasClaimed) {
         setClaimState('already_claimed');
       } else {
-        setClaimState('claim');
+        setClaimState('captcha');
       }
     }
   }, [isOpen, hasClicked, claimState, hasClaimed]);
@@ -416,9 +411,8 @@ export function LinkVisitClaimPopup({
       return;
     }
     
-    // NEW: Skip captcha for authenticated users (Twitter provides verification)
-    // Only require captcha for non-authenticated web users
-    if (isWebContext && !authenticated && !captchaToken) {
+    // Check if captcha is required and verified (web users only)
+    if (isWebContext && !captchaToken) {
       await hapticActions.error();
       toast.error('Please complete the verification first.');
       return;
@@ -505,17 +499,13 @@ export function LinkVisitClaimPopup({
           handleConnectWallet();
         } else if (isEligibilityLoading) {
           // Wait for eligibility check to complete
-          // Clear the click state when transitioning to claim state
-          clearClickedFromStorage();
-          setClaimState('claim'); // Go directly to claim state for authenticated users
+          setClaimState('captcha'); // Go to captcha state for web users
         } else {
           // Already authenticated and eligibility check complete, check if they've already claimed
           if (hasClaimed) {
             setClaimState('already_claimed');
           } else {
-            // Clear the click state when transitioning to claim state
-            clearClickedFromStorage();
-            setClaimState('claim'); // Go directly to claim state for authenticated users
+            setClaimState('captcha'); // Go to captcha state for web users
           }
         }
       } else {
@@ -599,32 +589,21 @@ export function LinkVisitClaimPopup({
   // Handle captcha verification
   const handleCaptchaSuccess = (token: string) => {
     setCaptchaToken(token);
-    setShowCaptcha(false);
-    // Clear the click state when transitioning to claim state
-    clearClickedFromStorage();
     // Auto-advance to claim state
     setClaimState('claim');
   };
 
   const handleCaptchaError = () => {
     setCaptchaToken(null);
-    setShowCaptcha(false);
     toast.error('Captcha verification failed. Please try again.');
   };
 
   const handleCaptchaExpire = () => {
     setCaptchaToken(null);
-    setShowCaptcha(false);
     // Reset to captcha state to try again
     setClaimState('captcha');
   };
 
-  // Show captcha when entering claim state (only for non-authenticated web users)
-  useEffect(() => {
-    if (claimState === 'claim' && isWebContext && !authenticated && !showCaptcha && !captchaToken) {
-      setShowCaptcha(true);
-    }
-  }, [claimState, isWebContext, authenticated, showCaptcha, captchaToken]);
 
   // Handle share
   const handleShare = async () => {
