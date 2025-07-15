@@ -270,7 +270,7 @@ async function checkWalletBalancesOnBase(
 /**
  * Get wallet-based claim amounts from database
  */
-async function getWalletClaimAmounts(): Promise<{ emptyAmount: number; valueAmount: number }> {
+export async function getWalletClaimAmounts(): Promise<{ emptyAmount: number; valueAmount: number }> {
   try {
     const { data, error } = await supabase
       .from('claim_amount_configs')
@@ -421,10 +421,17 @@ export async function getClaimAmountForAddress(
     }
   }
   
-  // Web users always get 500 QR initially (historical check will adjust in claim route)
+  // Web users get wallet_has_balance amount initially (historical check will adjust in claim route)
   if (claimSource === 'web') {
-    console.log(`🌐 Web user - returning 500 QR (historical check will be done in claim route)`);
-    return { amount: 500 };
+    try {
+      const { valueAmount } = await getWalletClaimAmounts();
+      console.log(`🌐 Web user - returning ${valueAmount} QR (historical check will be done in claim route)`);
+      return { amount: valueAmount };
+    } catch (error) {
+      console.error('Error fetching web user claim amount:', error);
+      // Fallback to a reasonable default if database fails
+      return { amount: 500 };
+    }
   }
   
   // Mobile users get wallet-based amounts

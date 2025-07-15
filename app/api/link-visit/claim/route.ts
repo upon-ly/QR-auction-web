@@ -107,7 +107,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
 import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
-import { getClaimAmountForAddress, checkHistoricalEthBalance } from '@/lib/wallet-balance-checker';
+import { getClaimAmountForAddress, checkHistoricalEthBalance, getWalletClaimAmounts } from '@/lib/wallet-balance-checker';
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -1349,6 +1349,9 @@ export async function POST(request: NextRequest) {
     if (claim_source === 'web') {
       console.log(`🕐 Checking historical ETH balance requirement for web user...`);
       try {
+        // Get wallet claim amounts from database
+        const { emptyAmount, valueAmount } = await getWalletClaimAmounts();
+        
         const historicalResult = await checkHistoricalEthBalance(
           address,
           5, // $5 minimum
@@ -1358,21 +1361,28 @@ export async function POST(request: NextRequest) {
         
         if (!historicalResult.meetsRequirement) {
           console.log(`❌ Wallet has not maintained $5 ETH for 90 days (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
-          // Reduce to 100 QR for users who don't meet historical requirement
-          claimAmount = '100';
+          // Reduce to wallet_empty amount for users who don't meet historical requirement
+          claimAmount = emptyAmount.toString();
           console.log(`📉 Reducing claim amount to lower tier: ${claimAmount} QR`);
           console.log(`⚠️ Web user ${address} gets reduced claim amount due to not meeting historical balance requirement`);
         } else {
           console.log(`✅ Historical balance requirement met (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
-          // Web users who meet historical requirement get 500 QR
-          claimAmount = '500';
+          // Web users who meet historical requirement get wallet_has_balance amount
+          claimAmount = valueAmount.toString();
           console.log(`🎉 Web user meets requirement - awarding ${claimAmount} QR`);
         }
       } catch (error) {
         console.error('Error checking historical balance:', error);
-        // On error, give them the lower tier to be safe
-        claimAmount = '100';
-        console.log('⚠️ Error checking historical balance, defaulting to lower tier: 100 QR');
+        // On error, try to get wallet_empty amount from database
+        try {
+          const { emptyAmount } = await getWalletClaimAmounts();
+          claimAmount = emptyAmount.toString();
+          console.log(`⚠️ Error checking historical balance, defaulting to lower tier: ${claimAmount} QR`);
+        } catch {
+          // If database also fails, use hardcoded fallback
+          claimAmount = '100';
+          console.log('⚠️ Error checking historical balance and fetching database amounts, using hardcoded fallback: 100 QR');
+        }
       }
     }
     
