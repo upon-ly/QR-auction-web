@@ -38,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { broadcastConnection } from "@/lib/channelManager";
 import { frameSdk } from "@/lib/frame-sdk-singleton";
 import { useIsMiniApp } from "@/hooks/useIsMiniApp";
 import { motion, AnimatePresence, useDragControls, PanInfo } from "framer-motion";
@@ -407,19 +406,8 @@ export function CustomWallet() {
     },
   });
 
-  // Track authentication state changes to broadcast connections
-  useEffect(() => {
-    if (authenticated && eoaAddress) {
-      // Generate a unique browser instance ID to help identify this connection
-      const browserInstanceId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Broadcast the wallet connection event
-      if (DEBUG) {
-      console.log('Broadcasting wallet connection for address:', eoaAddress);
-      }
-      broadcastConnection(eoaAddress, browserInstanceId);
-    }
-  }, [authenticated, eoaAddress]);
+  // Wallet connection broadcast removed to reduce Realtime costs
+  // Previously broadcasted wallet connections here
 
   const [usdcBalance, qrBalance, usdcDecimals, qrDecimals] = useMemo(() => {
     if (!tokenBalances || tokenBalances.length < 4) return [0, 0, 6, 18];

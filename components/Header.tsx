@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CustomWallet } from '@/components/CustomWallet';
-import { ConnectionIndicator } from '@/components/ConnectionIndicator';
 import { ThemeDialog } from '@/components/ThemeDialog';
 import { QRContextMenu } from '@/components/QRContextMenu';
 import { useBaseColors } from '@/hooks/useBaseColors';
@@ -203,9 +202,6 @@ export function Header() {
         
         <div className="relative">
           <CustomWallet />
-          <div className="absolute right-0 top-full mt-2 pr-1 z-50"> {/* Added z-index */} 
-            <ConnectionIndicator />
-          </div>
         </div>
       </div>
       <ThemeDialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen} />

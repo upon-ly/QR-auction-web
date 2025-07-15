@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { initializeChannels, cleanupChannels, broadcastConnection, forceReconnect } from '@/lib/channelManager';
+import { initializeChannels, cleanupChannels, forceReconnect } from '@/lib/channelManager';
 import { v4 as uuidv4 } from 'uuid';
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
@@ -118,21 +118,8 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
       // OR it's a Farcaster frame with an already connected wallet on first render
       (isFarcasterFrame && isConnected && address && isFirstRender && initialized.current);
     
-    if (needsBroadcast) {
-      console.log('SupabaseProvider: Broadcasting wallet connection for', address, 
-        isFarcasterFrame ? '(in Farcaster frame)' : '');
-      
-      // Broadcast the connection immediately
-      broadcastConnection(address, browserInstanceIdRef.current);
-      
-      // For mobile/Safari, try once more after a delay
-      if (isMobile || isSafari || isFarcasterFrame) {
-        setTimeout(() => {
-          console.log('SupabaseProvider: Sending follow-up wallet connection for', address);
-          broadcastConnection(address, browserInstanceIdRef.current);
-        }, 1000);
-      }
-    }
+    // Wallet connection broadcast removed to reduce Realtime costs
+    // Previously broadcasted wallet connections here
     
     // Update the connection state reference
     wasConnectedRef.current = isConnected && !!address;
