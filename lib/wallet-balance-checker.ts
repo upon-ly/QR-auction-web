@@ -94,6 +94,120 @@ async function getTokenBalances(
 }
 
 /**
+ * Get ETH price in USD
+ */
+async function getEthPriceUSD(): Promise<number> {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await response.json();
+    return data.ethereum?.usd || 2500; // Fallback price
+  } catch (error) {
+    console.error('Error fetching ETH price:', error);
+    return 2500; // Fallback price
+  }
+}
+
+/**
+ * Check if wallet has maintained minimum ETH balance for a period
+ */
+export async function checkHistoricalEthBalance(
+  address: string,
+  minUsdValue: number,
+  daysBack: number,
+  alchemyApiKey: string
+): Promise<{ 
+  meetsRequirement: boolean; 
+  lowestBalance: number; 
+  lowestBalanceUsd: number;
+}> {
+  const rpcUrl = CHAIN_CONFIGS.base.rpcUrl;
+  const currentEthPrice = await getEthPriceUSD();
+  
+  // Get current block number
+  const currentBlockResponse = await fetch(`${rpcUrl}${alchemyApiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_blockNumber',
+      params: [],
+      id: 1
+    })
+  });
+  
+  const currentBlockData = await currentBlockResponse.json();
+  const currentBlock = parseInt(currentBlockData.result, 16);
+  
+  // Base produces ~2 blocks per second
+  const blocksPerDay = 2 * 60 * 60 * 24; // 172,800 blocks per day
+  const totalBlocks = blocksPerDay * daysBack;
+  
+  // Check balance at multiple points (weekly intervals)
+  const checkPoints = Math.min(Math.ceil(daysBack / 7), 12); // Max 12 checks
+  const blockInterval = Math.floor(totalBlocks / checkPoints);
+  
+  console.log(`🕐 Checking historical ETH balance for ${address}`);
+  console.log(`   Period: ${daysBack} days (${checkPoints} check points)`);
+  
+  let lowestBalance = Infinity;
+  let lowestBalanceUsd = Infinity;
+  
+  for (let i = 0; i <= checkPoints; i++) {
+    const blocksAgo = i * blockInterval;
+    const checkBlock = currentBlock - blocksAgo;
+    const blockHex = '0x' + checkBlock.toString(16);
+    
+    try {
+      const balanceResponse = await fetch(`${rpcUrl}${alchemyApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getBalance',
+          params: [address, blockHex],
+          id: 1
+        })
+      });
+      
+      const balanceData = await balanceResponse.json();
+      if (balanceData.error) {
+        console.error(`Error getting balance at block ${checkBlock}:`, balanceData.error);
+        continue;
+      }
+      
+      const balance = BigInt(balanceData.result);
+      const ethBalance = parseFloat(ethers.formatEther(balance));
+      const usdValue = ethBalance * currentEthPrice;
+      
+      if (ethBalance < lowestBalance) {
+        lowestBalance = ethBalance;
+        lowestBalanceUsd = usdValue;
+      }
+      
+      const secondsAgo = blocksAgo / 2; // 2 blocks per second
+      const checkDate = new Date(Date.now() - secondsAgo * 1000);
+      console.log(`   ${checkDate.toISOString().split('T')[0]}: ${ethBalance.toFixed(6)} ETH ($${usdValue.toFixed(2)})`);
+      
+    } catch (error) {
+      console.error(`   Error checking block ${checkBlock}:`, error);
+    }
+  }
+  
+  const meetsRequirement = lowestBalanceUsd >= minUsdValue;
+  
+  console.log(`\n📊 Historical Balance Summary:`);
+  console.log(`   Lowest balance: ${lowestBalance.toFixed(6)} ETH ($${lowestBalanceUsd.toFixed(2)})`);
+  console.log(`   Required: $${minUsdValue}`);
+  console.log(`   Meets requirement: ${meetsRequirement ? '✅ Yes' : '❌ No'}`);
+  
+  return {
+    meetsRequirement,
+    lowestBalance,
+    lowestBalanceUsd
+  };
+}
+
+/**
  * Check if wallet has only QR tokens or is empty on Base chain
  */
 async function checkWalletBalancesOnBase(
@@ -307,10 +421,16 @@ export async function getClaimAmountForAddress(
     }
   }
   
-  // Fallback to wallet balance check for web and mobile users
-  if (['web', 'mobile'].includes(claimSource)) {
+  // Web users always get 500 QR initially (historical check will adjust in claim route)
+  if (claimSource === 'web') {
+    console.log(`🌐 Web user - returning 500 QR (historical check will be done in claim route)`);
+    return { amount: 500 };
+  }
+  
+  // Mobile users get wallet-based amounts
+  if (claimSource === 'mobile') {
     const { amount } = await determineClaimAmount(address, alchemyApiKey);
-    console.log(`💰 Fallback to wallet balance check: ${amount} QR`);
+    console.log(`📱 Mobile user - wallet balance check: ${amount} QR`);
     return { amount };
   }
   

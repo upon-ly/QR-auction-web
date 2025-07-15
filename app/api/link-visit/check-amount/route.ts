@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getClaimAmountForAddress } from '@/lib/wallet-balance-checker';
+import { getClaimAmountForAddress, checkHistoricalEthBalance } from '@/lib/wallet-balance-checker';
 import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 
@@ -8,6 +8,46 @@ const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || '';
 
 // Simple in-memory deduplication cache
 const pendingRequests = new Map<string, Promise<{ amount: number; neynarScore?: number; hasSpamLabelOverride?: boolean }>>();
+
+// Helper function to create the promise with historical check
+async function getClaimAmountWithHistoricalCheck(
+  address: string,
+  claimSource: string,
+  alchemyApiKey: string,
+  fid?: number
+): Promise<{ amount: number; neynarScore?: number; hasSpamLabelOverride?: boolean }> {
+  // Get base claim amount
+  let claimResult = await getClaimAmountForAddress(address, claimSource, alchemyApiKey, fid);
+  
+  // For web users, also check historical balance
+  if (claimSource === 'web') {
+    try {
+      const historicalResult = await checkHistoricalEthBalance(
+        address,
+        5, // $5 minimum
+        90, // 90 days (3 months)
+        alchemyApiKey
+      );
+      
+      // Adjust amount based on historical balance
+      if (!historicalResult.meetsRequirement) {
+        // User doesn't meet historical requirement, give them 100 QR
+        claimResult = { ...claimResult, amount: 100 };
+        console.log(`📉 Web user doesn't meet historical requirement - reducing to 100 QR`);
+      } else {
+        // User meets requirement, ensure they get 500 QR
+        claimResult = { ...claimResult, amount: 500 };
+        console.log(`✅ Web user meets historical requirement - confirming 500 QR`);
+      }
+    } catch (error) {
+      console.error('Error checking historical balance in check-amount:', error);
+      // On error, default to lower tier for safety
+      claimResult = { ...claimResult, amount: 100 };
+    }
+  }
+  
+  return claimResult;
+}
 
 export async function POST(request: NextRequest) {
   // Get client IP for rate limiting
@@ -48,8 +88,8 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Create a new promise for this request
-    const claimPromise = getClaimAmountForAddress(
+    // Create a new promise for this request using the helper function that includes historical check
+    const claimPromise = getClaimAmountWithHistoricalCheck(
       address,
       claimSource || 'web',
       ALCHEMY_API_KEY,

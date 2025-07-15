@@ -107,7 +107,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
 import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
-import { getClaimAmountForAddress } from '@/lib/wallet-balance-checker';
+import { getClaimAmountForAddress, checkHistoricalEthBalance } from '@/lib/wallet-balance-checker';
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -1342,6 +1342,37 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('Error determining mini-app claim amount:', error);
         claimAmount = '100'; // Fallback to default
+      }
+    }
+    
+    // Check historical ETH balance requirement for web users only
+    if (claim_source === 'web') {
+      console.log(`🕐 Checking historical ETH balance requirement for web user...`);
+      try {
+        const historicalResult = await checkHistoricalEthBalance(
+          address,
+          5, // $5 minimum
+          90, // 90 days (3 months)
+          ALCHEMY_API_KEY
+        );
+        
+        if (!historicalResult.meetsRequirement) {
+          console.log(`❌ Wallet has not maintained $5 ETH for 90 days (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
+          // Reduce to 100 QR for users who don't meet historical requirement
+          claimAmount = '100';
+          console.log(`📉 Reducing claim amount to lower tier: ${claimAmount} QR`);
+          console.log(`⚠️ Web user ${address} gets reduced claim amount due to not meeting historical balance requirement`);
+        } else {
+          console.log(`✅ Historical balance requirement met (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
+          // Web users who meet historical requirement get 500 QR
+          claimAmount = '500';
+          console.log(`🎉 Web user meets requirement - awarding ${claimAmount} QR`);
+        }
+      } catch (error) {
+        console.error('Error checking historical balance:', error);
+        // On error, give them the lower tier to be safe
+        claimAmount = '100';
+        console.log('⚠️ Error checking historical balance, defaulting to lower tier: 100 QR');
       }
     }
     
