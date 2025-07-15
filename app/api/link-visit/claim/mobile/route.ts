@@ -95,7 +95,6 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Import queue functionality
 import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
-import { getClaimAmountForAddress } from '@/lib/wallet-balance-checker';
 
 // Function to log errors to the database
 async function logFailedTransaction(params: {
@@ -800,27 +799,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
     
-    // Define airdrop amount based on claim source and user score
-    let claimAmount: string;
-    let neynarScore: number | undefined;
-    const spamLabel: boolean | null = null;
-    
-      // Web/mobile users: wallet holdings only (no Neynar scores)
-      try {
-        const claimResult = await getClaimAmountForAddress(
-          address,
-          claim_source,
-          ALCHEMY_API_KEY,
-          undefined // No FID for web users - they don't get Neynar scores
-        );
-        claimAmount = claimResult.amount.toString();
-        neynarScore = undefined; // Web users don't get Neynar scores
-        console.log(`💰 Dynamic claim amount for ${claim_source} user ${address}: ${claimAmount} QR`);
-      } catch (error) {
-        console.error('Error checking claim amount, using default:', error);
-        claimAmount = '500'; // Fallback to original amount
-      }
-    
+    const claimAmount = '1000';
     const airdropAmount = ethers.parseUnits(claimAmount, 18);
     console.log(`Preparing airdrop of ${claimAmount} QR tokens to ${address}`);
     
@@ -1120,8 +1099,8 @@ export async function POST(request: NextRequest) {
           winning_url: winningUrl,
           claim_source: claim_source,
           client_ip: clientIP, // Track IP for successful claims
-          neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
-          spam_label: spamLabel // Store the spam label
+          neynar_user_score: null, // Store the Neynar score
+          spam_label: null // Store the spam label
         });
         
       if (insertError) {
@@ -1216,8 +1195,8 @@ export async function POST(request: NextRequest) {
             winning_url: winningUrl,
             claim_source: claim_source,
             client_ip: clientIP, // Track IP for successful claims
-            neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
-            spam_label: spamLabel // Store the spam label
+            neynar_user_score: null, // Store the Neynar score
+            spam_label: null // Store the spam label
           })
           .match({
             fid: effectiveFid,
