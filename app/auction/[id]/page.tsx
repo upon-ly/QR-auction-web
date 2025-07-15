@@ -58,7 +58,7 @@ const safeLocalStorage = {
     }
   },
   // Get the auction cache as an object
-  getAuctionCache: (): { latestAuctionId: number, latestV3AuctionId: number } => {
+  getAuctionCache: (): { latestAuctionId: number, latestV3AuctionId: number, timestamp?: number } => {
     try {
       const cacheStr = localStorage.getItem(AUCTION_CACHE_KEY);
       if (cacheStr) {
@@ -74,7 +74,8 @@ const safeLocalStorage = {
     try {
       localStorage.setItem(AUCTION_CACHE_KEY, JSON.stringify({ 
         latestAuctionId, 
-        latestV3AuctionId 
+        latestV3AuctionId,
+        timestamp: Date.now()
       }));
     } catch (e) {
       console.warn('Error updating localStorage cache:', e);

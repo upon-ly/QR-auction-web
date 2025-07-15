@@ -25,7 +25,7 @@ const safeLocalStorage = {
     }
   },
   // Get the auction cache as an object
-  getAuctionCache: (): { latestAuctionId: number, latestV3AuctionId: number } => {
+  getAuctionCache: (): { latestAuctionId: number, latestV3AuctionId: number, timestamp?: number } => {
     try {
       const cacheStr = localStorage.getItem(AUCTION_CACHE_KEY);
       if (cacheStr) {
@@ -41,7 +41,8 @@ const safeLocalStorage = {
     try {
       localStorage.setItem(AUCTION_CACHE_KEY, JSON.stringify({ 
         latestAuctionId, 
-        latestV3AuctionId 
+        latestV3AuctionId,
+        timestamp: Date.now()
       }));
     } catch (e) {
       console.warn('Error updating localStorage cache:', e);
@@ -57,13 +58,18 @@ export default function HomePage() {
     // Try to get cached auction data first for immediate redirect
     const cache = safeLocalStorage.getAuctionCache();
     
-    // If we have a cached V3 auction ID, redirect immediately to it
-    if (cache.latestV3AuctionId >= 62) {
+    // Check if cache is still fresh (1 hour expiration)
+    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+    const cacheAge = cache.timestamp ? Date.now() - cache.timestamp : Infinity;
+    const isCacheFresh = cacheAge < ONE_HOUR;
+    
+    // If we have a fresh cached V3 auction ID, redirect immediately to it
+    if (cache.latestV3AuctionId >= 62 && isCacheFresh) {
       router.replace(`/auction/${cache.latestV3AuctionId}`);
       return;
     }
     
-    // Fall back to checking auction data if no valid cached V3 ID exists
+    // Fall back to checking auction data if cache is expired or no valid cached V3 ID exists
     if (auctions && auctions.length > 0) {
       // Get the latest auction of any version
       const lastAuction = auctions[auctions.length - 1];
