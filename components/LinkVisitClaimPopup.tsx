@@ -13,7 +13,6 @@ import { useAuctionImage } from '@/hooks/useAuctionImage';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { CLICK_SOURCES } from '@/lib/click-tracking';
 import { usePrivy, useLogin, useConnectWallet } from "@privy-io/react-auth";
-import { Turnstile } from '@marsidev/react-turnstile';
 import { useXPixel } from "@/hooks/useXPixel";
 import { useAnalytics, ANALYTICS_EVENTS } from "@/hooks/useAnalytics";
 import { hapticActions } from "@/lib/haptics";
@@ -156,14 +155,12 @@ export function LinkVisitClaimPopup({
   // Three states for both web and mini-app: visit, connecting, captcha, claim, success, already_claimed
   // Web flow: visit -> captcha -> claim -> success
   // Mini-app flow: visit -> claim -> success  
-  const [claimState, setClaimState] = useState<'visit' | 'connecting' | 'captcha' | 'claim' | 'success' | 'already_claimed'>('visit');
+  const [claimState, setClaimState] = useState<'visit' | 'connecting' | 'claim' | 'success' | 'already_claimed'>('visit');
   const isFrameRef = useRef(false);
   const isClaimingRef = useRef(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isAutoConnectingWallet, setIsAutoConnectingWallet] = useState(false);
   
-  // Captcha state
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   // Use the eligibility hook
   const { hasClaimed, isLoading: isEligibilityLoading } = useLinkVisitEligibility(auctionId, isWebContext);
@@ -220,20 +217,20 @@ export function LinkVisitClaimPopup({
         // Don't reset if we're in connecting state (during authentication flow)
         if (prevState === 'connecting') return prevState;
         
-        // Don't reset if we're in captcha or claim state and user is authenticated
-        if ((prevState === 'captcha' || prevState === 'claim') && authenticated) return prevState;
+        // Don't reset if we're in claim state and user is authenticated
+        if (prevState === 'claim' && authenticated) return prevState;
         
         if (isWebContext) {
-          // Web flow: visit -> (trigger wallet connection) -> captcha -> claim -> success
+          // Web flow: visit -> (trigger wallet connection) -> claim -> success (skip captcha for authenticated users)
           if (!authenticated) {
             return 'visit'; // Will trigger wallet connection after visiting
           } else if (hasClickedAny) {
             if (hasClaimed) {
               return 'already_claimed';
             } else {
-              // Don't clear the click state when entering captcha state
-              // We'll clear it after claiming
-              return 'captcha'; // Go to captcha state for web users
+              // Clear the click state when entering claim state
+              clearClickedFromStorage();
+              return 'claim'; // Go directly to claim state for authenticated users
             }
           } else {
             return 'visit';
@@ -257,14 +254,16 @@ export function LinkVisitClaimPopup({
   // Handle automatic state transition when authentication changes
   useEffect(() => {
     if (isWebContext && authenticated && !isEligibilityLoading) {
-      // If user is authenticated and we're in connecting state, move to captcha
+      // If user is authenticated and we're in connecting state, move to claim (skip captcha)
       if (claimState === 'connecting' && !isConnecting) {
         
         // Check if user has already claimed - if so, show already_claimed state
         if (hasClaimed) {
           setClaimState('already_claimed');
         } else {
-          setClaimState('captcha');
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim');
         }
       }
       // If user is authenticated and has clicked (either from hook or localStorage), and we're still in visit state
@@ -272,7 +271,9 @@ export function LinkVisitClaimPopup({
         if (hasClaimed) {
           setClaimState('already_claimed');
         } else {
-          setClaimState('captcha');
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim');
         }
       }
     }
@@ -297,7 +298,7 @@ export function LinkVisitClaimPopup({
       if (hasClaimed) {
         setClaimState('already_claimed');
       } else {
-        setClaimState('captcha');
+        setClaimState('claim');
       }
     }
   }, [isOpen, hasClicked, claimState, hasClaimed]);
@@ -411,12 +412,6 @@ export function LinkVisitClaimPopup({
       return;
     }
     
-    // Check if captcha is required and verified (web users only)
-    if (isWebContext && !captchaToken) {
-      await hapticActions.error();
-      toast.error('Please complete the verification first.');
-      return;
-    }
     
     isClaimingRef.current = true;
     
@@ -456,7 +451,7 @@ export function LinkVisitClaimPopup({
       });
       
       // Fire off the claim in the background - don't wait for it
-      onClaim(captchaToken || '').catch((error) => {
+      onClaim('').catch((error) => {
         console.error('Claim failed in background:', error);
         // Don't show error toast - user already thinks they succeeded
       });
@@ -499,13 +494,17 @@ export function LinkVisitClaimPopup({
           handleConnectWallet();
         } else if (isEligibilityLoading) {
           // Wait for eligibility check to complete
-          setClaimState('captcha'); // Go to captcha state for web users
+          // Clear the click state when transitioning to claim state
+          clearClickedFromStorage();
+          setClaimState('claim'); // Go directly to claim state for authenticated users
         } else {
           // Already authenticated and eligibility check complete, check if they've already claimed
           if (hasClaimed) {
             setClaimState('already_claimed');
           } else {
-            setClaimState('captcha'); // Go to captcha state for web users
+            // Clear the click state when transitioning to claim state
+            clearClickedFromStorage();
+            setClaimState('claim'); // Go directly to claim state for authenticated users
           }
         }
       } else {
@@ -586,23 +585,6 @@ export function LinkVisitClaimPopup({
     login();
   };
 
-  // Handle captcha verification
-  const handleCaptchaSuccess = (token: string) => {
-    setCaptchaToken(token);
-    // Auto-advance to claim state
-    setClaimState('claim');
-  };
-
-  const handleCaptchaError = () => {
-    setCaptchaToken(null);
-    toast.error('Captcha verification failed. Please try again.');
-  };
-
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
-    // Reset to captcha state to try again
-    setClaimState('captcha');
-  };
 
 
   // Handle share
@@ -734,19 +716,6 @@ export function LinkVisitClaimPopup({
               <Check className="h-16 w-16 text-green-500" />
             </motion.div>
           ) : claimState === 'claim' ? (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", duration: 0.5 }}
-              className="w-28 h-28 rounded-full flex items-center justify-center bg-secondary mt-6"
-            >
-              <img 
-                src="/qrLogoWebsite.png" 
-                alt="QR Token" 
-                className="w-28 h-28"
-              />
-            </motion.div>
-          ) : claimState === 'captcha' ? (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -967,47 +936,6 @@ export function LinkVisitClaimPopup({
               </>
             )}
 
-            {claimState === 'captcha' && (
-              <>
-                <motion.h2 
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-xl font-bold text-foreground"
-                >
-                  Security Check
-                </motion.h2>
-                
-                <motion.p
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-muted-foreground mb-5"
-                >
-                  Please verify you&apos;re human to continue
-                </motion.p>
-                
-                <motion.div
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="w-full flex justify-center mt-2"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <Turnstile
-                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAAiGgT-bNZFUpUYw'}
-                      onSuccess={handleCaptchaSuccess}
-                      onError={handleCaptchaError}
-                      onExpire={handleCaptchaExpire}
-                      options={{
-                        theme: 'auto',
-                        size: 'normal',
-                      }}
-                    />
-                  </div>
-                </motion.div>
-              </>
-            )}
           </div>
         </div>
       </CustomDialogContent>
