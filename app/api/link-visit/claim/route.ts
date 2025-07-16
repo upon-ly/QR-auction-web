@@ -569,13 +569,12 @@ export async function POST(request: NextRequest) {
       console.log(`🔍 EARLY DUPLICATE CHECK: Checking claims for auction ${auction_id}`);
       
       // Quick duplicate check by address first (applies to both web and mini-app)
-      // Check for ANY existing record, not just completed ones
+      // Check for ANY existing record - including link-click records
       const { data: existingClaimByAddress, error: addressCheckError } = await supabase
         .from('link_visit_claims')
         .select('tx_hash, claimed_at, claim_source')
         .eq('eth_address', address)
-        .eq('auction_id', auction_id)
-        .or('tx_hash.not.is.null,claimed_at.not.is.null');
+        .eq('auction_id', auction_id);
       
       if (addressCheckError) {
         console.error('Error in early address duplicate check:', addressCheckError);
@@ -601,8 +600,7 @@ export async function POST(request: NextRequest) {
           .from('link_visit_claims')
           .select('tx_hash, claimed_at, claim_source')
           .eq('fid', fid)
-          .eq('auction_id', auction_id)
-          .or('tx_hash.not.is.null,claimed_at.not.is.null');
+          .eq('auction_id', auction_id);
         
         if (fidCheckError) {
           console.error('Error in early FID duplicate check:', fidCheckError);
@@ -1053,10 +1051,33 @@ export async function POST(request: NextRequest) {
       console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
-    // NO CLEANUP - The vulnerability was in deleting records without tx_hash
-    // which included valid link-click records. Since we can't determine record age
-    // without a created_at column, we'll skip cleanup entirely to prevent the vulnerability
-    console.log(`🛡️ CLEANUP SKIPPED: Preserving all records to prevent race condition vulnerability`);
+    // TARGETED CLEANUP: Only delete records that have a corresponding failure entry
+    console.log(`🧹 TARGETED CLEANUP: Only removing records with logged failures`);
+    
+    // Check if there's a failure record for this claim attempt
+    const { data: failureRecords } = await supabase
+      .from('link_visit_claim_failures')
+      .select('id')
+      .eq('eth_address', address)
+      .eq('auction_id', auction_id)
+      .limit(1);
+    
+    if (failureRecords && failureRecords.length > 0) {
+      // Only clean up if there's a recorded failure
+      console.log(`🗑️ Found failure record, cleaning up failed claim for retry`);
+      
+      const { error: cleanupError } = await supabase
+        .from('link_visit_claims')
+        .delete()
+        .eq('eth_address', address)
+        .eq('auction_id', auction_id)
+        .is('tx_hash', null)
+        .is('claimed_at', null);
+      
+      if (cleanupError) {
+        console.warn('Error cleaning up failed claim:', cleanupError);
+      }
+    }
     
     // For web users, acquire username lock to prevent race condition with same username
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
