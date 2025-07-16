@@ -1380,6 +1380,37 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    const MAX_CLAIM_AMOUNT = 1000;
+    const parsedClaimAmount = parseInt(claimAmount);
+    if (parsedClaimAmount > MAX_CLAIM_AMOUNT) {
+      console.error(`🚨 Claim amount ${parsedClaimAmount} exceeds maximum allowed ${MAX_CLAIM_AMOUNT} QR`);
+      console.error(`🚨 Original amount: ${claimAmount}, User: FID=${effectiveFid}, Address=${address}, Source=${claim_source}`);
+      
+      await logFailedTransaction({
+        fid: effectiveFid,
+        eth_address: address,
+        auction_id,
+        username: effectiveUsername,
+        user_id: effectiveUserId,
+        winning_url: winningUrl,
+        error_message: `Excessive claim amount detected: ${parsedClaimAmount} QR (max: ${MAX_CLAIM_AMOUNT})`,
+        error_code: 'EXCESSIVE_CLAIM_AMOUNT',
+        request_data: { 
+          ...requestData, 
+          clientIP,
+          originalClaimAmount: claimAmount,
+          neynarScore,
+          spamLabel
+        } as Record<string, unknown>,
+        client_ip: clientIP,
+        claim_source
+      });
+      
+      // Cap the amount to maximum allowed
+      claimAmount = MAX_CLAIM_AMOUNT.toString();
+      console.log(`🛡️ SECURITY: Capping claim amount to ${MAX_CLAIM_AMOUNT} QR`);
+    }
+    
     const airdropAmount = ethers.parseUnits(claimAmount, 18);
     console.log(`Preparing airdrop of ${claimAmount} QR tokens to ${address}`);
     
