@@ -387,15 +387,6 @@ async function executeWithRetry<T>(
 }
 
 export async function POST(request: NextRequest) {
-  // Feature flag to disable link visit claims
-  const CLAIMS_DISABLED = false;
-  if (CLAIMS_DISABLED) {
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Link visit claims are temporarily disabled' 
-    }, { status: 503 });
-  }
-  
   let requestData: Partial<LinkVisitRequestData> = {};
   let lockKey: string | undefined;
   let fidLockKey: string | undefined;
@@ -581,7 +572,7 @@ export async function POST(request: NextRequest) {
       // Check for ANY existing record, not just completed ones
       const { data: existingClaimByAddress, error: addressCheckError } = await supabase
         .from('link_visit_claims')
-        .select('tx_hash, claimed_at, claim_source, created_at')
+        .select('tx_hash, claimed_at, claim_source')
         .eq('eth_address', address)
         .eq('auction_id', auction_id)
         .or('tx_hash.not.is.null,claimed_at.not.is.null');
@@ -608,7 +599,7 @@ export async function POST(request: NextRequest) {
       if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
         const { data: existingClaimByFid, error: fidCheckError } = await supabase
           .from('link_visit_claims')
-          .select('tx_hash, claimed_at, claim_source, created_at')
+          .select('tx_hash, claimed_at, claim_source')
           .eq('fid', fid)
           .eq('auction_id', auction_id)
           .or('tx_hash.not.is.null,claimed_at.not.is.null');
@@ -1062,109 +1053,10 @@ export async function POST(request: NextRequest) {
       console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
-    // Smart cleanup: Only remove truly abandoned claims (failed or very old)
-    console.log(`🧹 SMART CLEANUP: Removing only abandoned/failed claims for auction ${auction_id}`);
-    
-    // Get the cutoff time for abandoned claims (1 hour ago)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    
-    // Clean up abandoned claims by address
-    // Only delete if: no tx_hash AND (created more than 1 hour ago OR has failure record)
-    const { data: addressClaimsToCheck, error: addressCleanupCheckError } = await supabase
-      .from('link_visit_claims')
-      .select('id, created_at')
-      .eq('eth_address', address)
-      .eq('auction_id', auction_id)
-      .is('tx_hash', null);
-    
-    if (addressCleanupCheckError) {
-      console.warn('Error checking address claims for cleanup:', addressCleanupCheckError);
-    } else if (addressClaimsToCheck && addressClaimsToCheck.length > 0) {
-      // Only delete claims that are old enough to be abandoned
-      const abandonedIds = addressClaimsToCheck
-        .filter(claim => claim.created_at < oneHourAgo)
-        .map(claim => claim.id);
-      
-      if (abandonedIds.length > 0) {
-        const { error: cleanupAddressError } = await supabase
-          .from('link_visit_claims')
-          .delete()
-          .in('id', abandonedIds);
-        
-        if (cleanupAddressError) {
-          console.warn('Error cleaning up abandoned address claims:', cleanupAddressError);
-        } else {
-          console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for address ${address}`);
-        }
-      }
-    }
-    
-    // Clean up abandoned claims by FID (mini-app only)
-    if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
-      const { data: fidClaimsToCheck, error: fidCheckError } = await supabase
-        .from('link_visit_claims')
-        .select('id, created_at')
-        .eq('fid', fid)
-        .eq('auction_id', auction_id)
-        .is('tx_hash', null);
-      
-      if (fidCheckError) {
-        console.warn('Error checking FID claims for cleanup:', fidCheckError);
-      } else if (fidClaimsToCheck && fidClaimsToCheck.length > 0) {
-        const abandonedIds = fidClaimsToCheck
-          .filter(claim => claim.created_at < oneHourAgo)
-          .map(claim => claim.id);
-        
-        if (abandonedIds.length > 0) {
-          const { error: cleanupFidError } = await supabase
-            .from('link_visit_claims')
-            .delete()
-            .in('id', abandonedIds);
-          
-          if (cleanupFidError) {
-            console.warn('Error cleaning up abandoned FID claims:', cleanupFidError);
-          } else {
-            console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for FID ${fid}`);
-          }
-        }
-      }
-    }
-    
-    // Clean up abandoned claims by user (if applicable)
-    if (effectiveUserId || effectiveUsername) {
-      const checkField = effectiveUserId ? 'user_id' : 'username';
-      const checkValue = effectiveUserId || effectiveUsername;
-      
-      const { data: userClaimsToCheck, error: userCheckError } = await supabase
-        .from('link_visit_claims')
-        .select('id, created_at')
-        .eq(checkField, checkValue)
-        .eq('auction_id', auction_id)
-        .is('tx_hash', null);
-      
-      if (userCheckError) {
-        console.warn(`Error checking ${checkField} claims for cleanup:`, userCheckError);
-      } else if (userClaimsToCheck && userClaimsToCheck.length > 0) {
-        const abandonedIds = userClaimsToCheck
-          .filter(claim => claim.created_at < oneHourAgo)
-          .map(claim => claim.id);
-        
-        if (abandonedIds.length > 0) {
-          const { error: cleanupUserError } = await supabase
-            .from('link_visit_claims')
-            .delete()
-            .in('id', abandonedIds);
-          
-          if (cleanupUserError) {
-            console.warn(`Error cleaning up abandoned ${checkField} claims:`, cleanupUserError);
-          } else {
-            console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for ${checkField} ${checkValue}`);
-          }
-        }
-      }
-    }
-    
-    console.log(`✅ SMART CLEANUP COMPLETE: Valid link-click records preserved`);
+    // NO CLEANUP - The vulnerability was in deleting records without tx_hash
+    // which included valid link-click records. Since we can't determine record age
+    // without a created_at column, we'll skip cleanup entirely to prevent the vulnerability
+    console.log(`🛡️ CLEANUP SKIPPED: Preserving all records to prevent race condition vulnerability`);
     
     // For web users, acquire username lock to prevent race condition with same username
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
