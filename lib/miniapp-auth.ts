@@ -7,7 +7,12 @@ const redis = new Redis({
 });
 
 // Server secret for HMAC
-const MINIAPP_SECRET = process.env.MINIAPP_AUTH_SECRET || 'development-secret-change-in-production';
+const MINIAPP_SECRET = process.env.MINIAPP_AUTH_SECRET;
+
+// Ensure secret is set
+if (!MINIAPP_SECRET) {
+  throw new Error('MINIAPP_AUTH_SECRET environment variable is required');
+}
 
 interface MiniAppAuthToken {
   fid: number;
@@ -38,7 +43,7 @@ export async function generateMiniAppToken(
   };
   
   // Create HMAC signature
-  const hmac = crypto.createHmac('sha256', MINIAPP_SECRET);
+  const hmac = crypto.createHmac('sha256', MINIAPP_SECRET as string);
   hmac.update(JSON.stringify(token));
   const signature = hmac.digest('hex');
   
@@ -99,7 +104,7 @@ export async function verifyMiniAppToken(authToken: string): Promise<{
     
     // Verify signature
     const token: MiniAppAuthToken = { fid, address, username, timestamp, nonce, clientFid };
-    const hmac = crypto.createHmac('sha256', MINIAPP_SECRET);
+    const hmac = crypto.createHmac('sha256', MINIAPP_SECRET as string);
     hmac.update(JSON.stringify(token));
     const expectedSignature = hmac.digest('hex');
     
