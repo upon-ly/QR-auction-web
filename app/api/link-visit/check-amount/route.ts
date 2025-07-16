@@ -35,9 +35,9 @@ async function getClaimAmountWithHistoricalCheck(
         claimResult = { ...claimResult, amount: 100 };
         console.log(`📉 Web user doesn't meet historical requirement - reducing to 100 QR`);
       } else {
-        // User meets requirement, ensure they get 500 QR
-        claimResult = { ...claimResult, amount: 500 };
-        console.log(`✅ Web user meets historical requirement - confirming 500 QR`);
+        // User meets requirement, keep the amount from getClaimAmountForAddress (which uses database value)
+        // claimResult already has the correct amount from the database
+        console.log(`✅ Web user meets historical requirement - confirming ${claimResult.amount} QR`);
       }
     } catch (error) {
       console.error('Error checking historical balance in check-amount:', error);
