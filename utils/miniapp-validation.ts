@@ -40,9 +40,12 @@ export async function validateMiniAppUser(fid: number, username?: string, addres
 
     const user = data.users[0];
     
-    // Log username mismatch but don't fail - only FID and address verification matters
+    // Optional: Verify username matches if provided
     if (username && user.username !== username) {
-      console.log(`⚠️ Username mismatch detected: provided="${username}", actual="${user.username}" for FID ${fid} - continuing anyway`);
+      return {
+        isValid: false,
+        error: 'Username mismatch'
+      };
     }
 
     // Optional: Verify wallet address is verified for this FID if provided
