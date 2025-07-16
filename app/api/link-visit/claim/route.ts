@@ -7,6 +7,7 @@ import { getClientIP } from '@/lib/ip-utils';
 import { isRateLimited } from '@/lib/simple-rate-limit';
 import { PrivyClient } from '@privy-io/server-auth';
 import { getWalletPool } from '@/lib/wallet-pool';
+import { verifyMiniAppToken } from '@/lib/miniapp-auth';
 // Initialize Privy client for server-side authentication
 const privyClient = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
@@ -98,6 +99,7 @@ interface LinkVisitRequestData {
   claim_source?: string;
   captcha_token?: string; // Add captcha token
   client_fid?: number | null; // Client FID for Coinbase Wallet detection
+  miniapp_token?: string; // Secure token for mini-app authentication
   [key: string]: unknown; // Allow other properties
 }
 
@@ -411,7 +413,7 @@ export async function POST(request: NextRequest) {
     
     // Parse request body to determine claim source for differentiated rate limiting
     requestData = await request.json() as LinkVisitRequestData;
-    const { fid, address, auction_id, username, winning_url, claim_source, client_fid } = requestData;
+    const { fid, address, auction_id, username, winning_url, claim_source, miniapp_token } = requestData;
     
     // SECURITY: Validate claim_source is provided
     if (!claim_source) {
@@ -1029,17 +1031,52 @@ export async function POST(request: NextRequest) {
     // Additional detailed logging
     console.log(`📋 DETAILED CLAIM: IP=${clientIP}, FID=${fid}, address=${address}, auction=${auction_id}, username=${username || 'unknown'}`);
     
-    // Validate Mini App user and verify wallet address in one call (skip for web users)
+    // Validate Mini App user - REQUIRE TOKEN FOR ALL MINI-APP CLAIMS
     if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '')) {
-      // COINBASE WALLET DETECTION: Use client_fid verification
-      let isCoinbaseWallet = false;
-      
-      // Check if this is a Coinbase Wallet client
-      if (client_fid === 309857) {
-        isCoinbaseWallet = true;
-        console.log(`🔍 Coinbase Wallet detected: clientFid=${client_fid}`);
+      // SECURITY: Require authentication token for all mini-app claims
+      if (!miniapp_token) {
+        console.log(`🚫 MISSING TOKEN: Mini-app claim without authentication token from FID ${fid}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Authentication token required for mini-app claims',
+          code: 'MISSING_AUTH_TOKEN'
+        }, { status: 401 });
       }
       
+      // Verify the mini-app token
+      console.log(`🔐 Verifying mini-app token...`);
+      const tokenVerification = await verifyMiniAppToken(miniapp_token);
+      
+      if (!tokenVerification.isValid) {
+        console.log(`❌ Invalid mini-app token: ${tokenVerification.error}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: tokenVerification.error || 'Invalid authentication token',
+          code: 'INVALID_AUTH_TOKEN'
+        }, { status: 401 });
+      }
+      
+      // Verify token matches claim parameters
+      if (tokenVerification.fid !== effectiveFid || 
+          tokenVerification.address?.toLowerCase() !== address.toLowerCase()) {
+        console.log(`❌ Token mismatch: token FID=${tokenVerification.fid} vs claim FID=${effectiveFid}`);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Token does not match claim parameters',
+          code: 'TOKEN_MISMATCH'
+        }, { status: 401 });
+      }
+      
+      // Detect Coinbase Wallet from token
+      let isCoinbaseWallet = false;
+      if (tokenVerification.clientFid === 309857) {
+        isCoinbaseWallet = true;
+        console.log(`🔍 Coinbase Wallet detected from secure token`);
+      }
+      
+      console.log(`✅ Mini-app token verified for FID ${effectiveFid}`);
+      
+      // Now validate with Neynar
       const userValidation = await validateMiniAppUser(effectiveFid, effectiveUsername || undefined, address, isCoinbaseWallet);
       if (!userValidation.isValid) {
         return NextResponse.json({ 
@@ -1048,7 +1085,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
       
-      console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
+      console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Fully authenticated`);
     }
     
     // TARGETED CLEANUP: Only delete records that have a corresponding failure entry

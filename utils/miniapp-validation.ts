@@ -50,10 +50,9 @@ export async function validateMiniAppUser(fid: number, username?: string, addres
 
     // Optional: Verify wallet address is verified for this FID if provided
     if (address) {
-      // BYPASS: Skip address verification for Coinbase Wallet clients
-      // Coinbase Wallet addresses are not automatically verified in Neynar
+      // Skip address verification for authenticated Coinbase Wallet users
       if (isCoinbaseWallet) {
-        // Bypass address verification for Coinbase Wallet (ephemeral addresses)
+        console.log(`🔐 Skipping address verification for authenticated CBW user FID ${fid}`);
       } else {
         const verifiedAddresses = user.verified_addresses?.eth_addresses || [];
         const normalizedAddress = address.toLowerCase();

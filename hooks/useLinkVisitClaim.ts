@@ -246,6 +246,41 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
     }
   };
 
+  // Get authentication token for mini-app claims
+  const getMiniAppToken = async (): Promise<string | null> => {
+    if (isWebContext) return null; // Web users don't need tokens
+    
+    try {
+      console.log('🔐 Requesting mini-app authentication token...');
+      
+      const response = await fetch('/api/miniapp-auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fid: frameContext?.user?.fid,
+          address: effectiveWalletAddress,
+          username: frameContext?.user?.username,
+          clientFid: frameContext?.client?.clientFid || undefined
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.token) {
+        console.error('Failed to get mini-app token:', data.error);
+        return null;
+      }
+      
+      console.log('✅ Mini-app token obtained');
+      return data.token;
+    } catch (error) {
+      console.error('Error getting mini-app token:', error);
+      return null;
+    }
+  };
+
   // Claim the tokens
   const claimTokens = async (captchaToken?: string): Promise<{ txHash?: string }> => {
     if (isWebContext) {
@@ -312,6 +347,16 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
         }
       }
       
+      // Get mini-app authentication token if needed
+      let miniappToken: string | null = null;
+      if (!isWebContext) {
+        miniappToken = await getMiniAppToken();
+        if (!miniappToken) {
+          console.error('Failed to get mini-app authentication token');
+          return {};
+        }
+      }
+      
       // Call backend API to execute the token transfer
       const response = await fetch('/api/link-visit/claim', {
         method: 'POST',
@@ -329,7 +374,8 @@ export function useLinkVisitClaim(auctionId: number, isWebContext: boolean = fal
           winning_url: lastVisitedUrl || `https://qrcoin.fun/auction/${auctionId}`,
           claim_source: isWebContext ? 'web' : 'mini_app',
           captcha_token: captchaToken, // Add captcha token
-          client_fid: clientFid // Add client FID for Coinbase Wallet detection
+          client_fid: clientFid, // Add client FID for Coinbase Wallet detection
+          miniapp_token: miniappToken // Add authentication token for mini-app
         }),
       });
 
