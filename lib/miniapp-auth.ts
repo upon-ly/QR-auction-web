@@ -7,7 +7,7 @@ const redis = new Redis({
 });
 
 // Server secret for HMAC
-const MINIAPP_SECRET = process.env.MINIAPP_AUTH_SECRET || '';
+const MINIAPP_SECRET = process.env.MINIAPP_AUTH_SECRET || 'development-secret-change-in-production';
 
 interface MiniAppAuthToken {
   fid: number;
@@ -73,7 +73,15 @@ export async function verifyMiniAppToken(authToken: string): Promise<{
 }> {
   try {
     // Decode token
-    const decoded = JSON.parse(Buffer.from(authToken, 'base64').toString());
+    let decoded;
+    try {
+      const decodedString = Buffer.from(authToken, 'base64').toString();
+      decoded = JSON.parse(decodedString);
+    } catch {
+      console.error('Failed to decode token:', authToken.substring(0, 20) + '...');
+      return { isValid: false, error: 'Invalid token format' };
+    }
+    
     const { fid, address, username, timestamp, nonce, signature, clientFid } = decoded;
     
     // Check timestamp (5 minute expiry)
@@ -101,7 +109,14 @@ export async function verifyMiniAppToken(authToken: string): Promise<{
     }
     
     // Verify stored data matches
-    const stored = JSON.parse(storedData as string);
+    // Handle case where Redis returns an object or string
+    let stored;
+    try {
+      stored = typeof storedData === 'string' ? JSON.parse(storedData) : storedData;
+    } catch {
+      console.error('Failed to parse stored token data:', storedData);
+      return { isValid: false, error: 'Invalid stored token data' };
+    }
     if (stored.fid !== fid || stored.address.toLowerCase() !== address.toLowerCase()) {
       console.log(`🚫 Token data mismatch for FID ${fid}`);
       return { isValid: false, error: 'Token data mismatch' };
