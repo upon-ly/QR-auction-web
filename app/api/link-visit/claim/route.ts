@@ -388,7 +388,7 @@ async function executeWithRetry<T>(
 
 export async function POST(request: NextRequest) {
   // Feature flag to disable link visit claims
-  const CLAIMS_DISABLED = true;
+  const CLAIMS_DISABLED = false;
   if (CLAIMS_DISABLED) {
     return NextResponse.json({ 
       success: false, 
