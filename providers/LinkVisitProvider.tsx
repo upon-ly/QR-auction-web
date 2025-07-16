@@ -21,6 +21,9 @@ const supabase = createClient(
 // This persists across component remounts but resets on page refresh
 let hasShownPopupThisPageSession = false;
 
+// Feature flag to disable popup functionality
+const POPUP_DISABLED = true;
+
 
 // Define context type
 interface LinkVisitContextType {
@@ -906,6 +909,7 @@ export function LinkVisitProvider({
       
       
       {/* Only render popup when we have the latest won auction ID and redirect data is loaded */}
+      {!POPUP_DISABLED && (
         <LinkVisitClaimPopup
           isOpen={showClaimPopup}
           onClose={handleClose}
@@ -919,7 +923,7 @@ export function LinkVisitProvider({
           expectedClaimAmount={expectedClaimAmount}
           isCheckingAmount={isCheckingAmount}
         />
-      )
+      )}
     </LinkVisitContext.Provider>
   );
 } 

@@ -387,6 +387,15 @@ async function executeWithRetry<T>(
 }
 
 export async function POST(request: NextRequest) {
+  // Feature flag to disable link visit claims
+  const CLAIMS_DISABLED = true;
+  if (CLAIMS_DISABLED) {
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Link visit claims are temporarily disabled' 
+    }, { status: 503 });
+  }
+  
   let requestData: Partial<LinkVisitRequestData> = {};
   let lockKey: string | undefined;
   let fidLockKey: string | undefined;
