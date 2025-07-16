@@ -22,7 +22,7 @@ const supabase = createClient(
 let hasShownPopupThisPageSession = false;
 
 // Feature flag to disable popup functionality
-const POPUP_DISABLED = true;
+const POPUP_DISABLED = false;
 
 
 // Define context type

@@ -422,6 +422,27 @@ export async function POST(request: NextRequest) {
     requestData = await request.json() as LinkVisitRequestData;
     const { fid, address, auction_id, username, winning_url, claim_source, client_fid } = requestData;
     
+    // SECURITY: Validate claim_source is provided
+    if (!claim_source) {
+      console.log(`🚫 INVALID REQUEST: Missing claim_source parameter from IP=${clientIP}`);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing required parameter: claim_source',
+        code: 'MISSING_CLAIM_SOURCE'
+      }, { status: 400 });
+    }
+    
+    // SECURITY: Validate claim_source is a valid value
+    const validClaimSources = ['web', 'mini_app', 'mobile'];
+    if (!validClaimSources.includes(claim_source)) {
+      console.log(`🚫 INVALID REQUEST: Invalid claim_source "${claim_source}" from IP=${clientIP}`);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid claim_source. Must be one of: web, mini_app, mobile',
+        code: 'INVALID_CLAIM_SOURCE'
+      }, { status: 400 });
+    }
+    
     // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
     const rateLimit = NON_FC_CLAIM_SOURCES.includes(claim_source || '') ? 2 : 3;
     const rateLimitWindow = 60000; // 1 minute
@@ -557,12 +578,13 @@ export async function POST(request: NextRequest) {
       console.log(`🔍 EARLY DUPLICATE CHECK: Checking claims for auction ${auction_id}`);
       
       // Quick duplicate check by address first (applies to both web and mini-app)
+      // Check for ANY existing record, not just completed ones
       const { data: existingClaimByAddress, error: addressCheckError } = await supabase
         .from('link_visit_claims')
-        .select('tx_hash, claimed_at, claim_source')
+        .select('tx_hash, claimed_at, claim_source, created_at')
         .eq('eth_address', address)
         .eq('auction_id', auction_id)
-        .not('claimed_at', 'is', null);
+        .or('tx_hash.not.is.null,claimed_at.not.is.null');
       
       if (addressCheckError) {
         console.error('Error in early address duplicate check:', addressCheckError);
@@ -586,10 +608,10 @@ export async function POST(request: NextRequest) {
       if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
         const { data: existingClaimByFid, error: fidCheckError } = await supabase
           .from('link_visit_claims')
-          .select('tx_hash, claimed_at, claim_source')
+          .select('tx_hash, claimed_at, claim_source, created_at')
           .eq('fid', fid)
           .eq('auction_id', auction_id)
-          .not('claimed_at', 'is', null);
+          .or('tx_hash.not.is.null,claimed_at.not.is.null');
         
         if (fidCheckError) {
           console.error('Error in early FID duplicate check:', fidCheckError);
@@ -1040,53 +1062,109 @@ export async function POST(request: NextRequest) {
       console.log(`✅ MINI-APP VALIDATION PASSED: IP=${clientIP}, FID=${effectiveFid}, username=${effectiveUsername}, address=${address} - Address verified for this Farcaster account`);
     }
     
-    // Clean up any incomplete claims (no tx_hash) for this FID/address/user to allow retry
-    console.log(`🧹 CLEANUP: Removing any incomplete claims for auction ${auction_id}`);
+    // Smart cleanup: Only remove truly abandoned claims (failed or very old)
+    console.log(`🧹 SMART CLEANUP: Removing only abandoned/failed claims for auction ${auction_id}`);
     
-    // Clean up incomplete claims by address
-    const { error: cleanupAddressError } = await supabase
+    // Get the cutoff time for abandoned claims (1 hour ago)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    
+    // Clean up abandoned claims by address
+    // Only delete if: no tx_hash AND (created more than 1 hour ago OR has failure record)
+    const { data: addressClaimsToCheck, error: addressCleanupCheckError } = await supabase
       .from('link_visit_claims')
-      .delete()
+      .select('id, created_at')
       .eq('eth_address', address)
       .eq('auction_id', auction_id)
       .is('tx_hash', null);
     
-    if (cleanupAddressError) {
-      console.warn('Error cleaning up incomplete address claims:', cleanupAddressError);
+    if (addressCleanupCheckError) {
+      console.warn('Error checking address claims for cleanup:', addressCleanupCheckError);
+    } else if (addressClaimsToCheck && addressClaimsToCheck.length > 0) {
+      // Only delete claims that are old enough to be abandoned
+      const abandonedIds = addressClaimsToCheck
+        .filter(claim => claim.created_at < oneHourAgo)
+        .map(claim => claim.id);
+      
+      if (abandonedIds.length > 0) {
+        const { error: cleanupAddressError } = await supabase
+          .from('link_visit_claims')
+          .delete()
+          .in('id', abandonedIds);
+        
+        if (cleanupAddressError) {
+          console.warn('Error cleaning up abandoned address claims:', cleanupAddressError);
+        } else {
+          console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for address ${address}`);
+        }
+      }
     }
     
-    // Clean up incomplete claims by FID (mini-app only)
+    // Clean up abandoned claims by FID (mini-app only)
     if (!NON_FC_CLAIM_SOURCES.includes(claim_source || '') && fid) {
-      const { error: cleanupFidError } = await supabase
+      const { data: fidClaimsToCheck, error: fidCheckError } = await supabase
         .from('link_visit_claims')
-        .delete()
+        .select('id, created_at')
         .eq('fid', fid)
         .eq('auction_id', auction_id)
         .is('tx_hash', null);
       
-      if (cleanupFidError) {
-        console.warn('Error cleaning up incomplete FID claims:', cleanupFidError);
+      if (fidCheckError) {
+        console.warn('Error checking FID claims for cleanup:', fidCheckError);
+      } else if (fidClaimsToCheck && fidClaimsToCheck.length > 0) {
+        const abandonedIds = fidClaimsToCheck
+          .filter(claim => claim.created_at < oneHourAgo)
+          .map(claim => claim.id);
+        
+        if (abandonedIds.length > 0) {
+          const { error: cleanupFidError } = await supabase
+            .from('link_visit_claims')
+            .delete()
+            .in('id', abandonedIds);
+          
+          if (cleanupFidError) {
+            console.warn('Error cleaning up abandoned FID claims:', cleanupFidError);
+          } else {
+            console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for FID ${fid}`);
+          }
+        }
       }
     }
     
-    // Clean up incomplete claims by user (if applicable)
+    // Clean up abandoned claims by user (if applicable)
     if (effectiveUserId || effectiveUsername) {
       const checkField = effectiveUserId ? 'user_id' : 'username';
       const checkValue = effectiveUserId || effectiveUsername;
       
-      const { error: cleanupUserError } = await supabase
+      const { data: userClaimsToCheck, error: userCheckError } = await supabase
         .from('link_visit_claims')
-        .delete()
+        .select('id, created_at')
         .eq(checkField, checkValue)
         .eq('auction_id', auction_id)
         .is('tx_hash', null);
       
-      if (cleanupUserError) {
-        console.warn(`Error cleaning up incomplete ${checkField} claims:`, cleanupUserError);
+      if (userCheckError) {
+        console.warn(`Error checking ${checkField} claims for cleanup:`, userCheckError);
+      } else if (userClaimsToCheck && userClaimsToCheck.length > 0) {
+        const abandonedIds = userClaimsToCheck
+          .filter(claim => claim.created_at < oneHourAgo)
+          .map(claim => claim.id);
+        
+        if (abandonedIds.length > 0) {
+          const { error: cleanupUserError } = await supabase
+            .from('link_visit_claims')
+            .delete()
+            .in('id', abandonedIds);
+          
+          if (cleanupUserError) {
+            console.warn(`Error cleaning up abandoned ${checkField} claims:`, cleanupUserError);
+          } else {
+            console.log(`🗑️ Cleaned up ${abandonedIds.length} abandoned claims for ${checkField} ${checkValue}`);
+          }
+        }
       }
     }
     
-    console.log(`✅ CLEANUP COMPLETE: Ready to proceed with new claim`);
+    console.log(`✅ SMART CLEANUP COMPLETE: Valid link-click records preserved`);
     
     // For web users, acquire username lock to prevent race condition with same username
     if (NON_FC_CLAIM_SOURCES.includes(claim_source || '') && effectiveUsername) {
