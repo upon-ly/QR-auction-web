@@ -17,6 +17,7 @@ const TOKEN_COLORS = {
   // Base tokens
   CLANKER: '#8a63d0', // Clanker
   BNKR: '#ff623d', // BANKR orange
+  ZORA: '#3C61CA', // Zora blue
   DEGEN: '#8b5cf6', // Degen
   HIGHER: '#018a08', // Higher
   QR: '#ffffff', // QR
@@ -35,6 +36,7 @@ const COINGECKO_IDS = {
 const BASE_TOKEN_ADDRESSES = {
   CLANKER: '0x1bc0c42215582d5A085795f4baDbaC3ff36d1Bcb',
   BNKR: '0x22aF33FE49fD1Fa80c7149773dDe5890D3c76F3b',
+  ZORA: '0x1111111111166b7FE7bd91427724B487980aFc69',
   HIGHER: '0x0578d8A44db98B23BF096A382e016e29a5Ce0ffe',
   DEGEN: '0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed',
   QR: '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF'
@@ -43,7 +45,7 @@ const BASE_TOKEN_ADDRESSES = {
 // Tokens to display, in order
 const TOKENS_TO_DISPLAY = [
   'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',  // Major tokens
-  'HIGHER', 'QR', 'CLANKER', 'BNKR', 'DEGEN',  // Base tokens
+  'HIGHER', 'QR', 'CLANKER', 'BNKR', 'ZORA', 'DEGEN',  // Base tokens
 ];
 
 // --- Debug Mode ---
