@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface TokenPrice {
   symbol: string;
@@ -16,6 +16,7 @@ const TOKEN_COLORS = {
   DOGE: '#face00', // Dogecoin yellow
   // Base tokens
   CLANKER: '#8a63d0', // Clanker
+  BANKR: '#ff623d', // BANKR orange
   DEGEN: '#8b5cf6', // Degen
   HIGHER: '#018a08', // Higher
   QR: '#ffffff', // QR
@@ -33,6 +34,7 @@ const COINGECKO_IDS = {
 // Base token addresses for DexScreener API
 const BASE_TOKEN_ADDRESSES = {
   CLANKER: '0x1bc0c42215582d5A085795f4baDbaC3ff36d1Bcb',
+  BANKR: '0x22aF33FE49fD1Fa80c7149773dDe5890D3c76F3b',
   HIGHER: '0x0578d8A44db98B23BF096A382e016e29a5Ce0ffe',
   DEGEN: '0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed',
   QR: '0x2b5050F01d64FBb3e4Ac44dc07f0732BFb5ecadF'
@@ -41,7 +43,7 @@ const BASE_TOKEN_ADDRESSES = {
 // Tokens to display, in order
 const TOKENS_TO_DISPLAY = [
   'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',  // Major tokens
-  'HIGHER', 'QR', 'CLANKER',  'DEGEN',  // Base tokens
+  'HIGHER', 'QR', 'CLANKER', 'BANKR', 'DEGEN',  // Base tokens
 ];
 
 // --- Debug Mode ---
@@ -192,7 +194,7 @@ export const useCryptoTicker = () => {
     }
   };
   
-  const fetchPrices = async () => {
+  const fetchPrices = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -221,7 +223,7 @@ export const useCryptoTicker = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch prices on component mount and every 30 seconds
   useEffect(() => {
@@ -232,7 +234,7 @@ export const useCryptoTicker = () => {
     }, 30000); // 30 seconds
     
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchPrices]);
 
   return { tokens, loading, error };
 }; 

@@ -73,11 +73,37 @@ const PriceTicker = memo(() => {
         currency: 'USD',
         maximumFractionDigits: 2
       }).format(price);
+    } else if (price < 0.0001) {
+      // For very small prices, use subscript notation like $0.0₆6777
+      const priceStr = price.toFixed(12);
+      const match = priceStr.match(/0\.0*(\d+)/);
+      
+      if (match) {
+        const leadingZeros = priceStr.match(/0\.(0*)/)?.[1] || '';
+        const zeroCount = leadingZeros.length;
+        const significantDigits = match[1].substring(0, 4); // Show first 4 significant digits
+        
+        // Convert number to subscript using Unicode subscript characters
+        const subscriptMap: Record<string, string> = {
+          '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+          '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+        };
+        const subscriptCount = zeroCount.toString().split('').map(d => subscriptMap[d]).join('');
+        
+        return `$0.0${subscriptCount}${significantDigits}`;
+      }
+      
+      // Fallback to standard formatting
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 8
+      }).format(price);
     } else {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
-        maximumFractionDigits: price < 0.0001 ? 6 : 4
+        maximumFractionDigits: 4
       }).format(price);
     }
   };
