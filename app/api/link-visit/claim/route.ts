@@ -436,6 +436,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
+    // WEB CLAIMS DISABLED
+    if (claim_source === 'web') {
+      console.log(`🚫 WEB CLAIM DISABLED: IP=${clientIP}, claim_source=${claim_source}`);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Web claims are temporarily disabled',
+        code: 'WEB_CLAIMS_DISABLED'
+      }, { status: 403 });
+    }
+    
     // Differentiated rate limiting: Web (2/min) vs Mini-app (3/min)
     const rateLimit = NON_FC_CLAIM_SOURCES.includes(claim_source || '') ? 2 : 3;
     const rateLimitWindow = 60000; // 1 minute

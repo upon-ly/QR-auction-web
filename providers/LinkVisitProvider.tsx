@@ -909,7 +909,7 @@ export function LinkVisitProvider({
       
       
       {/* Only render popup when we have the latest won auction ID and redirect data is loaded */}
-      {!POPUP_DISABLED && (
+      {!POPUP_DISABLED && !isWebContext && (
         <LinkVisitClaimPopup
           isOpen={showClaimPopup}
           onClose={handleClose}
