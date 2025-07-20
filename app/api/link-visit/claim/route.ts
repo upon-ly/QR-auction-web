@@ -805,6 +805,41 @@ export async function POST(request: NextRequest) {
       effectiveUserId = privyUserId; // 🔒 SECURITY: Use verified Privy userId for validation
       
       console.log(`🔐 SECURE WEB CLAIM: IP=${clientIP}, Verified userId=${privyUserId}, Username=@${verifiedTwitterUsername}`);
+      
+      // EARLY HISTORICAL BALANCE CHECK FOR WEB USERS
+      if (claim_source === 'web') {
+        console.log(`🕐 Early historical balance check for web user...`);
+        try {
+          const historicalResult = await checkHistoricalEthBalance(
+            address,
+            5, // $5 minimum
+            90, // 90 days (3 months)
+            ALCHEMY_API_KEY
+          );
+          
+          if (!historicalResult.meetsRequirement) {
+            console.log(`🚫 WEB USER BLOCKED: Does not meet historical balance requirement (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
+            
+            // Don't log to database - this is an expected rejection, not a failure
+            
+            return NextResponse.json({ 
+              success: false, 
+              error: 'Your wallet does not meet the historical balance requirement to claim rewards.',
+              code: 'HISTORICAL_BALANCE_REQUIREMENT_NOT_MET'
+            }, { status: 403 });
+          }
+          
+          console.log(`✅ Historical balance requirement met (lowest: $${historicalResult.lowestBalanceUsd.toFixed(2)})`);
+        } catch (error) {
+          console.error('Error checking historical balance:', error);
+          // On error, block the claim for safety
+          return NextResponse.json({ 
+            success: false, 
+            error: 'Unable to verify historical balance. Please try again later.',
+            code: 'HISTORICAL_BALANCE_CHECK_ERROR'
+          }, { status: 500 });
+        }
+      }
     } else {
       // Mini-app users need fid, address, auction_id, and username
       if (!fid || !address || !auction_id || !username) {
