@@ -693,7 +693,10 @@ export function LinkVisitProvider({
           const combinedHasClaimed = authenticated ? (manualHasClaimedLatest === true || hasClaimed) : false;
           
           // Check if user is eligible (disconnected or hasn't claimed for latest won auction)
-          if ((!authenticated || !combinedHasClaimed) && latestWonAuctionId && !isLoading) {
+          // For web users, also check if they meet the balance requirement (expectedClaimAmount > 100)
+          const meetsBalanceRequirement = !authenticated || expectedClaimAmount > 100;
+          
+          if ((!authenticated || !combinedHasClaimed) && latestWonAuctionId && !isLoading && meetsBalanceRequirement) {
             const granted = requestPopup('linkVisit');
             if (granted) {
               setShowClaimPopup(true);
@@ -721,7 +724,7 @@ export function LinkVisitProvider({
     
     window.addEventListener('triggerLinkVisitPopup', handleTrigger);
     return () => window.removeEventListener('triggerLinkVisitPopup', handleTrigger);
-  }, [manualHasClaimedLatest, latestWonAuctionId, effectiveWalletAddress, isLoading, explicitlyCheckedClaim, requestPopup, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasClaimed, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, hasUserDismissedPopup]);
+  }, [manualHasClaimedLatest, latestWonAuctionId, effectiveWalletAddress, isLoading, explicitlyCheckedClaim, requestPopup, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasClaimed, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, hasUserDismissedPopup, expectedClaimAmount, isCheckingAmount]);
   
   // Show popup when user can interact with it (auto-show if eligible)
   useEffect(() => {
@@ -768,6 +771,11 @@ export function LinkVisitProvider({
       return;
     }
     
+    // Wait for amount check to complete for authenticated users
+    if (isWebContext && authenticated && isCheckingAmount) {
+      return;
+    }
+    
     // For web context, check eligibility based on authentication and wallet type
     if (isWebContext) {
       
@@ -785,7 +793,10 @@ export function LinkVisitProvider({
         const combinedHasClaimed = authenticated ? (manualHasClaimedLatest === true || hasClaimed) : false;
         
         // Show popup if they haven't claimed for the latest won auction or are disconnected
-        if ((!authenticated || !combinedHasClaimed) && latestWonAuctionId) {
+        // For web users, also check if they meet the balance requirement (expectedClaimAmount > 100)
+        const meetsBalanceRequirement = !authenticated || expectedClaimAmount > 100;
+        
+        if ((!authenticated || !combinedHasClaimed) && latestWonAuctionId && meetsBalanceRequirement) {
           
           const timer = setTimeout(() => {
             const granted = requestPopup('linkVisit');
@@ -832,7 +843,7 @@ export function LinkVisitProvider({
         setHasCheckedEligibility(true);
       }
     }
-  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup, redirectClickData?.hasVisited, isRedirectClickLoading, hasUserDismissedPopup]);
+  }, [hasClicked, hasClaimed, manualHasClaimedLatest, explicitlyCheckedClaim, isLoading, hasCheckedEligibility, effectiveWalletAddress, auctionId, latestWonAuctionId, isCheckingLatestAuction, isWebContext, authenticated, walletStatusDetermined, isCheckingDatabase, hasTraditionalWalletOnly, isTwitterOrFarcasterUser, getFlowState, requestPopup, redirectClickData?.hasVisited, isRedirectClickLoading, hasUserDismissedPopup, expectedClaimAmount, isCheckingAmount]);
   
   // NEW: Track when Privy modal is active to prevent popup interference
   const [isPrivyModalActive, setIsPrivyModalActive] = useState(false);
@@ -909,7 +920,7 @@ export function LinkVisitProvider({
       
       
       {/* Only render popup when we have the latest won auction ID and redirect data is loaded */}
-      {!POPUP_DISABLED && !isWebContext && (
+      {!POPUP_DISABLED && (
         <LinkVisitClaimPopup
           isOpen={showClaimPopup}
           onClose={handleClose}
