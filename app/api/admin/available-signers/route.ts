@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         cronKeys.push({
           key: key,
           total: batchData.signers.length,
-          completed: batchData.currentIndex,
+          completed: batchData.results.details.length/2,
           successful: batchData.results.successful,
           failed: batchData.results.failed,
         });

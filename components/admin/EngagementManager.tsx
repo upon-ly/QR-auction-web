@@ -1298,7 +1298,7 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                       {cronKeys.map((batch, index) => {
                         const progress = batch.total > 0 ? (batch.completed / batch.total) * 100 : 0;
                         const isCompleted = batch.completed >= batch.total;
-                        const successRate = batch.completed > 0 ? (batch.successful / batch.completed) * 100 : 0;
+                        const successRate = batch.completed > 0 ? (batch.successful / batch.completed) * 50 : 0;
                         
                         return (
                           <div
