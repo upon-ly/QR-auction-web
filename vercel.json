@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/admin/likes-recasts-cron",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
