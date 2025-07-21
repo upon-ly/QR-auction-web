@@ -170,7 +170,7 @@ export interface Database {
           updated_at?: string
         }
       }
-      neynar_signers: {
+      neynar_signers_updated: {
         Row: {
           id: number
           fid: number

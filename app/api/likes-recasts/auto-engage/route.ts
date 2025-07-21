@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     
     // Get all approved signers
     const { data: approvedSigners, error: fetchError } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select('*')
       .eq('status', 'approved');
       

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // First check our local database for the signer status
     const { data: localSigner, error: dbError } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select('*')
       .eq('signer_uuid', signer_uuid)
       .single();
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         // If the signer is now approved, update our database
         if (signerStatus.status === 'approved') {
           await supabase
-            .from('neynar_signers')
+            .from('neynar_signers_updated')
             .update({
               status: 'approved',
               approved_at: new Date().toISOString(),

@@ -142,7 +142,7 @@ export function useLikesRecastsEligibility() {
       // Check for existing signer approval
       let hasSignerApproval = false;
       const { data: signerData, error: signerError } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .select('*')
         .eq('fid', fid)
         .eq('status', 'approved');

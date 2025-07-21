@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     
     // Verify the signer exists in our database
     const { data: signerData, error: fetchError } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select('*')
       .eq('fid', fid)
       .eq('signer_uuid', signerUuid)
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       
       // Update our database
       const { error: updateError } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .update({
           status: 'approved',
           approved_at: new Date().toISOString(),

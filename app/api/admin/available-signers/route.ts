@@ -1,5 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
+interface Signer {
+  fid: number;
+  signer_uuid: string;
+  permissions: string[];
+  status: string;
+  follower_count?: number;
+}
+
+interface BatchState {
+  castHash: string;
+  actionType: string;
+  targetFid?: number;
+  signers: Signer[];
+  currentIndex: number;
+  results: {
+    successful: number;
+    failed: number;
+    errors: string[];
+    details: Array<{
+      fid: number;
+      action: string;
+      success: boolean;
+      error?: string;
+    }>;
+  };
+}
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -31,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch all approved signers with updated metrics
     const { data: signers, error } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select(`
         fid, 
         permissions, 
@@ -50,7 +83,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('status', 'approved')
       .limit(10000)
-      .order('approved_at', { ascending: false });
+      .order('follower_count', { ascending: false, nullsFirst: false });
 
     if (error) {
       console.error('Error fetching signers:', error);
@@ -60,10 +93,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check for any active batch operations
+    const batchKeys = await redis.keys('likes-recasts-batch:*');
+    const activeBatches: BatchState[] = [];
+    const cronKeys: {
+      key: string;
+      total: number;
+      completed: number;
+      successful: number;
+      failed: number;
+    }[] = [];
+    
+    for (const key of batchKeys) {
+      const batchData = await redis.get<BatchState>(key);
+      if (batchData) {
+        activeBatches.push(batchData);
+        cronKeys.push({
+          key: key,
+          total: batchData.signers.length,
+          completed: batchData.currentIndex,
+          successful: batchData.results.successful,
+          failed: batchData.results.failed,
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       signers: signers || [],
-      count: signers?.length || 0
+      count: signers?.length || 0,
+      activeBatches: activeBatches.length > 0 ? activeBatches : undefined,
+      cronKeys
     });
 
   } catch (error) {

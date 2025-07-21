@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Redis } from '@upstash/redis';
 
 // Setup Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -8,6 +9,11 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // Use service role key for database operations in API routes (bypasses RLS)
 const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 // If we don't have service key, log a warning
 if (!supabaseServiceKey) {
@@ -299,7 +305,7 @@ export async function POST(request: NextRequest) {
       
       // Get all approved signers for selective mode
       const { data: signers, error } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .select('fid, signer_uuid, permissions, status')
         .eq('status', 'approved')
         .limit(10000);
@@ -324,7 +330,7 @@ export async function POST(request: NextRequest) {
         console.log(`Fetching signers batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(fids.length / BATCH_SIZE)} (${fidBatch.length} FIDs)`);
         
         const { data: batchSigners, error: batchError } = await supabase
-          .from('neynar_signers')
+          .from('neynar_signers_updated')
           .select('fid, signer_uuid, permissions, status')
           .eq('status', 'approved')
           .in('fid', fidBatch);
@@ -678,6 +684,32 @@ export async function POST(request: NextRequest) {
     }
     }
 
+    // Check if we should use batch mode (when we have FIDs and want async processing)
+    if (fids && fids.length > 0 && process.env.USE_BATCH_MODE !== 'false') {
+      // Batch initiation logic
+      console.log(`Initiating batch mode for ${allSigners.length} signers`);
+      
+      const batchKey = `likes-recasts-batch:${castHash}`;
+      const batchState = {
+        castHash,
+        actionType,
+        targetFid,
+        signers: allSigners,
+        currentIndex: 0,
+        results: { successful: 0, failed: 0, errors: [], details: [] },
+      };
+      await redis.set(batchKey, JSON.stringify(batchState));
+      
+      return NextResponse.json({
+        success: true,
+        message: `Batch initiated for cast ${castHash} with ${allSigners.length} signers. Cron will process 5 per minute.`,
+        batchKey,
+        totalSigners: allSigners.length,
+        estimatedMinutes: Math.ceil(allSigners.length / 5)
+      });
+    }
+
+    // Legacy mode - process synchronously
     // Log the test activity
     const { error: logError } = await supabase
       .from('auto_engagement_logs')

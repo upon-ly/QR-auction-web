@@ -3,6 +3,10 @@
     {
       "path": "/api/auto-settle-test",
       "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/admin/likes-recasts-cron",
+      "schedule": "*/1 * * * *"
     }
   ]
 }

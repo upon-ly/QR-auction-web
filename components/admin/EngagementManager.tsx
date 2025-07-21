@@ -89,6 +89,13 @@ interface RecentExecution {
 export function EngagementManager() {
   const { address } = useAccount();
   const [signers, setSigners] = useState<Signer[]>([]);
+  const [cronKeys, setCronKeys] = useState<{
+    key: string;
+    total: number;
+    completed: number;
+    successful: number;
+    failed: number;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Signer[]>([]);
@@ -157,6 +164,7 @@ export function EngagementManager() {
       const data = await response.json();
       console.log('Fetched signers data:', data);
       setSigners(data.signers || []);
+      setCronKeys(data.cronKeys || []);
       toast.success(`Loaded ${data.signers?.length || 0} signers`);
     } catch (error) {
       console.error('Error fetching signers:', error);
@@ -1268,6 +1276,82 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                     onCheckedChange={setPreviewMode}
                   />
                 </div>
+
+                {/* Current Batch */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Loader2 className="h-4 w-4 text-blue-500" />
+                    Current Batch
+                  </div>
+                  {cronKeys.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-xs">No active batch jobs</p>
+                      <p className="text-xs text-gray-400">
+                        Cron jobs will appear here when active
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {cronKeys.map((batch, index) => {
+                        const progress = batch.total > 0 ? (batch.completed / batch.total) * 100 : 0;
+                        const isCompleted = batch.completed >= batch.total;
+                        const successRate = batch.completed > 0 ? (batch.successful / batch.completed) * 100 : 0;
+                        
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge
+                                  variant="default"
+                                  className={`text-xs ${
+                                    isCompleted 
+                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                      : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                  }`}
+                                >
+                                  {isCompleted ? "Completed" : "Active"}
+                                </Badge>
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  {batch.completed}/{batch.total} signers
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-300 ${
+                                    isCompleted
+                                      ? "bg-green-600"
+                                      : "bg-blue-600"
+                                  }`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <div className="flex items-center gap-4 mt-1">
+                                <span className="text-xs text-green-600 dark:text-green-400">
+                                  ✓ {batch.successful} successful
+                                </span>
+                                {batch.failed > 0 && (
+                                  <span className="text-xs text-red-600 dark:text-red-400">
+                                    ✗ {batch.failed} failed
+                                  </span>
+                                )}
+                                {successRate > 0 && (
+                                  <span className="text-xs text-gray-500">
+                                    ({successRate.toFixed(0)}% success)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
 
                 {/* Recent Executions */}
                 <div className="space-y-3">

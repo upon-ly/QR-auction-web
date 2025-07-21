@@ -48,7 +48,7 @@ export async function GET() {
     const dbStart = Date.now();
     try {
       const { data, error } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .select('count(*)', { count: 'exact' })
         .limit(1);
       
@@ -61,7 +61,7 @@ export async function GET() {
       
       // Get metrics
       const { count: approvedCount } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'approved');
       

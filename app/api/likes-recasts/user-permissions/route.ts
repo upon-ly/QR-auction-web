@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Get user's signer permissions
     const { data: signerData, error } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select('permissions, username, status')
       .eq('fid', parseInt(fid))
       .eq('status', 'approved')

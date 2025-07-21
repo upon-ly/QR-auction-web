@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
       
       // Check if signer is still approved
       const { data: signerData } = await supabase
-        .from('neynar_signers')
+        .from('neynar_signers_updated')
         .select('*')
         .eq('signer_uuid', failure.signer_uuid)
         .eq('status', 'approved')

@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
     
     // Check if user already has a signer
     const { data: existingSigner } = await supabase
-      .from('neynar_signers')
+      .from('neynar_signers_updated')
       .select('*')
       .eq('fid', fid)
       .single();
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest) {
         
         if (needsUpdate) {
           await supabase
-            .from('neynar_signers')
+            .from('neynar_signers_updated')
             .update({
               permissions: newPermissions,
               updated_at: new Date().toISOString(),
@@ -391,7 +391,7 @@ export async function POST(request: NextRequest) {
           // Update the database with the approval URL
           if (approvalUrl) {
             await supabase
-              .from('neynar_signers')
+              .from('neynar_signers_updated')
               .update({ signer_approval_url: approvalUrl })
               .eq('signer_uuid', existingSigner.signer_uuid);
           }
@@ -424,7 +424,7 @@ export async function POST(request: NextRequest) {
         
         // Store signer data
         const { error: insertError } = await supabase
-          .from('neynar_signers')
+          .from('neynar_signers_updated')
           .insert({
             fid: fid,
             signer_uuid: signedKey.signer_uuid,
