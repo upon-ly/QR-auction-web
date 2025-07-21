@@ -201,7 +201,7 @@ export async function GET() {
     }
 
     const { signers, currentIndex } = state;
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 3;
     const toProcess = signers.slice(currentIndex, currentIndex + BATCH_SIZE);
     for (let i = 0; i < toProcess.length; i++) {
       await processSigner(toProcess[i], state);
