@@ -311,6 +311,9 @@ export function EngagementManager() {
       if (target.selectedUsers.length > 0) {
         payload.fids = target.selectedUsers;
         payload.actionType = 'both'; // Both likes and recasts for selected users
+      } else if (filteredSigners.length < signers.length) {
+        payload.fids = filteredSigners.map((signer) => signer.fid);
+        payload.actionType = "both" // Both likes and recasts for selected users
       } else {
         // Use smart targeting mode
         payload.numLikes = target.numLikes;
