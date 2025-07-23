@@ -1,23 +1,37 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, CheckCircle2, Trash2, ExternalLink, Users, Image, MessageSquare, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAccount } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
-import { UploadButton } from '@/utils/uploadthing';
-import { addAuctionImageOverride, removeAuctionImageOverride, getAuctionImage, isAuctionImageVideo } from '@/utils/auctionImageOverrides';
-import { WarpcastLogo } from '@/components/WarpcastLogo';
-import { XLogo } from '@/components/XLogo';
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Trash2,
+  ExternalLink,
+  Users,
+  Image,
+  MessageSquare,
+  RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAccount } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
+import { UploadButton } from "@/utils/uploadthing";
+import {
+  addAuctionImageOverride,
+  removeAuctionImageOverride,
+  getAuctionImage,
+  isAuctionImageVideo,
+} from "@/utils/auctionImageOverrides";
+import { WarpcastLogo } from "@/components/WarpcastLogo";
+import { XLogo } from "@/components/XLogo";
 
-import { ADMIN_ADDRESSES } from '@/lib/constants';
+import { ADMIN_ADDRESSES } from "@/lib/constants";
 
 interface ChecklistItem {
   id: string;
@@ -60,74 +74,77 @@ export function PostAuctionChecklist() {
   const [auctionData, setAuctionData] = useState<PostAuctionData | null>(null);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([
     {
-      id: 'winner-insertion',
-      title: 'Winner Database Entry',
-      description: 'Automatically insert winner data into winners table',
+      id: "winner-insertion",
+      title: "Winner Database Entry",
+      description: "Automatically insert winner data into winners table",
       completed: false,
-      automated: true
+      automated: true,
     },
     {
-      id: 'quote-cast-management',
-      title: 'Quote Cast Management',
-      description: 'Replace or remove quote cast references',
+      id: "quote-cast-management",
+      title: "Quote Cast Management",
+      description: "Replace or remove quote cast references",
       completed: false,
-      automated: false
+      automated: false,
     },
     {
-      id: 'quote-tweet-management', 
-      title: 'Quote Tweet Management',
-      description: 'Replace or remove quote tweet references',
+      id: "quote-tweet-management",
+      title: "Quote Tweet Management",
+      description: "Replace or remove quote tweet references",
       completed: false,
-      automated: false
+      automated: false,
     },
     {
-      id: 'image-override',
-      title: 'Auction Image Override',
-      description: 'Upload and set custom image/video for auction',
+      id: "image-override",
+      title: "Auction Image Override",
+      description: "Upload and set custom image/video for auction",
       completed: false,
-      automated: false
-    }
+      automated: false,
+    },
   ]);
-  
+
   // Quote management state
-  const [quoteCastUrl, setQuoteCastUrl] = useState('');
-  const [quoteCastReplacement, setQuoteCastReplacement] = useState('');
-  const [quoteTweetUrl, setQuoteTweetUrl] = useState('');
-  const [quoteTweetReplacement, setQuoteTweetReplacement] = useState('');
-  
+  const [quoteCastUrl, setQuoteCastUrl] = useState("");
+  const [quoteCastReplacement, setQuoteCastReplacement] = useState("");
+  const [quoteTweetUrl, setQuoteTweetUrl] = useState("");
+  const [quoteTweetReplacement, setQuoteTweetReplacement] = useState("");
+
   // Image override state
-  const [imageOverrideUrl, setImageOverrideUrl] = useState('');
+  const [imageOverrideUrl, setImageOverrideUrl] = useState("");
   const [isVideoOverride, setIsVideoOverride] = useState(false);
-  const [currentImageOverride, setCurrentImageOverride] = useState<string | null>(null);
+  const [currentImageOverride, setCurrentImageOverride] = useState<
+    string | null
+  >(null);
   const [isCurrentOverrideVideo, setIsCurrentOverrideVideo] = useState(false);
-  
+
   // Loading states
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loadingSocialLinks, setLoadingSocialLinks] = useState(false);
   const [loadingLatestAuction, setLoadingLatestAuction] = useState(true);
 
   // Check admin authorization
-  const isAuthorized = address && ADMIN_ADDRESSES.includes(address.toLowerCase());
+  const isAuthorized =
+    address && ADMIN_ADDRESSES.includes(address.toLowerCase());
 
   // Fetch latest won auction ID
   const fetchLatestWonAuction = useCallback(async () => {
     setLoadingLatestAuction(true);
     try {
-      const response = await fetch('/api/winners');
+      const response = await fetch("/api/winners");
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data && result.data.length > 0) {
           // Get the latest auction ID (first item since it's ordered by token_id desc)
           const latestId = parseInt(result.data[0].token_id);
           setLatestWonAuctionId(latestId);
-          
+
           // Automatically fetch data for this auction
           fetchAuctionData(latestId);
         }
       }
     } catch (error) {
-      console.error('Error fetching latest won auction:', error);
-      toast.error('Failed to fetch latest won auction');
+      console.error("Error fetching latest won auction:", error);
+      toast.error("Failed to fetch latest won auction");
     } finally {
       setLoadingLatestAuction(false);
     }
@@ -137,35 +154,53 @@ export function PostAuctionChecklist() {
   useEffect(() => {
     const loadSocialLinks = async () => {
       try {
-        const response = await fetch('/api/social-links');
+        const response = await fetch("/api/social-links");
         if (response.ok) {
           const data = await response.json();
-          console.log('Social links data:', data); // Debug log
-          
-          setQuoteTweetUrl(data.quoteTweetUrl || '');
-          setQuoteCastUrl(data.quoteCastUrl || '');
-          
+          console.log("Social links data:", data); // Debug log
+
+          setQuoteTweetUrl(data.quoteTweetUrl || "");
+          setQuoteCastUrl(data.quoteCastUrl || "");
+
           // Mark checklist items as completed if URLs exist and are not empty
-          const hasQuoteCast = data.quoteCastUrl && data.quoteCastUrl.trim() !== '';
-          const hasQuoteTweet = data.quoteTweetUrl && data.quoteTweetUrl.trim() !== '';
-          
-          console.log('Has quote cast:', hasQuoteCast, 'URL:', data.quoteCastUrl); // Debug log
-          console.log('Has quote tweet:', hasQuoteTweet, 'URL:', data.quoteTweetUrl); // Debug log
-          
-          setChecklist(prev => prev.map(item => {
-            if (item.id === 'quote-cast-management') {
-              return { ...item, completed: hasQuoteCast };
-            }
-            if (item.id === 'quote-tweet-management') {
-              return { ...item, completed: hasQuoteTweet };
-            }
-            return item;
-          }));
+          const hasQuoteCast =
+            data.quoteCastUrl && data.quoteCastUrl.trim() !== "";
+          const hasQuoteTweet =
+            data.quoteTweetUrl && data.quoteTweetUrl.trim() !== "";
+
+          console.log(
+            "Has quote cast:",
+            hasQuoteCast,
+            "URL:",
+            data.quoteCastUrl
+          ); // Debug log
+          console.log(
+            "Has quote tweet:",
+            hasQuoteTweet,
+            "URL:",
+            data.quoteTweetUrl
+          ); // Debug log
+
+          setChecklist((prev) =>
+            prev.map((item) => {
+              if (item.id === "quote-cast-management") {
+                return { ...item, completed: hasQuoteCast };
+              }
+              if (item.id === "quote-tweet-management") {
+                return { ...item, completed: hasQuoteTweet };
+              }
+              return item;
+            })
+          );
         } else {
-          console.error('Failed to fetch social links:', response.status, response.statusText);
+          console.error(
+            "Failed to fetch social links:",
+            response.status,
+            response.statusText
+          );
         }
       } catch (error) {
-        console.error('Error loading social links:', error);
+        console.error("Error loading social links:", error);
       }
     };
 
@@ -180,16 +215,18 @@ export function PostAuctionChecklist() {
   // Fetch auction and winner data
   const fetchAuctionData = useCallback(async (auctionId: number) => {
     if (!auctionId || auctionId <= 0) return;
-    
+
     try {
       // Fetch winner data from API
       const response = await fetch(`/api/winners`);
-      
+
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
-          const winner = result.data.find((w: { token_id: string }) => parseInt(w.token_id) === auctionId);
-          
+          const winner = result.data.find(
+            (w: { token_id: string }) => parseInt(w.token_id) === auctionId
+          );
+
           if (winner) {
             setAuctionData({
               auctionId,
@@ -201,24 +238,26 @@ export function PostAuctionChecklist() {
                 farcasterUsername: winner.farcaster_username,
                 twitterUsername: winner.twitter_username,
                 basename: winner.basename,
-                ensName: winner.ens_name
-              }
+                ensName: winner.ens_name,
+              },
             });
-            
+
             // Mark winner insertion as completed if data exists
-            setChecklist(prev => prev.map(item => 
-              item.id === 'winner-insertion' 
-                ? { ...item, completed: true }
-                : item
-            ));
+            setChecklist((prev) =>
+              prev.map((item) =>
+                item.id === "winner-insertion"
+                  ? { ...item, completed: true }
+                  : item
+              )
+            );
           } else {
             setAuctionData({
               auctionId,
               winner: {
-                address: '',
+                address: "",
                 amount: 0,
-                url: ''
-              }
+                url: "",
+              },
             });
           }
         }
@@ -227,34 +266,37 @@ export function PostAuctionChecklist() {
       // Fetch current image override for this auction
       const currentOverride = await getAuctionImage(auctionId);
       const isVideo = await isAuctionImageVideo(auctionId);
-      
+
       setCurrentImageOverride(currentOverride);
       setIsCurrentOverrideVideo(isVideo);
-      
-      // Mark image override as completed if an override exists
-      setChecklist(prev => prev.map(item => 
-        item.id === 'image-override' 
-          ? { ...item, completed: currentOverride !== null }
-          : item
-      ));
 
+      // Mark image override as completed if an override exists
+      setChecklist((prev) =>
+        prev.map((item) =>
+          item.id === "image-override"
+            ? { ...item, completed: currentOverride !== null }
+            : item
+        )
+      );
     } catch (error) {
-      console.error('Error fetching auction data:', error);
-      toast.error('Failed to fetch auction data');
+      console.error("Error fetching auction data:", error);
+      toast.error("Failed to fetch auction data");
     }
   }, []);
 
   // Toggle checklist item completion
   const toggleChecklistItem = (id: string) => {
-    setChecklist(prev => prev.map(item => 
-      item.id === id ? { ...item, completed: !item.completed } : item
-    ));
+    setChecklist((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, completed: !item.completed } : item
+      )
+    );
   };
 
   // Handle quote cast management
   const handleQuoteCastManagement = async () => {
     if (!address) {
-      toast.error('Please connect your wallet');
+      toast.error("Please connect your wallet");
       return;
     }
 
@@ -262,44 +304,47 @@ export function PostAuctionChecklist() {
     try {
       // Get Privy access token for authentication
       const accessToken = await getAccessToken();
-      
+
       if (!accessToken) {
-        toast.error('Please sign in to perform this action');
+        toast.error("Please sign in to perform this action");
         return;
       }
 
-      const response = await fetch('/api/social-links', {
-        method: 'POST',
+      const response = await fetch("/api/social-links", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           quoteTweetUrl: quoteTweetUrl || null,
-          quoteCastUrl: quoteCastReplacement || quoteCastUrl || null
-        })
+          quoteCastUrl: quoteCastReplacement || quoteCastUrl || null,
+        }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        setQuoteCastUrl(result.quoteCastUrl || '');
-        
+        setQuoteCastUrl(result.quoteCastUrl || "");
+
         // Mark as completed if URL exists and is not empty
-        const hasQuoteCast = result.quoteCastUrl && result.quoteCastUrl.trim() !== '';
-        setChecklist(prev => prev.map(item => 
-          item.id === 'quote-cast-management' 
-            ? { ...item, completed: hasQuoteCast }
-            : item
-        ));
-        
-        toast.success('Quote cast updated successfully');
+        const hasQuoteCast =
+          result.quoteCastUrl && result.quoteCastUrl.trim() !== "";
+        setChecklist((prev) =>
+          prev.map((item) =>
+            item.id === "quote-cast-management"
+              ? { ...item, completed: hasQuoteCast }
+              : item
+          )
+        );
+
+        toast.success("Quote cast updated successfully");
       } else {
         const error = await response.json();
         toast.error(`Failed to update quote cast: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error managing quote cast:', error);
-      toast.error('Failed to manage quote cast');
+      console.error("Error managing quote cast:", error);
+      toast.error("Failed to manage quote cast");
     } finally {
       setLoadingSocialLinks(false);
     }
@@ -308,7 +353,7 @@ export function PostAuctionChecklist() {
   // Handle quote tweet management
   const handleQuoteTweetManagement = async () => {
     if (!address) {
-      toast.error('Please connect your wallet');
+      toast.error("Please connect your wallet");
       return;
     }
 
@@ -316,44 +361,47 @@ export function PostAuctionChecklist() {
     try {
       // Get Privy access token for authentication
       const accessToken = await getAccessToken();
-      
+
       if (!accessToken) {
-        toast.error('Please sign in to perform this action');
+        toast.error("Please sign in to perform this action");
         return;
       }
 
-      const response = await fetch('/api/social-links', {
-        method: 'POST',
+      const response = await fetch("/api/social-links", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           quoteTweetUrl: quoteTweetReplacement || quoteTweetUrl || null,
-          quoteCastUrl: quoteCastUrl || null
-        })
+          quoteCastUrl: quoteCastUrl || null,
+        }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        setQuoteTweetUrl(result.quoteTweetUrl || '');
-        
+        setQuoteTweetUrl(result.quoteTweetUrl || "");
+
         // Mark as completed if URL exists and is not empty
-        const hasQuoteTweet = result.quoteTweetUrl && result.quoteTweetUrl.trim() !== '';
-        setChecklist(prev => prev.map(item => 
-          item.id === 'quote-tweet-management' 
-            ? { ...item, completed: hasQuoteTweet }
-            : item
-        ));
-        
-        toast.success('Quote tweet updated successfully');
+        const hasQuoteTweet =
+          result.quoteTweetUrl && result.quoteTweetUrl.trim() !== "";
+        setChecklist((prev) =>
+          prev.map((item) =>
+            item.id === "quote-tweet-management"
+              ? { ...item, completed: hasQuoteTweet }
+              : item
+          )
+        );
+
+        toast.success("Quote tweet updated successfully");
       } else {
         const error = await response.json();
         toast.error(`Failed to update quote tweet: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error managing quote tweet:', error);
-      toast.error('Failed to manage quote tweet');
+      console.error("Error managing quote tweet:", error);
+      toast.error("Failed to manage quote tweet");
     } finally {
       setLoadingSocialLinks(false);
     }
@@ -362,13 +410,13 @@ export function PostAuctionChecklist() {
   // Handle image override upload
   const handleImageOverride = async () => {
     if (!imageOverrideUrl || !latestWonAuctionId) {
-      toast.error('Please upload an image first');
+      toast.error("Please upload an image first");
       return;
     }
 
     try {
       setUploadingImage(true);
-      
+
       // Update the latest won auction
       const latestWonSuccess = await addAuctionImageOverride(
         latestWonAuctionId,
@@ -391,29 +439,37 @@ export function PostAuctionChecklist() {
         const newIsVideo = await isAuctionImageVideo(latestWonAuctionId);
         setCurrentImageOverride(newOverride);
         setIsCurrentOverrideVideo(newIsVideo);
-        
-        toast.success(`Image override set for auctions #${latestWonAuctionId} and #${nextAuctionId}`);
-        toggleChecklistItem('image-override');
+
+        toast.success(
+          `Image override set for auctions #${latestWonAuctionId} and #${nextAuctionId}`
+        );
+        toggleChecklistItem("image-override");
       } else if (latestWonSuccess && !nextAuctionSuccess) {
         // Only latest won succeeded
         const newOverride = await getAuctionImage(latestWonAuctionId);
         const newIsVideo = await isAuctionImageVideo(latestWonAuctionId);
         setCurrentImageOverride(newOverride);
         setIsCurrentOverrideVideo(newIsVideo);
-        
-        toast.success(`Image override set for auction #${latestWonAuctionId} (current running auction #${nextAuctionId} failed)`);
-        toggleChecklistItem('image-override');
+
+        toast.success(
+          `Image override set for auction #${latestWonAuctionId} (current running auction #${nextAuctionId} failed)`
+        );
+        toggleChecklistItem("image-override");
       } else if (!latestWonSuccess && nextAuctionSuccess) {
         // Only current running succeeded
-        toast.success(`Image override set for current running auction #${nextAuctionId} (latest won auction #${latestWonAuctionId} failed)`);
-        toggleChecklistItem('image-override');
+        toast.success(
+          `Image override set for current running auction #${nextAuctionId} (latest won auction #${latestWonAuctionId} failed)`
+        );
+        toggleChecklistItem("image-override");
       } else {
         // Both failed
-        toast.error(`Failed to set image override for both auctions #${latestWonAuctionId} and #${nextAuctionId}`);
+        toast.error(
+          `Failed to set image override for both auctions #${latestWonAuctionId} and #${nextAuctionId}`
+        );
       }
     } catch (error) {
-      console.error('Error setting image override:', error);
-      toast.error('Failed to set image override');
+      console.error("Error setting image override:", error);
+      toast.error("Failed to set image override");
     } finally {
       setUploadingImage(false);
     }
@@ -422,49 +478,59 @@ export function PostAuctionChecklist() {
   // Handle image override removal
   const handleRemoveImageOverride = async () => {
     if (!latestWonAuctionId) {
-      toast.error('No auction selected');
+      toast.error("No auction selected");
       return;
     }
 
     try {
       // Remove from both latest won auction and next auction
-      const latestWonSuccess = await removeAuctionImageOverride(latestWonAuctionId);
+      const latestWonSuccess = await removeAuctionImageOverride(
+        latestWonAuctionId
+      );
       const nextAuctionId = latestWonAuctionId + 1;
-      const nextAuctionSuccess = await removeAuctionImageOverride(nextAuctionId);
-      
+      const nextAuctionSuccess = await removeAuctionImageOverride(
+        nextAuctionId
+      );
+
       if (latestWonSuccess || nextAuctionSuccess) {
         // Refresh current override display
         setCurrentImageOverride(null);
         setIsCurrentOverrideVideo(false);
-        setImageOverrideUrl('');
+        setImageOverrideUrl("");
         setIsVideoOverride(false);
-        
+
         if (latestWonSuccess && nextAuctionSuccess) {
-          toast.success(`Image override removed from auctions #${latestWonAuctionId} and #${nextAuctionId}`);
+          toast.success(
+            `Image override removed from auctions #${latestWonAuctionId} and #${nextAuctionId}`
+          );
         } else if (latestWonSuccess) {
-          toast.success(`Image override removed from auction #${latestWonAuctionId} (next auction not found)`);
+          toast.success(
+            `Image override removed from auction #${latestWonAuctionId} (next auction not found)`
+          );
         } else {
-          toast.success(`Image override removed from auction #${nextAuctionId} (latest won not found)`);
+          toast.success(
+            `Image override removed from auction #${nextAuctionId} (latest won not found)`
+          );
         }
-        
+
         // Update checklist
-        setChecklist(prev => prev.map(item => 
-          item.id === 'image-override' 
-            ? { ...item, completed: false }
-            : item
-        ));
+        setChecklist((prev) =>
+          prev.map((item) =>
+            item.id === "image-override" ? { ...item, completed: false } : item
+          )
+        );
       } else {
-        toast.error('Failed to remove image override');
+        toast.error("Failed to remove image override");
       }
     } catch (error) {
-      console.error('Error removing image override:', error);
-      toast.error('Failed to remove image override');
+      console.error("Error removing image override:", error);
+      toast.error("Failed to remove image override");
     }
   };
 
   // Calculate completion percentage
   const completionPercentage = Math.round(
-    (checklist.filter(item => item.completed).length / checklist.length) * 100
+    (checklist.filter((item) => item.completed).length / checklist.length) * 100
   );
 
   if (!isAuthorized) {
@@ -477,7 +543,10 @@ export function PostAuctionChecklist() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>You must be an authorized admin to access the post-auction checklist.</p>
+          <p>
+            You must be an authorized admin to access the post-auction
+            checklist.
+          </p>
         </CardContent>
       </Card>
     );
@@ -497,7 +566,9 @@ export function PostAuctionChecklist() {
               {loadingLatestAuction ? (
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Loading...
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -515,7 +586,9 @@ export function PostAuctionChecklist() {
                 </div>
               )}
             </div>
-            <Badge variant={completionPercentage === 100 ? "default" : "secondary"}>
+            <Badge
+              variant={completionPercentage === 100 ? "default" : "secondary"}
+            >
               {completionPercentage}% Complete
             </Badge>
           </div>
@@ -523,45 +596,52 @@ export function PostAuctionChecklist() {
         <CardContent>
           {auctionData && (
             <div className="mb-6 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold mb-2">Auction #{auctionData.auctionId} Summary</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <h3 className="font-semibold mb-2">
+                Auction #{auctionData.auctionId} Summary
+              </h3>
+              <div className="grid grid-cols-2 gap-1 text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Winner:</span> 
+                  <span className="font-medium">Winner:</span>
                   <div className="flex items-center gap-1">
                     <span>
-                      {
-                        auctionData.winner.displayName || 
-                        (auctionData.winner.farcasterUsername ? `@${auctionData.winner.farcasterUsername}` : null) ||
-                        (auctionData.winner.twitterUsername ? `@${auctionData.winner.twitterUsername}` : null) ||
+                      {auctionData.winner.displayName ||
+                        (auctionData.winner.farcasterUsername
+                          ? `@${auctionData.winner.farcasterUsername}`
+                          : null) ||
+                        (auctionData.winner.twitterUsername
+                          ? `@${auctionData.winner.twitterUsername}`
+                          : null) ||
                         auctionData.winner.basename ||
                         auctionData.winner.ensName ||
                         auctionData.winner.address ||
-                        'Unknown'
-                      }
+                        "Unknown"}
                     </span>
                     {auctionData.winner.twitterUsername ? (
-                      <XLogo 
-                        size="sm" 
-                        username={auctionData.winner.twitterUsername} 
+                      <XLogo
+                        size="sm"
+                        username={auctionData.winner.twitterUsername}
                         className="opacity-80 hover:opacity-100"
                       />
-                    ) : auctionData.winner.farcasterUsername && (
-                      <WarpcastLogo 
-                        size="md" 
-                        username={auctionData.winner.farcasterUsername} 
-                        className="opacity-80 hover:opacity-100"
-                      />
+                    ) : (
+                      auctionData.winner.farcasterUsername && (
+                        <WarpcastLogo
+                          size="md"
+                          username={auctionData.winner.farcasterUsername}
+                          className="opacity-80 hover:opacity-100"
+                        />
+                      )
                     )}
                   </div>
                 </div>
-                <div>
-                  <span className="font-medium">Amount:</span> {auctionData.winner.amount}
+                <div className="col-span-2">
+                  <span className="font-medium">Amount:</span>{" "}
+                  {auctionData.winner.amount / 1000000} USDC
                 </div>
                 <div className="col-span-2">
-                  <span className="font-medium">URL:</span> 
-                  <a 
-                    href={auctionData.winner.url} 
-                    target="_blank" 
+                  <span className="font-medium">URL:</span>
+                  <a
+                    href={auctionData.winner.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="ml-1 text-blue-600 hover:underline"
                   >
@@ -574,7 +654,10 @@ export function PostAuctionChecklist() {
 
           <div className="space-y-4">
             {checklist.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
                 <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
@@ -590,7 +673,9 @@ export function PostAuctionChecklist() {
                   </Button>
                   <div>
                     <h4 className="font-medium">{item.title}</h4>
-                    <p className="text-sm text-muted-foreground">{item.description}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {item.description}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -604,7 +689,7 @@ export function PostAuctionChecklist() {
       </Card>
 
       <Tabs defaultValue="social" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="social" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Social Management
@@ -612,10 +697,6 @@ export function PostAuctionChecklist() {
           <TabsTrigger value="media" className="flex items-center gap-2">
             <Image className="h-4 w-4" />
             Media Override
-          </TabsTrigger>
-          <TabsTrigger value="winners" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Winners
           </TabsTrigger>
         </TabsList>
 
@@ -635,7 +716,9 @@ export function PostAuctionChecklist() {
                 />
               </div>
               <div>
-                <Label htmlFor="quote-cast-replacement">Replacement URL (optional)</Label>
+                <Label htmlFor="quote-cast-replacement">
+                  Replacement URL (optional)
+                </Label>
                 <Input
                   id="quote-cast-replacement"
                   value={quoteCastReplacement}
@@ -643,8 +726,12 @@ export function PostAuctionChecklist() {
                   placeholder="Leave empty to remove"
                 />
               </div>
-              <Button onClick={handleQuoteCastManagement} className="w-full" disabled={loadingSocialLinks}>
-                {loadingSocialLinks ? 'Updating...' : 'Update Quote Cast'}
+              <Button
+                onClick={handleQuoteCastManagement}
+                className="w-full"
+                disabled={loadingSocialLinks}
+              >
+                {loadingSocialLinks ? "Updating..." : "Update Quote Cast"}
               </Button>
             </CardContent>
           </Card>
@@ -664,7 +751,9 @@ export function PostAuctionChecklist() {
                 />
               </div>
               <div>
-                <Label htmlFor="quote-tweet-replacement">Replacement URL (optional)</Label>
+                <Label htmlFor="quote-tweet-replacement">
+                  Replacement URL (optional)
+                </Label>
                 <Input
                   id="quote-tweet-replacement"
                   value={quoteTweetReplacement}
@@ -672,8 +761,12 @@ export function PostAuctionChecklist() {
                   placeholder="Leave empty to remove"
                 />
               </div>
-              <Button onClick={handleQuoteTweetManagement} className="w-full" disabled={loadingSocialLinks}>
-                {loadingSocialLinks ? 'Updating...' : 'Update Quote Tweet'}
+              <Button
+                onClick={handleQuoteTweetManagement}
+                className="w-full"
+                disabled={loadingSocialLinks}
+              >
+                {loadingSocialLinks ? "Updating..." : "Update Quote Tweet"}
               </Button>
             </CardContent>
           </Card>
@@ -688,10 +781,16 @@ export function PostAuctionChecklist() {
               {/* Display current image override */}
               {currentImageOverride && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Current Override:</Label>
+                  <Label className="text-sm font-medium">
+                    Current Override:
+                  </Label>
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <Badge variant={isCurrentOverrideVideo ? "secondary" : "outline"}>
+                      <Badge
+                        variant={
+                          isCurrentOverrideVideo ? "secondary" : "outline"
+                        }
+                      >
                         {isCurrentOverrideVideo ? "Video" : "Image"}
                       </Badge>
                       <Button
@@ -704,15 +803,15 @@ export function PostAuctionChecklist() {
                       </Button>
                     </div>
                     {isCurrentOverrideVideo ? (
-                      <video 
-                        src={currentImageOverride} 
-                        controls 
+                      <video
+                        src={currentImageOverride}
+                        controls
                         className="w-full max-w-sm rounded"
                       />
                     ) : (
-                      <img 
-                        src={currentImageOverride} 
-                        alt="Current override" 
+                      <img
+                        src={currentImageOverride}
+                        alt="Current override"
                         className="w-full max-w-sm rounded"
                       />
                     )}
@@ -729,14 +828,21 @@ export function PostAuctionChecklist() {
                   endpoint="auctionImageUploader"
                   className="ut-button:bg-blue-600 ut-button:hover:bg-blue-500 ut-allowed-content:text-muted-foreground"
                   appearance={{
-                    button: "bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md transition-colors",
-                    allowedContent: "text-sm text-muted-foreground mt-2"
+                    button:
+                      "bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md transition-colors",
+                    allowedContent: "text-sm text-muted-foreground mt-2",
                   }}
                   headers={async (): Promise<Record<string, string>> => {
-                    console.log('UploadButton - Getting access token...');
+                    console.log("UploadButton - Getting access token...");
                     const accessToken = await getAccessToken();
-                    console.log('UploadButton - Access token:', accessToken ? 'Present' : 'Missing');
-                    console.log('UploadButton - Token length:', accessToken?.length || 0);
+                    console.log(
+                      "UploadButton - Access token:",
+                      accessToken ? "Present" : "Missing"
+                    );
+                    console.log(
+                      "UploadButton - Token length:",
+                      accessToken?.length || 0
+                    );
                     if (accessToken) {
                       return { authorization: `Bearer ${accessToken}` };
                     }
@@ -745,11 +851,12 @@ export function PostAuctionChecklist() {
                   onClientUploadComplete={(res) => {
                     if (res?.[0]?.url) {
                       setImageOverrideUrl(res[0].url);
-                      const isVideo = res[0].name?.toLowerCase().includes('.mp4') || 
-                                     res[0].name?.toLowerCase().includes('.webm') ||
-                                     res[0].name?.toLowerCase().includes('.mov');
+                      const isVideo =
+                        res[0].name?.toLowerCase().includes(".mp4") ||
+                        res[0].name?.toLowerCase().includes(".webm") ||
+                        res[0].name?.toLowerCase().includes(".mov");
                       setIsVideoOverride(isVideo || false);
-                      toast.success('File uploaded successfully!');
+                      toast.success("File uploaded successfully!");
                     }
                   }}
                   onUploadError={(error: Error) => {
@@ -767,19 +874,19 @@ export function PostAuctionChecklist() {
                     />
                     <Label>Is Video</Label>
                   </div>
-                  
+
                   <div className="p-2 bg-muted rounded">
                     <p className="text-sm font-medium">Preview:</p>
                     {isVideoOverride ? (
-                      <video 
-                        src={imageOverrideUrl} 
-                        controls 
+                      <video
+                        src={imageOverrideUrl}
+                        controls
                         className="w-full max-w-sm rounded mt-2"
                       />
                     ) : (
-                      <img 
-                        src={imageOverrideUrl} 
-                        alt="Override preview" 
+                      <img
+                        src={imageOverrideUrl}
+                        alt="Override preview"
                         className="w-full max-w-sm rounded mt-2"
                       />
                     )}
@@ -787,61 +894,17 @@ export function PostAuctionChecklist() {
                 </div>
               )}
 
-              <Button 
-                onClick={handleImageOverride} 
+              <Button
+                onClick={handleImageOverride}
                 disabled={!imageOverrideUrl || uploadingImage}
                 className="w-full"
               >
-                {uploadingImage ? 'Setting...' : 'Set Image Override'}
+                {uploadingImage ? "Setting..." : "Set Image Override"}
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="winners" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Winner Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {auctionData ? (
-                <div className="space-y-2">
-                  <div><strong>Address:</strong> {auctionData.winner.address}</div>
-                  <div><strong>Amount:</strong> {auctionData.winner.amount}</div>
-                  <div><strong>URL:</strong> 
-                    <a 
-                      href={auctionData.winner.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="ml-1 text-blue-600 hover:underline inline-flex items-center gap-1"
-                    >
-                      {auctionData.winner.url}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                  {auctionData.winner.displayName && (
-                    <div><strong>Display Name:</strong> {auctionData.winner.displayName}</div>
-                  )}
-                  {auctionData.winner.farcasterUsername && (
-                    <div><strong>Farcaster:</strong> @{auctionData.winner.farcasterUsername}</div>
-                  )}
-                  {auctionData.winner.twitterUsername && (
-                    <div><strong>Twitter:</strong> @{auctionData.winner.twitterUsername}</div>
-                  )}
-                  {auctionData.winner.basename && (
-                    <div><strong>Basename:</strong> {auctionData.winner.basename}</div>
-                  )}
-                  {auctionData.winner.ensName && (
-                    <div><strong>ENS:</strong> {auctionData.winner.ensName}</div>
-                  )}
-                </div>
-              ) : (
-                <p>Loading winner information...</p>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
   );
-} 
+}

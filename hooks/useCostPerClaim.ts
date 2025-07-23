@@ -1,7 +1,7 @@
 import { useAccount } from "wagmi";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-type CostPerClaimData = {
+export type CostPerClaimData = {
   auction_id: number;
   date: string;
   usd_value: number;
@@ -42,36 +42,40 @@ type UseCostPerClaimReturn = {
 };
 
 async function fetchCostPerClaimData(address: string) {
-  const response = await fetch('/api/cost-per-claim', {
+  const response = await fetch("/api/cost-per-claim", {
     headers: {
-      'Authorization': `Bearer ${address}`
-    }
+      Authorization: `Bearer ${address}`,
+    },
   });
-  
+
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
-  
+
   return response.json();
 }
 
-async function updateQRPriceApi(address: string, auctionId: number, qrPrice: number) {
-  const response = await fetch('/api/cost-per-claim', {
-    method: 'POST',
+async function updateQRPriceApi(
+  address: string,
+  auctionId: number,
+  qrPrice: number
+) {
+  const response = await fetch("/api/cost-per-claim", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${address}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${address}`,
     },
     body: JSON.stringify({
       auction_id: auctionId,
-      qr_price_usd: qrPrice
-    })
+      qr_price_usd: qrPrice,
+    }),
   });
-  
+
   if (!response.ok) {
-    throw new Error('Failed to update QR price');
+    throw new Error("Failed to update QR price");
   }
-  
+
   return response.json();
 }
 
@@ -84,7 +88,7 @@ export function useCostPerClaim(): UseCostPerClaimReturn {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['costPerClaim', address],
+    queryKey: ["costPerClaim", address],
     queryFn: () => fetchCostPerClaimData(address!),
     enabled: !!address,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -92,16 +96,21 @@ export function useCostPerClaim(): UseCostPerClaimReturn {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ auctionId, qrPrice }: { auctionId: number; qrPrice: number }) =>
-      updateQRPriceApi(address!, auctionId, qrPrice),
+    mutationFn: ({
+      auctionId,
+      qrPrice,
+    }: {
+      auctionId: number;
+      qrPrice: number;
+    }) => updateQRPriceApi(address!, auctionId, qrPrice),
     onSuccess: () => {
       // Invalidate and refetch the data after successful update
-      queryClient.invalidateQueries({ queryKey: ['costPerClaim', address] });
+      queryClient.invalidateQueries({ queryKey: ["costPerClaim", address] });
     },
   });
 
   const updateQRPrice = async (auctionId: number, qrPrice: number) => {
-    if (!address) throw new Error('No wallet connected');
+    if (!address) throw new Error("No wallet connected");
     return updateMutation.mutateAsync({ auctionId, qrPrice });
   };
 
