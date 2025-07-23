@@ -12,8 +12,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
-  ExternalLink,
-  Users,
   Image,
   MessageSquare,
   RefreshCw,

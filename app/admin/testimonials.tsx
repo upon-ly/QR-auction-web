@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAccount } from "wagmi";
-import {
-  Trash2,
-  Loader2,
-  Star,
-  StarOff,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  AlignJustify,
-} from "lucide-react";
+import { Trash2, Loader2, Star, StarOff } from "lucide-react";
 import { toast } from "sonner";
 import { TwitterEmbed } from "@/components/TwitterEmbed";
 import { FarcasterEmbed } from "react-farcaster-embed/dist/client";
@@ -63,13 +54,7 @@ export function TestimonialsAdmin() {
     }
   }, [newUrl]);
 
-  useEffect(() => {
-    if (address) {
-      fetchTestimonials();
-    }
-  }, [refreshKey, address]);
-
-  const fetchTestimonials = async () => {
+  const fetchTestimonials = useCallback(async () => {
     if (!address) return;
 
     try {
@@ -93,17 +78,13 @@ export function TestimonialsAdmin() {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [address]);
 
-  const detectUrlType = (url: string): "warpcast" | "twitter" => {
-    if (url.includes("warpcast.com")) {
-      return "warpcast";
-    } else if (url.includes("twitter.com") || url.includes("x.com")) {
-      return "twitter";
+  useEffect(() => {
+    if (address) {
+      fetchTestimonials();
     }
-    // Default to warpcast if can't determine
-    return "warpcast";
-  };
+  }, [refreshKey, address, fetchTestimonials]);
 
   const addTestimonial = async () => {
     if (!newUrl) {
@@ -229,18 +210,6 @@ export function TestimonialsAdmin() {
 
   const toggleCarousel = async (id: number, currentValue: boolean) => {
     await updateTestimonial(id, { carousel: !currentValue }, "carousel");
-  };
-
-  const changePriority = async (
-    id: number,
-    currentPriority: number,
-    increment: number
-  ) => {
-    await updateTestimonial(
-      id,
-      { priority: currentPriority + increment },
-      increment > 0 ? "upPriority" : "downPriority"
-    );
   };
 
   // Helper to check loading state for a specific action
