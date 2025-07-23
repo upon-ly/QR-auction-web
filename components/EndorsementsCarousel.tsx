@@ -207,7 +207,10 @@ export function EndorsementsCarousel() {
           if (!testimonial.url) return false;
 
           if (testimonial.type === "warpcast") {
-            return testimonial.url.includes("warpcast.com");
+            return (
+              testimonial.url.includes("warpcast.com") ||
+              testimonial.url.includes("farcaster.xyz")
+            );
           } else if (testimonial.type === "twitter") {
             return (
               testimonial.url.includes("twitter.com") ||
