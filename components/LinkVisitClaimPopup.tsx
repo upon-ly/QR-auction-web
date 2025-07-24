@@ -610,7 +610,7 @@ export function LinkVisitClaimPopup({
       const isCoinbaseWallet = (await frameSdk.getContext()).client.clientFid == 309857;
       // Mini-app context: Warpcast share (existing logic)
       const shareText = isCoinbaseWallet ? encodeURIComponent(`just earned my daily $QR reward for checking out today's winner @qrcoindotfun.farcaster.eth`) : encodeURIComponent(`just earned my daily $QR reward for checking out today's winner @qrcoindotfun`);
-      const embedUrl = encodeURIComponent(`https://qrcoin.fun`);
+      const embedUrl = encodeURIComponent(`https://qrcoin.fun/`);
       
       let shareUrl = `https://farcaster.xyz/~/compose?text=${shareText}&embeds[]=${embedUrl}`;
       
