@@ -184,16 +184,21 @@ export async function GET(request: Request) {
         qrData.successfulClaims++;
       }
       
-      // Track mini_app_client data
-      if (click.mini_app_client) {
-        const currentCount = clientCounts.get(click.mini_app_client) || 0;
-        clientCounts.set(click.mini_app_client, currentCount + 1);
-      } else if (click.claim_source === 'mini_app') {
-        // Only count null mini_app_client as "farcaster" when claim_source is mini_app
-        const currentCount = clientCounts.get("farcaster") || 0;
-        clientCounts.set("farcaster", currentCount + 1);
+      // Track mini_app_client data (only for mini_app claims)
+      if (click.claim_source === 'mini_app') {
+        let clientName = "farcaster"; // default
+        
+        if (click.mini_app_client === "tba") {
+          clientName = "tba";
+        } else {
+          // All other cases (null, undefined, "farcaster", or any other value) count as "farcaster"
+          clientName = "farcaster";
+        }
+        
+        const currentCount = clientCounts.get(clientName) || 0;
+        clientCounts.set(clientName, currentCount + 1);
       }
-      // If mini_app_client is null and claim_source is not mini_app, don't count it
+      // If claim_source is not mini_app, don't count it in clients
       
       if (click.claim_source === 'web') {
         counts.web++;
