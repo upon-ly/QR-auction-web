@@ -2653,12 +2653,12 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left p-3">#</th>
-                <th className="text-left p-3">Date</th>
-                <th className="text-right p-3">Bid</th>
-                <th className="text-right p-3">Claims</th>
-                <th className="text-right p-3">CPC</th>
-                <th className="text-right p-3">
+                <th className="text-left p-1.5">#</th>
+                <th className="text-left p-1.5">Date</th>
+                <th className="text-right p-1.5">Bid</th>
+                <th className="text-right p-1.5">Claims</th>
+                <th className="text-right p-1.5">CPC</th>
+                <th className="text-right p-1.5">
                   <a
                     href="https://dexscreener.com/base/0xf02c421e15abdf2008bb6577336b0f3d7aec98f0"
                     target="_blank"
@@ -2668,10 +2668,10 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
                     Reward
                   </a>
                 </th>
-                <th className="text-right p-3">Margin</th>
-                <th className="text-right p-3">$QR</th>
-                <th className="text-right p-3">Spend</th>
-                <th className="text-right p-3">Net</th>
+                <th className="text-right p-0.5">Margin</th>
+                <th className="text-right p-1.5">$QR</th>
+                <th className="text-right p-1.5">Spend</th>
+                <th className="text-right p-1.5">Net</th>
               </tr>
             </thead>
             <tbody>
@@ -2680,22 +2680,22 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
                   key={index}
                   className="border-b border-gray-200 dark:border-gray-700"
                 >
-                  <td className="p-3">{item.auction_id}</td>
-                  <td className="p-3 whitespace-nowrap">
+                  <td className="p-1.5">{item.auction_id}</td>
+                  <td className="p-1.5 whitespace-nowrap">
                     {format(new Date(item.date), "MMM d")}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     ${Math.round(item.usd_value).toLocaleString()}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {item.click_count.toLocaleString()}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {item.click_count > 0
                       ? `$${item.cost_per_click.toFixed(3)}`
                       : "-"}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {editingQRPrice === item.auction_id ? (
                       <div className="flex items-center justify-end space-x-2">
                         <input
@@ -2761,7 +2761,7 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
                       </div>
                     )}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-0.5">
                     {item.click_count > 0 && item.cost_per_click > 0 ? (
                       <span
                         className={
@@ -2783,17 +2783,17 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
                       "-"
                     )}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {Math.round(item.qr_reward_per_claim).toLocaleString()}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {item.click_count > 0
                       ? formatCurrency(
                           item.click_count * item.qr_reward_value_usd
                         )
                       : "-"}
                   </td>
-                  <td className="text-right p-3">
+                  <td className="text-right p-1.5">
                     {item.click_count > 0 ? (
                       <span
                         className={

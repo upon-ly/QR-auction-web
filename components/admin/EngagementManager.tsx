@@ -121,6 +121,20 @@ export function EngagementManager() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [recentExecutions, setRecentExecutions] = useState<RecentExecution[]>([]);
+  
+  // Separate input states for natural typing
+  const [minNeynarInput, setMinNeynarInput] = useState<string>('');
+  const [maxNeynarInput, setMaxNeynarInput] = useState<string>('');
+  const [minFollowersInput, setMinFollowersInput] = useState<string>('');
+  const [maxFollowersInput, setMaxFollowersInput] = useState<string>('');
+
+  // Sync input states with filter values when they change (e.g., from sliders)
+  useEffect(() => {
+    setMinNeynarInput(filters.minNeynarScore.toString());
+    setMaxNeynarInput(filters.maxNeynarScore.toString());
+    setMinFollowersInput(filters.minFollowers.toString());
+    setMaxFollowersInput(filters.maxFollowers.toString());
+  }, [filters.minNeynarScore, filters.maxNeynarScore, filters.minFollowers, filters.maxFollowers]);
 
   // Fetch available signers
   useEffect(() => {
@@ -957,23 +971,85 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500 w-8">Min</span>
-                                             <Slider
+                      <Slider
                          value={[filters.minFollowers]}
                          onValueChange={([value]: number[]) => setFilters(prev => ({ ...prev, minFollowers: value }))}
                          max={200000}
                          step={100}
                          className="flex-1"
                        />
+                       <Input
+                         type="number"
+                         value={minFollowersInput}
+                         onChange={(e) => {
+                           const inputValue = e.target.value;
+                           setMinFollowersInput(inputValue);
+                           
+                           // Only update filter state if it's a valid number
+                           if (inputValue !== '') {
+                             const numValue = parseInt(inputValue);
+                             if (!isNaN(numValue)) {
+                               const clampedValue = Math.max(0, Math.min(200000, numValue));
+                               setFilters(prev => ({ ...prev, minFollowers: clampedValue }));
+                             }
+                           }
+                         }}
+                         onBlur={(e) => {
+                           const inputValue = e.target.value;
+                           if (inputValue === '' || isNaN(parseInt(inputValue))) {
+                             setFilters(prev => ({ ...prev, minFollowers: 0 }));
+                             setMinFollowersInput('0');
+                           } else {
+                             const clampedValue = Math.max(0, Math.min(200000, parseInt(inputValue)));
+                             setFilters(prev => ({ ...prev, minFollowers: clampedValue }));
+                             setMinFollowersInput(clampedValue.toString());
+                           }
+                         }}
+                         className="w-20 text-sm"
+                         min={0}
+                         max={200000}
+                       />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500 w-8">Max</span>
-                                              <Slider
+                      <Slider
                           value={[filters.maxFollowers]}
                           onValueChange={([value]) => setFilters(prev => ({ ...prev, maxFollowers: value }))}
                           max={200000}
                           step={100}
                           className="flex-1"
                         />
+                                                                           <Input
+                            type="number"
+                            value={maxFollowersInput}
+                            onChange={(e) => {
+                              const inputValue = e.target.value;
+                              setMaxFollowersInput(inputValue);
+                              
+                              // Only update filter state if it's a valid number
+                              if (inputValue !== '') {
+                                const numValue = parseInt(inputValue);
+                                if (!isNaN(numValue)) {
+                                  const clampedValue = Math.max(0, Math.min(200000, numValue));
+                                  setFilters(prev => ({ ...prev, maxFollowers: clampedValue }));
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const inputValue = e.target.value;
+                              if (inputValue === '' || isNaN(parseInt(inputValue))) {
+                                setFilters(prev => ({ ...prev, maxFollowers: 200000 }));
+                                setMaxFollowersInput('200000');
+                              } else {
+                                const clampedValue = Math.max(0, Math.min(200000, parseInt(inputValue)));
+                                setFilters(prev => ({ ...prev, maxFollowers: clampedValue }));
+                                setMaxFollowersInput(clampedValue.toString());
+                              }
+                            }}
+                            className="w-20 text-sm"
+                            min={0}
+                            max={200000}
+                          />
                     </div>
                   </div>
                 </div>
@@ -994,6 +1070,38 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                         step={0.01}
                         className="flex-1"
                       />
+                      <Input
+                        type="number"
+                        value={minNeynarInput}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          setMinNeynarInput(inputValue);
+                          
+                          // Only update filter state if it's a valid number
+                          if (inputValue !== '' && inputValue !== '.') {
+                            const numValue = parseFloat(inputValue);
+                            if (!isNaN(numValue)) {
+                              const clampedValue = Math.max(0, Math.min(1, numValue));
+                              setFilters(prev => ({ ...prev, minNeynarScore: clampedValue }));
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const inputValue = e.target.value;
+                          if (inputValue === '' || inputValue === '.' || isNaN(parseFloat(inputValue))) {
+                            setFilters(prev => ({ ...prev, minNeynarScore: 0 }));
+                            setMinNeynarInput('0');
+                          } else {
+                            const clampedValue = Math.max(0, Math.min(1, parseFloat(inputValue)));
+                            setFilters(prev => ({ ...prev, minNeynarScore: clampedValue }));
+                            setMinNeynarInput(clampedValue.toString());
+                          }
+                        }}
+                        className="w-20 text-sm"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                      />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500 w-8">Max</span>
@@ -1003,6 +1111,38 @@ function EngagementAnalytics({ signers }: EngagementAnalyticsProps) {
                         max={1}
                         step={0.01}
                         className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        value={maxNeynarInput}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          setMaxNeynarInput(inputValue);
+                          
+                          // Only update filter state if it's a valid number
+                          if (inputValue !== '' && inputValue !== '.') {
+                            const numValue = parseFloat(inputValue);
+                            if (!isNaN(numValue)) {
+                              const clampedValue = Math.max(0, Math.min(1, numValue));
+                              setFilters(prev => ({ ...prev, maxNeynarScore: clampedValue }));
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const inputValue = e.target.value;
+                          if (inputValue === '' || inputValue === '.' || isNaN(parseFloat(inputValue))) {
+                            setFilters(prev => ({ ...prev, maxNeynarScore: 1 }));
+                            setMaxNeynarInput('1');
+                          } else {
+                            const clampedValue = Math.max(0, Math.min(1, parseFloat(inputValue)));
+                            setFilters(prev => ({ ...prev, maxNeynarScore: clampedValue }));
+                            setMaxNeynarInput(clampedValue.toString());
+                          }
+                        }}
+                        className="w-20 text-sm"
+                        min={0}
+                        max={1}
+                        step={0.01}
                       />
                     </div>
                   </div>
