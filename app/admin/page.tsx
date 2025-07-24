@@ -1508,8 +1508,59 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
 
     return auctionData
       .filter((item) => item.auction_id >= 71 && item.click_count > 0)
-      .sort((a, b) => a.auction_id - b.auction_id);
+      .sort((a, b) => a.auction_id - b.auction_id)
+      .map((item) => {
+        // Flatten clients array into separate properties for chart
+        const clientProps: { [key: string]: number } = {};
+        item.clients?.forEach((client) => {
+          clientProps[`client_${client.client}`] = client.count;
+        });
+        return {
+          ...item,
+          ...clientProps
+        };
+      });
   }, [auctionData]);
+
+  // Get all unique client types for dynamic bar creation
+  const clientTypes = useMemo(() => {
+    const types = new Set<string>();
+    auctionData?.forEach((item) => {
+      item.clients?.forEach((client) => {
+        types.add(client.client);
+      });
+    });
+    return Array.from(types).sort();
+  }, [auctionData]);
+
+  // Define colors for different client types
+  const clientColors = useMemo(() => {
+    const colors = [
+      "#22c55e", // green
+      "#f59e0b", // amber  
+      "#ef4444", // red
+      "#06b6d4", // cyan
+      "#f97316", // orange
+      "#84cc16", // lime
+      "#ec4899", // pink
+      "#6366f1", // indigo
+      "#10b981", // emerald
+    ];
+    const colorMap: { [key: string]: string } = {};
+    let colorIndex = 0;
+    
+    clientTypes.forEach((client) => {
+      if (client === "farcaster") {
+        colorMap[client] = "#8b5cf6"; // purple
+      } else if (client === "tba") {
+        colorMap[client] = "#3b82f6"; // blue
+      } else {
+        colorMap[client] = colors[colorIndex % colors.length];
+        colorIndex++;
+      }
+    });
+    return colorMap;
+  }, [clientTypes]);
 
   const filteredDataReverse = useMemo(() => {
     if (!auctionData) return [];
@@ -1650,20 +1701,25 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (active && payload && payload.length) {
-                    const webClaims = payload[0]?.value || 0;
-                    const miniAppClaims = payload[1]?.value || 0;
-                    const total = Number(webClaims) + Number(miniAppClaims);
+                    const webClaims = payload.find(p => p.dataKey === 'web_click_count')?.value || 0;
+                    const clientClaims = payload.filter(p => p.dataKey?.toString().startsWith('client_'));
+                    const miniAppTotal = clientClaims.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+                    const total = Number(webClaims) + miniAppTotal;
 
                     return (
                       <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
                         <p className="font-semibold mb-2">Auction #{label}</p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                        <p className="text-sm" style={{ color: "#eab308" }}>
                           Web Claims: {Number(webClaims).toLocaleString()}
                         </p>
-                        <p className="text-sm text-green-500">
-                          Mini App Claims:{" "}
-                          {Number(miniAppClaims).toLocaleString()}
-                        </p>
+                        {clientClaims.map((client) => {
+                          const clientName = client.dataKey?.toString().replace('client_', '') || '';
+                          return (
+                            <p key={clientName} className="text-sm" style={{ color: client.color }}>
+                              {clientName}: {Number(client.value).toLocaleString()}
+                            </p>
+                          );
+                        })}
                         <p className="text-sm font-semibold mt-2 border-t pt-2">
                           Total: {total.toLocaleString()}
                         </p>
@@ -1677,23 +1733,18 @@ function ClaimsAnalytics({ xTicks }: { xTicks: number[] }) {
               <Bar
                 dataKey="web_click_count"
                 name="Web Claims"
-                fill="#3b82f6"
+                fill="#fde047"
                 stackId="a"
               />
-              <Bar
-                dataKey="mini_app_click_count"
-                name="Mini App Claims"
-                fill="#22c55e"
-                stackId="a"
-              >
-                {/* <LabelList 
-                  dataKey="click_count"
-                  position="top"
-                  formatter={(value: number) => value.toLocaleString()}
-                  fill="#666"
-                  fontSize={14}
-                /> */}
-              </Bar>
+              {clientTypes.map((clientType) => (
+                <Bar
+                  key={clientType}
+                  dataKey={`client_${clientType}`}
+                  name={clientType}
+                  fill={clientColors[clientType]}
+                  stackId="a"
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>

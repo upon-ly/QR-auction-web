@@ -106,6 +106,22 @@ interface LinkVisitRequestData {
 // Simple delay function
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Function to map client FID to mini app client name
+const mapClientFidToName = (clientFid?: number | null): string | null => {
+  if (!clientFid) return null;
+  
+  switch (clientFid) {
+    case 309857:
+      return 'tba';
+    case 827605:
+      return 'zapper';
+    case 9152:
+      return 'farcaster';
+    default:
+      return clientFid.toString(); // Store the number as string
+  }
+};
+
 // Import queue functionality
 import { queueFailedClaim, redis } from '@/lib/queue/failedClaims';
 import { getClaimAmountForAddress, checkHistoricalEthBalance, getWalletClaimAmounts } from '@/lib/wallet-balance-checker';
@@ -413,7 +429,7 @@ export async function POST(request: NextRequest) {
     
     // Parse request body to determine claim source for differentiated rate limiting
     requestData = await request.json() as LinkVisitRequestData;
-    const { fid, address, auction_id, username, winning_url, claim_source, miniapp_token } = requestData;
+    const { fid, address, auction_id, username, winning_url, claim_source, miniapp_token, client_fid } = requestData;
     
     // SECURITY: Validate claim_source is provided
     if (!claim_source) {
@@ -1738,6 +1754,9 @@ export async function POST(request: NextRequest) {
         submittedTxHash = hash; // Update the hash if provided by callback
       });
       
+      // Map client FID to mini app client name
+      const miniAppClient = mapClientFidToName(client_fid);
+      
       // Insert a new record, don't upsert over existing record
       const { error: insertError } = await supabase
         .from('link_visit_claims')
@@ -1756,7 +1775,8 @@ export async function POST(request: NextRequest) {
           claim_source: claim_source || 'mini_app',
           client_ip: clientIP, // Track IP for successful claims
           neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
-          spam_label: spamLabel // Store the spam label
+          spam_label: spamLabel, // Store the spam label
+          mini_app_client: miniAppClient // Store the client FID mapping
         });
         
       if (insertError) {
@@ -1852,7 +1872,8 @@ export async function POST(request: NextRequest) {
             claim_source: claim_source || 'mini_app',
             client_ip: clientIP, // Track IP for successful claims
             neynar_user_score: neynarScore !== undefined ? neynarScore : null, // Store the Neynar score
-            spam_label: spamLabel // Store the spam label
+            spam_label: spamLabel, // Store the spam label
+            mini_app_client: miniAppClient // Store the client FID mapping
           })
           .match({
             fid: effectiveFid,
