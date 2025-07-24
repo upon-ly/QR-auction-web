@@ -114,9 +114,6 @@ export function PostAuctionChecklist() {
     string | null
   >(null);
   const [isCurrentOverrideVideo, setIsCurrentOverrideVideo] = useState(false);
-  
-  // Open Graph detection state
-  const [detectedOpenGraph, setDetectedOpenGraph] = useState<string | null>(null);
 
   // Loading states
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -212,87 +209,6 @@ export function PostAuctionChecklist() {
   useEffect(() => {
     fetchLatestWonAuction();
   }, [fetchLatestWonAuction]);
-
-  // Detect Open Graph image from external URL
-  useEffect(() => {
-    const detectOpenGraphImage = async () => {
-      if (!auctionData?.winner?.url || auctionData.winner.url.trim() === "") {
-        setDetectedOpenGraph(null);
-        return;
-      }
-
-            try {
-            const usedUrl = "https://cults.fun"//auctionData.winner.url
-        const response = await fetch(
-           `https://nocors.artnol.workers.dev/?url=${usedUrl}`
-         );
-         const html = await response.text();
- 
-         const parser = new DOMParser();
-         const doc = parser.parseFromString(html, "text/html");
-         
-         // Helper function to resolve relative URLs
-         const resolveUrl = (url: string, baseUrl: string) => {
-           if (!url) return null;
-           if (url.startsWith('http://') || url.startsWith('https://')) {
-             return url;
-           }
-           if (url.startsWith('//')) {
-             return `https:${url}`;
-           }
-           if (url.startsWith('/')) {
-             const urlObj = new URL(baseUrl);
-             return `${urlObj.protocol}//${urlObj.host}${url}`;
-           }
-           // Relative path
-           const urlObj = new URL(baseUrl);
-           return `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/'}${url}`;
-         };
-         
-         let detectedImage: string | null = null;
-         
-         // Priority 1: og:image
-         const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute("content");
-         if (ogImage) {
-           detectedImage = resolveUrl(ogImage, usedUrl);
-         }
-         
-         // Priority 2: twitter:image
-         if (!detectedImage) {
-           const twitterImage = doc.querySelector('meta[name="twitter:image"]')?.getAttribute("content");
-           if (twitterImage) {
-             detectedImage = resolveUrl(twitterImage, usedUrl);
-           }
-         }
-         
-         // Priority 3: apple-touch-icon
-         if (!detectedImage) {
-           const appleIcon = doc.querySelector('link[rel="apple-touch-icon"]')?.getAttribute("href");
-           if (appleIcon) {
-             detectedImage = resolveUrl(appleIcon, usedUrl);
-           }
-         }
-         
-         // Priority 4: favicon
-         if (!detectedImage) {
-           const favicon = doc.querySelector('link[rel="icon"]')?.getAttribute("href") || 
-                          doc.querySelector('link[rel="shortcut icon"]')?.getAttribute("href");
-           if (favicon) {
-             detectedImage = resolveUrl(favicon, usedUrl);
-           }
-         }
- 
-         console.log("Detected image:", detectedImage);
-         
-         setDetectedOpenGraph(detectedImage);
-      } catch (error) {
-        console.error("Error detecting Open Graph image:", error);
-        setDetectedOpenGraph(null);
-      }
-    };
-
-    detectOpenGraphImage();
-  }, [auctionData]);
 
   // Fetch auction and winner data
   const fetchAuctionData = useCallback(async (auctionId: number) => {
