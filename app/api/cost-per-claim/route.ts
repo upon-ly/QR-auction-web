@@ -128,7 +128,8 @@ export async function GET(request: Request) {
         spam_label,
         neynar_user_score,
         amount,
-        success
+        success,
+        mini_app_client
       `)
       .gte('auction_id', earliestAuctionId);
 
@@ -144,6 +145,7 @@ export async function GET(request: Request) {
     const clickMap = new Map();
     const neynarScoreData = new Map();
     const qrAmountData = new Map(); // Track total QR distributed per auction
+    const clientData = new Map(); // Track mini_app_client data per auction
     
     clickData?.forEach(click => {
       const auctionId = click.auction_id;
@@ -167,10 +169,12 @@ export async function GET(request: Request) {
           totalQR: 0,
           successfulClaims: 0
         });
+        clientData.set(auctionId, new Map()); // Map to track client counts
       }
       const counts = clickMap.get(auctionId);
       const scoreData = neynarScoreData.get(auctionId);
       const qrData = qrAmountData.get(auctionId);
+      const clientCounts = clientData.get(auctionId);
       
       counts.total++;
       
@@ -179,6 +183,18 @@ export async function GET(request: Request) {
         qrData.totalQR += click.amount;
         qrData.successfulClaims++;
       }
+      
+      // Track mini_app_client data
+      if (click.mini_app_client) {
+        const currentCount = clientCounts.get(click.mini_app_client) || 0;
+        clientCounts.set(click.mini_app_client, currentCount + 1);
+      } else if (click.claim_source === 'mini_app') {
+        // Only count null mini_app_client as "farcaster" when claim_source is mini_app
+        const currentCount = clientCounts.get("farcaster") || 0;
+        clientCounts.set("farcaster", currentCount + 1);
+      }
+      // If mini_app_client is null and claim_source is not mini_app, don't count it
+      
       if (click.claim_source === 'web') {
         counts.web++;
       }
@@ -229,6 +245,14 @@ export async function GET(request: Request) {
         score_80_100: 0,
         score_unknown: 0
       };
+      
+      // Convert client data to array format
+      const clientCounts = clientData.get(auction_id) || new Map();
+      const clients = Array.from(clientCounts.entries() as IterableIterator<[string, number]>).map(([client, count]) => ({
+        client,
+        count
+      }));
+      
       const click_count = clickCounts.total;
       const web_click_count = clickCounts.web;
       const mini_app_click_count = clickCounts.mini_app;
@@ -262,6 +286,7 @@ export async function GET(request: Request) {
         mini_app_click_count,
         mini_app_spam_claims,
         mini_app_valid_claims,
+        clients,
         neynar_score_0_20: scoreDistribution.score_0_20,
         neynar_score_20_40: scoreDistribution.score_20_40,
         neynar_score_40_60: scoreDistribution.score_40_60,
@@ -272,7 +297,7 @@ export async function GET(request: Request) {
         qr_price_usd,
         qr_reward_per_claim,
         qr_reward_value_usd,
-        cost_per_claim
+        cost_per_claim,
       });
     }
     

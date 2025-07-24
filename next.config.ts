@@ -6,7 +6,13 @@ const nextConfig: NextConfig = {
     turbo: {},
   },
   images: {
-    domains: ['warpcast.com', 'imagedelivery.net', 'i.imgur.com', 'cryptologos.cc', 'www.cryptologos.cc'],
+    domains: [
+      "warpcast.com",
+      "imagedelivery.net",
+      "i.imgur.com",
+      "cryptologos.cc",
+      "www.cryptologos.cc",
+    ],
   },
   async rewrites() {
     return [
